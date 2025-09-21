@@ -2,18 +2,20 @@ const express = require('express');
 const mysql = require('mysql');
 const bcrypt = require('bcryptjs');
 const session = require('express-session');
+const db = require('./mysql'); // Ensure this file exists and is configured
 const cors = require('cors');
 const path = require('path');
-const db = require('./mysql'); // Ensure mysql.js is configured correctly
-
 const app = express();
-const PORT = process.env.PORT || 5000;
+
+const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Session middleware
 app.use(session({
     secret: 'your-secret-key', // Replace with a strong, unique secret
     resave: false,
@@ -42,21 +44,13 @@ function initializeSuperAdmin() {
 }
 initializeSuperAdmin();
 
-// Serve static HTML files
+// Serve static files
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/admin-login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin_login.html'));
-});
-
-app.get('/staff-login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'staff_login.html'));
-});
-
-app.get('/student-login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'student_login.html'));
 });
 
 app.get('/admin-dashboard', (req, res) => {
@@ -89,7 +83,7 @@ app.post('/api/admin-login', (req, res) => {
 
         if (admin.first_login) {
             const isMatch = await bcrypt.compare(password, admin.password);
-            if (isMatch || (admin.role === 'SuperAdmin' && password === 'admin' && username.trim() === 'admin')) {
+            if (isMatch || (admin.role === 'SuperAdmin' && password === 'admin' && username.trim() === 'Admin')) {
                 req.session.isAuthenticated = true;
                 req.session.username = username.trim();
                 req.session.role = admin.role;
@@ -118,7 +112,6 @@ app.post('/api/admin-login', (req, res) => {
         }
     });
 });
-
 // Update admin credentials on first login
 app.post('/api/update-admin-credentials', async (req, res) => {
     const { username, newUsername, newPassword, newPhone, securityQuestion, securityAnswer, newName } = req.body;
@@ -131,6 +124,7 @@ app.post('/api/update-admin-credentials', async (req, res) => {
     const trimmedAnswer = securityAnswer.trim().toUpperCase();
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
+    // Check if new username already exists
     const checkQuery = 'SELECT * FROM admins WHERE username = ? AND username != ?';
     db.query(checkQuery, [trimmedUsername, username.trim()], (err, results) => {
         if (err) {
@@ -147,9 +141,11 @@ app.post('/api/update-admin-credentials', async (req, res) => {
                 console.error('Error updating admin credentials:', err);
                 return res.status(500).json({ success: false, message: 'Database error.' });
             }
+
             if (result.affectedRows === 0) {
                 return res.status(404).json({ success: false, message: 'Admin not found.' });
             }
+
             req.session.username = trimmedUsername;
             res.status(200).json({
                 success: true,
@@ -159,6 +155,7 @@ app.post('/api/update-admin-credentials', async (req, res) => {
         });
     });
 });
+
 
 // Logout route
 app.post('/api/logout', (req, res) => {
@@ -259,6 +256,7 @@ app.put('/api/admins/:id', async (req, res) => {
     const trimmedUsername = username.trim();
     const trimmedAnswer = securityAnswer.trim().toUpperCase();
 
+    // Check if username already exists for another admin
     const checkQuery = 'SELECT * FROM admins WHERE username = ? AND id != ?';
     db.query(checkQuery, [trimmedUsername, adminId], async (err, results) => {
         if (err) {
@@ -326,76 +324,6 @@ app.delete('/api/admins/:id', (req, res) => {
             res.status(200).json({ success: true, message: 'Admin deleted successfully.' });
         });
     });
-});
-
-// Forgot Password Endpoints
-app.post('/api/forgot-password/verify-username', (req, res) => {
-    const { username } = req.body;
-    if (!username) {
-        return res.status(400).json({ success: false, message: 'Username is required.' });
-    }
-
-    const query = 'SELECT security_question FROM admins WHERE username = ?';
-    db.query(query, [username.trim()], (err, results) => {
-        if (err) {
-            console.error('Database error during username verification:', err);
-            return res.status(500).json({ success: false, message: 'Server error.' });
-        }
-        if (results.length === 0) {
-            return res.status(404).json({ success: false, message: 'Username not found.' });
-        }
-        res.status(200).json({ success: true, securityQuestion: results[0].security_question });
-    });
-});
-
-app.post('/api/forgot-password/verify-answer', (req, res) => {
-    const { username, securityAnswer } = req.body;
-    if (!username || !securityAnswer) {
-        return res.status(400).json({ success: false, message: 'Username and security answer are required.' });
-    }
-
-    const query = 'SELECT security_answer FROM admins WHERE username = ?';
-    db.query(query, [username.trim()], (err, results) => {
-        if (err) {
-            console.error('Database error during security answer verification:', err);
-            return res.status(500).json({ success: false, message: 'Server error.' });
-        }
-        if (results.length === 0) {
-            return res.status(404).json({ success: false, message: 'Username not found.' });
-        }
-
-        const storedAnswer = results[0].security_answer;
-        if (securityAnswer.trim().toUpperCase() === storedAnswer) {
-            res.status(200).json({ success: true, message: 'Security answer verified.' });
-        } else {
-            res.status(401).json({ success: false, message: 'Incorrect security answer.' });
-        }
-    });
-});
-
-app.post('/api/forgot-password/reset-password', async (req, res) => {
-    const { username, newPassword } = req.body;
-    if (!username || !newPassword) {
-        return res.status(400).json({ success: false, message: 'Username and new password are required.' });
-    }
-
-    try {
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-        const query = 'UPDATE admins SET password = ?, first_login = FALSE WHERE username = ?';
-        db.query(query, [hashedPassword, username.trim()], (err, result) => {
-            if (err) {
-                console.error('Database error during password reset:', err);
-                return res.status(500).json({ success: false, message: 'Server error.' });
-            }
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ success: false, message: 'Username not found.' });
-            }
-            res.status(200).json({ success: true, message: 'Password reset successfully.' });
-        });
-    } catch (error) {
-        console.error('Error hashing password:', error);
-        res.status(500).json({ success: false, message: 'Error processing password.' });
-    }
 });
 
 // Change password with security question
@@ -495,32 +423,38 @@ app.get('/api/bookings', (req, res) => {
     });
 });
 
-// Create or update booking
+// Route to handle form submission
 app.post('/api/bookings', (req, res) => {
     const { name, email, gender, date_of_birth, phone, address, message } = req.body;
 
+    // Check for required fields
     if (!name || !gender || !date_of_birth || !phone || !address) {
         return res.status(400).json({ success: false, message: 'Name, Gender, Date of Birth, Phone, and Address are required.' });
     }
 
+    // Validate date_of_birth format (YYYY-MM-DD)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
         return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use YYYY-MM-DD.' });
     }
 
+    // Validate gender
     if (!['Male', 'Female', 'Other'].includes(gender)) {
         return res.status(400).json({ success: false, message: 'Gender must be Male, Female, or Other.' });
     }
 
-    const query = 'INSERT INTO bookings (name, email, gender, date_of_birth, phone, address, message) VALUES (?, ?, ?, ?, ?, ?, ?)';
+    const query = `
+        INSERT INTO bookings (name, email, gender, date_of_birth, phone, address, message)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
     db.query(query, [name, email || null, gender, date_of_birth, phone, address, message], (err, result) => {
         if (err) {
-            console.error('Error inserting booking:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            console.error('Error inserting data:', err);
+            return res.status(500).json({ success: false, message: 'Database error' });
         }
         res.status(200).json({ success: true, message: 'Booking submitted successfully!' });
     });
 });
-
 // Fetch all staff
 app.get('/api/staff', (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -601,7 +535,80 @@ app.put('/api/staff/:id', (req, res) => {
         res.status(200).json({ success: true, message: 'Staff updated successfully.' });
     });
 });
+// --- FORGOT PASSWORD API ENDPOINTS ---
 
+// 1. Verify Username and Get Security Question
+app.post('/api/forgot-password/verify-username', (req, res) => {
+    const { username } = req.body;
+    if (!username) {
+        return res.status(400).json({ success: false, message: 'Username is required.' });
+    }
+
+    const query = 'SELECT security_question FROM admins WHERE username = ?';
+    db.query(query, [username.trim()], (err, results) => {
+        if (err) {
+            console.error('Database error during username verification:', err);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Username not found.' });
+        }
+        res.status(200).json({ success: true, securityQuestion: results[0].security_question });
+    });
+});
+
+// 2. Verify Security Answer
+app.post('/api/forgot-password/verify-answer', (req, res) => {
+    const { username, securityAnswer } = req.body;
+    if (!username || !securityAnswer) {
+        return res.status(400).json({ success: false, message: 'Username and security answer are required.' });
+    }
+
+    const query = 'SELECT security_answer FROM admins WHERE username = ?';
+    db.query(query, [username.trim()], (err, results) => {
+        if (err) {
+            console.error('Database error during security answer verification:', err);
+            return res.status(500).json({ success: false, message: 'Server error.' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Username not found.' });
+        }
+
+        const storedAnswer = results[0].security_answer;
+        // Trim and uppercase the user-provided answer for comparison
+        if (securityAnswer.trim().toUpperCase() === storedAnswer) {
+            res.status(200).json({ success: true, message: 'Security answer verified.' });
+        } else {
+            res.status(401).json({ success: false, message: 'Incorrect security answer.' });
+        }
+    });
+});
+
+// 3. Reset Password
+app.post('/api/forgot-password/reset-password', async (req, res) => {
+    const { username, newPassword } = req.body;
+    if (!username || !newPassword) {
+        return res.status(400).json({ success: false, message: 'Username and new password are required.' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const query = 'UPDATE admins SET password = ?, first_login = FALSE WHERE username = ?';
+        db.query(query, [hashedPassword, username.trim()], (err, result) => {
+            if (err) {
+                console.error('Database error during password reset:', err);
+                return res.status(500).json({ success: false, message: 'Server error.' });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ success: false, message: 'Username not found.' });
+            }
+            res.status(200).json({ success: true, message: 'Password reset successfully.' });
+        });
+    } catch (error) {
+        console.error('Error hashing password:', error);
+        res.status(500).json({ success: false, message: 'Error processing password.' });
+    }
+});
 // Delete staff
 app.delete('/api/staff/:id', (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -628,7 +635,7 @@ app.get('/api/students', (req, res) => {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
-    const query = 'SELECT id, name, class_name, gender, level FROM h_students';
+    const query = 'SELECT id, name, class_name, gender FROM h_students';
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching students:', err);
@@ -665,7 +672,7 @@ app.post('/api/students', (req, res) => {
     }
 
     const { name, level, class_name, gender } = req.body;
-    if (!name || !level || !class_name || !gender) {
+    if (!name ||  !level || !class_name || !gender) {
         return res.status(400).json({ success: false, message: 'Name, level, class, and gender are required.' });
     }
 
@@ -775,6 +782,7 @@ app.post('/api/generate-report-sheet', (req, res) => {
         return res.status(400).json({ success: false, message: 'Invalid term.' });
     }
 
+    // Placeholder: Query student data and generate report
     const query = 'SELECT name, level, class_name FROM h_students WHERE id = ?';
     db.query(query, [studentId], (err, results) => {
         if (err) {
@@ -785,6 +793,7 @@ app.post('/api/generate-report-sheet', (req, res) => {
             return res.status(404).json({ success: false, message: 'Student not found.' });
         }
 
+        // Simulate report generation (replace with actual report logic)
         const reportData = {
             studentId,
             name: results[0].name,
@@ -793,6 +802,7 @@ app.post('/api/generate-report-sheet', (req, res) => {
             reportType,
             session,
             term: reportType === 'terminal' ? term : null,
+            // Add actual report data (e.g., grades, subjects) here
         };
 
         res.status(200).json({ success: true, message: 'Report sheet generated successfully.', data: reportData });
@@ -805,6 +815,7 @@ app.post('/api/generate-report-sheets', (req, res) => {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
+    // Placeholder: Fetch all students and generate reports
     const query = 'SELECT id, name, level, class_name FROM h_students';
     db.query(query, (err, results) => {
         if (err) {
@@ -812,13 +823,15 @@ app.post('/api/generate-report-sheets', (req, res) => {
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
 
+        // Simulate bulk report generation (replace with actual logic)
         const reports = results.map(student => ({
             studentId: student.id,
             name: student.name,
             level: student.level,
             class_name: student.class_name,
-            reportType: 'sessional',
-            session: '2024/2025',
+            reportType: 'sessional', // Default to sessional for bulk
+            session: '2024/2025', // Default session
+            // Add actual report data here
         }));
 
         res.status(200).json({ success: true, message: 'Bulk report sheets generated successfully.', data: reports });
@@ -915,7 +928,6 @@ app.post('/api/generate-id-card', (req, res) => {
     });
 });
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
 });
