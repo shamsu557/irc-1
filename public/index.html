@@ -111,7 +111,7 @@
 
         .hero-section {
             position: relative;
-            height: 470px;
+            height: 500px;
             background-color: var(--primary-color);
             color: var(--white-color);
             text-align: center;
@@ -147,11 +147,16 @@
             object-fit: cover;
         }
 
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            padding: 4rem 0;
-        }
+     .hero-content {
+    position: relative;
+    z-index: 2;
+    padding: 4rem 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centers vertically */
+    align-items: center;     /* Centers horizontally */
+}
 
         .hero-section::after {
             content: '';
@@ -282,7 +287,7 @@
 
         @media (max-width: 768px) {
             .hero-section {
-                height: 300px;
+                height: 330px;
                 padding: 2rem 0;
             }
             .hero-content h1 {
@@ -383,7 +388,7 @@
                 <p class="lead" data-en="Mastering Tahfiz and Islamic Studies" data-ar="إتقان التحفيظ والدراسات الإسلامية">Mastering Tahfiz and Islamic Studies</p>
             </div>
             <div class="hero-text">
-                <h1 class="display-4 fw-bold mt-5" data-en="A Unified Vision" data-ar="رؤية موحدة">A Unified Vision</h1>
+                <h1 class="display-4 fw-bold" data-en="A Unified Vision" data-ar="رؤية موحدة">A Unified Vision</h1>
                 <p class="lead" data-en="Blending Faith and Knowledge" data-ar="مزج الإيمان والمعرفة">Blending Faith and Knowledge</p>
             </div>
         </div>
@@ -419,7 +424,7 @@
                 <h3 id="subjects-title" class="text-center mb-4"></h3>
                 <div id="subjects-list" class="row g-4"></div>
                 <div class="text-center mt-3">
-                    <button id="back-to-depts" class="btn btn-secondary" data-en="Close" data-ar="عودة">Close</button>
+                    <button id="back-to-depts" class="btn btn-secondary" data-en="Close" data-ar="أغلق">Close</button>
                 </div>
             </div>
         </div>
