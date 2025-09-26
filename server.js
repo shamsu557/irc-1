@@ -23,8 +23,6 @@ app.use(session({
     cookie: { secure: false } // Set to true for HTTPS
 }));
 
-
-
 // Initialize SuperAdmin if not exists
 function initializeSuperAdmin() {
     const checkSuperAdminQuery = 'SELECT COUNT(*) as count FROM admins WHERE role = "SuperAdmin"';
@@ -147,13 +145,88 @@ app.post('/api/update-admin-credentials', async (req, res) => {
     });
 });
 
+// Fetch all classes (Islamic and Western)
+app.get('/api/classes', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const query = `
+        SELECT class_id AS id, class_name AS name, 1 AS section_id FROM Classes
+        UNION
+        SELECT western_class_id AS id, class_name AS name, 2 AS section_id FROM Western_Classes
+        ORDER BY name
+    `;
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching classes:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// Fetch all subjects
+app.get('/api/subjects', (req, res) => {
+    const query = `
+        SELECT 
+            s.subject_id AS id,
+            s.subject_name AS name,
+            d.section_id
+        FROM Subjects s
+        JOIN Departments d ON s.dept_id = d.dept_id
+    `;
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching subjects:', err.sqlMessage || err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.json({ success: true, data: results });
+    });
+});
+
+
 // Fetch all staff
 app.get('/api/staff', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
-    const query = 'SELECT id, name, email, phone, role FROM staff';
+    const query = `
+        SELECT 
+            s.id,
+            s.staff_id,
+            s.name,
+            s.email,
+            s.phone,
+            s.role,
+            GROUP_CONCAT(DISTINCT 
+                CASE 
+                    WHEN sc.section_id = 1 THEN c.class_name
+                    WHEN sc.section_id = 2 THEN wc.class_name
+                    ELSE NULL 
+                END ORDER BY c.class_name, wc.class_name SEPARATOR ', '
+            ) AS classes_taught,
+            GROUP_CONCAT(DISTINCT sub.subject_name ORDER BY sub.subject_name SEPARATOR ', ') AS subjects_taught,
+            GROUP_CONCAT(DISTINCT 
+                CASE 
+                    WHEN sfm.section_id = 1 THEN CONCAT('Form Master: ', c_fm.class_name)
+                    WHEN sfm.section_id = 2 THEN CONCAT('Form Master: ', wc_fm.class_name)
+                    ELSE NULL
+                END SEPARATOR ' | '
+            ) AS form_master_info
+        FROM staff s
+        LEFT JOIN staff_classes sc ON s.id = sc.staff_id
+        LEFT JOIN Classes c ON sc.class_id = c.class_id AND sc.section_id = 1
+        LEFT JOIN Western_Classes wc ON sc.western_class_id = wc.western_class_id AND sc.section_id = 2
+        LEFT JOIN staff_subjects ss ON s.id = ss.staff_id
+        LEFT JOIN Subjects sub ON ss.subject_id = sub.subject_id
+        LEFT JOIN staff_form_master sfm ON s.id = sfm.staff_id AND sfm.term = (SELECT MAX(term) FROM staff_form_master)
+        LEFT JOIN Classes c_fm ON sfm.class_id = c_fm.class_id AND sfm.section_id = 1
+        LEFT JOIN Western_Classes wc_fm ON sfm.western_class_id = wc_fm.western_class_id AND sfm.section_id = 2
+        GROUP BY s.id, s.staff_id, s.name, s.email, s.phone, s.role
+        ORDER BY s.id DESC;
+    `;
+
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching staff:', err);
@@ -170,63 +243,339 @@ app.get('/api/staff/:id', (req, res) => {
     }
 
     const staffId = req.params.id;
-    const query = 'SELECT id, name, email, phone, role FROM staff WHERE id = ?';
-    db.query(query, [staffId], (err, results) => {
+    const staffQuery = 'SELECT id, staff_id, name, email, phone, role FROM staff WHERE id = ?';
+
+    db.query(staffQuery, [staffId], (err, staffResults) => {
         if (err) {
-            console.error('Error fetching staff:', err);
+            console.error('Error fetching staff details:', err);
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
-        if (results.length === 0) {
-            return res.status(404).json({ success: false, message: 'Staff not found.' });
+        if (staffResults.length === 0) {
+            return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
-        res.status(200).json({ success: true, data: results[0] });
+
+        const staff = staffResults[0];
+
+        const classesQuery = 'SELECT class_id, western_class_id, section_id FROM staff_classes WHERE staff_id = ?;';
+        const subjectsQuery = 'SELECT subject_id FROM staff_subjects WHERE staff_id = ?;';
+        const formMasterQuery = 'SELECT class_id, western_class_id, section_id FROM staff_form_master WHERE staff_id = ? AND term = (SELECT MAX(term) FROM staff_form_master) LIMIT 1;';
+
+        db.query(classesQuery, [staffId], (err, classesResults) => {
+            if (err) return res.status(500).json({ success: false, message: 'Classes fetch error.' });
+
+            db.query(subjectsQuery, [staffId], (err, subjectsResults) => {
+                if (err) return res.status(500).json({ success: false, message: 'Subjects fetch error.' });
+
+                db.query(formMasterQuery, [staffId], (err, formMasterResults) => {
+                    if (err) return res.status(500).json({ success: false, message: 'Form Master fetch error.' });
+
+                    staff.classes = classesResults.map(r => ({
+                        class_id: r.class_id || r.western_class_id,
+                        section_id: r.section_id
+                    }));
+                    staff.subjects = subjectsResults.map(r => r.subject_id);
+                    staff.formMaster = formMasterResults.length > 0 ? {
+                        class_id: formMasterResults[0].class_id || formMasterResults[0].western_class_id,
+                        section_id: formMasterResults[0].section_id
+                    } : null;
+
+                    res.status(200).json({ success: true, data: staff });
+                });
+            });
+        });
     });
 });
 
-// Create or update staff
-app.post('/api/staff', (req, res) => {
-    if (!req.session.isAuthenticated) {
+// Add or Update staff (Handles all relationships)
+// Add or Update staff (Handles all relationships)
+app.post('/api/staff', async (req, res) => {
+    if (!req.session.isAuthenticated) 
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
+
+    const { id, staff_id, name, email, phone, role, password, classes_taught, subjects_taught, form_master_class } = req.body;
+
+    if (!staff_id || !name || !phone || !role) {
+        return res.status(400).json({ success: false, message: 'Required fields are missing.' });
     }
 
-    const { name, email, phone, role } = req.body;
-    if (!name || !phone || !role) {
-        return res.status(400).json({ success: false, message: 'Name, phone, and role are required.' });
-    }
+    const isUpdate = !!id;
+    const term = 1; // default term
 
-    const query = 'INSERT INTO staff (name, email, phone, role) VALUES (?, ?, ?, ?)';
-    db.query(query, [name, email || null, phone, role], (err, result) => {
+    db.beginTransaction((err) => {
         if (err) {
-            console.error('Error creating staff:', err);
+            console.error('Transaction start error:', err);
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
-        res.status(200).json({ success: true, message: 'Staff created successfully.', id: result.insertId });
+
+        if (!isUpdate) {
+            // Use provided password or fallback to "default"
+            const rawPassword = password || "default";
+            bcrypt.hash(rawPassword, 10, (err, hash) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Hashing error:', err);
+                        res.status(500).json({ success: false, message: 'Error hashing password.' });
+                    });
+                }
+                insertStaff(hash);
+            });
+        } else {
+            updateStaff();
+        }
+
+        function insertStaff(hashedPassword) {
+            const createQuery = 'INSERT INTO staff (staff_id, name, email, phone, role, password) VALUES (?, ?, ?, ?, ?, ?)';
+            db.query(createQuery, [staff_id, name, email, phone, role, hashedPassword], (err, result) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Error creating staff:', err);
+                        res.status(500).json({ success: false, message: 'Database error.' });
+                    });
+                }
+                insertRelationships(result.insertId);
+            });
+        }
+
+        function updateStaff() {
+            const updateQuery = 'UPDATE staff SET staff_id = ?, name = ?, email = ?, phone = ?, role = ? WHERE id = ?';
+            db.query(updateQuery, [staff_id, name, email, phone, role, id], (err) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Error updating staff:', err);
+                        res.status(500).json({ success: false, message: 'Database error.' });
+                    });
+                }
+                deleteOldRelationships(id);
+            });
+        }
+
+        function deleteOldRelationships(staffId) {
+            db.query('DELETE FROM staff_classes WHERE staff_id = ?', [staffId], (err) => {
+                if (err) return rollbackError('Error deleting staff classes:', err);
+
+                db.query('DELETE FROM staff_subjects WHERE staff_id = ?', [staffId], (err) => {
+                    if (err) return rollbackError('Error deleting staff subjects:', err);
+
+                    db.query('DELETE FROM staff_form_master WHERE staff_id = ? AND term = ?', [staffId, term], (err) => {
+                        if (err) return rollbackError('Error deleting form master:', err);
+                        insertRelationships(staffId);
+                    });
+                });
+            });
+        }
+
+        function insertRelationships(staffId) {
+            // Classes Taught
+            if (classes_taught && classes_taught.length > 0) {
+                const classValues = classes_taught.map(cls => {
+                    const [section_id, class_id] = cls.split(':').map(Number);
+                    return [
+                        staffId,
+                        section_id === 1 ? class_id : null,
+                        section_id === 2 ? class_id : null,
+                        section_id,
+                        term
+                    ];
+                }).filter(row => row[1] !== null || row[2] !== null);
+
+                if (classValues.length > 0) {
+                    const classInsertQuery = `
+                        INSERT INTO staff_classes (staff_id, class_id, western_class_id, section_id, term)
+                        VALUES ?
+                    `;
+                    db.query(classInsertQuery, [classValues], (err) => {
+                        if (err) return rollbackError('Error inserting staff classes:', err);
+                    });
+                }
+            }
+
+            // Subjects Taught
+            if (subjects_taught && subjects_taught.length > 0) {
+                const subjectValues = subjects_taught.map(subject => {
+                    const [section_id, subject_id] = subject.split(':').map(Number);
+                    return [staffId, subject_id, section_id, term];
+                }).filter(row => row[1] && row[2]); // Ensure valid subject_id and section_id
+
+                console.log('Inserting subjects for staff_id:', staffId, 'Values:', subjectValues); // Debug log
+
+                if (subjectValues.length > 0) {
+                    const subjectInsertQuery = `
+                        INSERT INTO staff_subjects (staff_id, subject_id, section_id, term)
+                        VALUES ?
+                    `;
+                    db.query(subjectInsertQuery, [subjectValues], (err) => {
+                        if (err) {
+                            console.error('Error inserting staff subjects:', err);
+                            return rollbackError('Error inserting staff subjects:', err);
+                        }
+                    });
+                }
+            }
+
+            // Form Master
+            if (form_master_class) {
+                const [section_id, class_id] = form_master_class.split(':').map(Number);
+                const fmInsertQuery = `
+                    INSERT INTO staff_form_master (staff_id, class_id, western_class_id, section_id, term)
+                    VALUES (?, ?, ?, ?, ?)
+                `;
+                db.query(fmInsertQuery, [staffId, section_id === 1 ? class_id : null, section_id === 2 ? class_id : null, section_id, term], (err) => {
+                    if (err) return rollbackError('Error inserting form master:', err);
+                });
+            }
+
+            db.commit((err) => {
+                if (err) return rollbackError('Commit error:', err);
+                res.status(200).json({ success: true, message: isUpdate ? 'Staff updated successfully.' : 'Staff created successfully.' });
+            });
+        }
+
+        function rollbackError(msg, err) {
+            return db.rollback(() => {
+                console.error(msg, err);
+                res.status(500).json({ success: false, message: 'Database error.' });
+            });
+        }
     });
 });
 
-app.put('/api/staff/:id', (req, res) => {
+// Update staff (PUT endpoint)
+app.put('/api/staff/:id', async (req, res) => {
+    if (!req.session.isAuthenticated) 
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+
+    const id = req.params.id;
+    const { staff_id, name, email, phone, role, classes_taught, subjects_taught, form_master_class } = req.body;
+
+    if (!staff_id || !name || !phone || !role) {
+        return res.status(400).json({ success: false, message: 'Required fields are missing.' });
+    }
+
+    const term = 1; // default term
+
+    db.beginTransaction((err) => {
+        if (err) {
+            console.error('Transaction start error:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+
+        const updateQuery = 'UPDATE staff SET staff_id = ?, name = ?, email = ?, phone = ?, role = ? WHERE id = ?';
+        db.query(updateQuery, [staff_id, name, email, phone, role, id], (err) => {
+            if (err) return rollbackError('Error updating staff:', err);
+            deleteOldRelationships(id);
+        });
+
+        function deleteOldRelationships(staffId) {
+            db.query('DELETE FROM staff_classes WHERE staff_id = ?', [staffId], (err) => {
+                if (err) return rollbackError('Error deleting staff classes:', err);
+
+                db.query('DELETE FROM staff_subjects WHERE staff_id = ?', [staffId], (err) => {
+                    if (err) return rollbackError('Error deleting staff subjects:', err);
+
+                    db.query('DELETE FROM staff_form_master WHERE staff_id = ? AND term = ?', [staffId, term], (err) => {
+                        if (err) return rollbackError('Error deleting form master:', err);
+                        insertRelationships(staffId);
+                    });
+                });
+            });
+        }
+
+        function insertRelationships(staffId) {
+            // Classes Taught
+            if (classes_taught && classes_taught.length > 0) {
+                const classValues = classes_taught.map(cls => {
+                    const [section_id, class_id] = cls.split(':').map(Number);
+                    return [
+                        staffId,
+                        section_id === 1 ? class_id : null,
+                        section_id === 2 ? class_id : null,
+                        section_id,
+                        term
+                    ];
+                }).filter(row => row[1] !== null || row[2] !== null);
+
+                if (classValues.length > 0) {
+                    const classInsertQuery = `
+                        INSERT INTO staff_classes (staff_id, class_id, western_class_id, section_id, term)
+                        VALUES ?
+                    `;
+                    db.query(classInsertQuery, [classValues], (err) => {
+                        if (err) return rollbackError('Error inserting staff classes:', err);
+                    });
+                }
+            }
+
+            // Subjects Taught
+            if (subjects_taught && subjects_taught.length > 0) {
+                const subjectValues = subjects_taught.map(subject => {
+                    const [section_id, subject_id] = subject.split(':').map(Number);
+                    return [staffId, subject_id, section_id, term];
+                }).filter(row => row[1] && row[2]); // Ensure valid subject_id and section_id
+
+                console.log('Inserting subjects for staff_id:', staffId, 'Values:', subjectValues); // Debug log
+
+                if (subjectValues.length > 0) {
+                    const subjectInsertQuery = `
+                        INSERT INTO staff_subjects (staff_id, subject_id, section_id, term)
+                        VALUES ?
+                    `;
+                    db.query(subjectInsertQuery, [subjectValues], (err) => {
+                        if (err) {
+                            console.error('Error inserting staff subjects:', err);
+                            return rollbackError('Error inserting staff subjects:', err);
+                        }
+                    });
+                }
+            }
+
+            // Form Master
+            if (form_master_class) {
+                const [section_id, class_id] = form_master_class.split(':').map(Number);
+                const fmInsertQuery = `
+                    INSERT INTO staff_form_master (staff_id, class_id, western_class_id, section_id, term)
+                    VALUES (?, ?, ?, ?, ?)
+                `;
+                db.query(fmInsertQuery, [staffId, section_id === 1 ? class_id : null, section_id === 2 ? class_id : null, section_id, term], (err) => {
+                    if (err) return rollbackError('Error inserting form master:', err);
+                });
+            }
+
+            db.commit((err) => {
+                if (err) return rollbackError('Commit error:', err);
+                res.status(200).json({ success: true, message: 'Staff updated successfully.' });
+            });
+        }
+
+        function rollbackError(msg, err) {
+            return db.rollback(() => {
+                console.error(msg, err);
+                res.status(500).json({ success: false, message: 'Database error.' });
+            });
+        }
+    });
+});
+
+// Delete staff member
+app.delete('/api/staff/:id', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
     const staffId = req.params.id;
-    const { name, email, phone, role } = req.body;
-    if (!name || !phone || !role) {
-        return res.status(400).json({ success: false, message: 'Name, phone, and role are required.' });
-    }
+    const query = 'DELETE FROM staff WHERE id = ?';
 
-    const query = 'UPDATE staff SET name = ?, email = ?, phone = ?, role = ? WHERE id = ?';
-    db.query(query, [name, email || null, phone, role, staffId], (err, result) => {
+    db.query(query, [staffId], (err, result) => {
         if (err) {
-            console.error('Error updating staff:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            console.error('Error deleting staff:', err);
+            return res.status(500).json({ success: false, message: 'Database error: ' + err.message });
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: 'Staff not found.' });
+            return res.status(404).json({ success: false, message: 'Staff member not found.' });
         }
-        res.status(200).json({ success: true, message: 'Staff updated successfully.' });
+        res.status(200).json({ success: true, message: 'Staff member deleted successfully.' });
     });
 });
+
 // Logout route
 app.post('/api/logout', (req, res) => {
     req.session.destroy((err) => {
@@ -539,6 +888,26 @@ app.post('/api/bookings', (req, res) => {
         res.status(200).json({ success: true, message: 'Booking submitted successfully!' });
     });
 });
+
+// New: Fetch all classes for dynamic dropdowns
+app.get('/api/academic/classes', (req, res) => {
+    if (!req.session.isAuthenticated) return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    
+    // Union two class tables, renaming IDs to 'id' for consistent handling
+    const query = `
+        SELECT class_id as id, class_name as name, level, section_id FROM Classes 
+        UNION ALL
+        SELECT western_class_id as id, class_name as name, level, section_id FROM Western_Classes;
+    `;
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching all classes:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
 
 // Fetch all students
 app.get('/api/students', (req, res) => {
