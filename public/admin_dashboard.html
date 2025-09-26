@@ -347,15 +347,16 @@
             <button class="btn btn-primary mb-4" id="addStaffBtn"><i class="fas fa-plus-circle"></i> <span data-translate="addStaff">Add New Staff</span></button>
             <div class="bg-white p-4 rounded-lg shadow table-responsive">
                 <table class="table w-full">
-                    <thead>
-                        <tr>
-                            <th data-translate="name">Name</th>
-                            <th data-translate="email">Email</th>
-                            <th data-translate="role">Role</th>
-                            <th data-translate="phone">Phone</th>
-                            <th data-translate="actions">Actions</th>
-                        </tr>
-                    </thead>
+                       <thead>
+                <tr>
+                    <th>#</th>
+                    <th data-translate="staffId">Staff ID</th> <th data-translate="name">Name</th>
+                    <th data-translate="email">Email</th>
+                    <th data-translate="phone">Phone</th>
+                    <th data-translate="role">Role</th>
+                    <th data-translate="classesTaught">Classes Taught</th> <th data-translate="subjectTaught">Subjects Taught</th> <th data-translate="formMasterInfo">Form Master Info</th> <th data-translate="actions">Actions</th>
+                </tr>
+            </thead>
                     <tbody id="staffTableBody"></tbody>
                 </table>
             </div>
@@ -630,40 +631,67 @@
 
     <!-- Add/Edit Staff Modal -->
     <div class="modal fade" id="staffModal" tabindex="-1" aria-labelledby="staffModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="staffModalLabel" data-translate="addStaff">Add Staff</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="staffForm">
-                        <input type="hidden" id="staffId">
-                        <div class="mb-3">
-                            <label for="staffFullName" class="form-label" data-translate="name">Full Name</label>
-                            <input type="text" class="form-control" id="staffFullName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="staffEmail" class="form-label" data-translate="email">Email address</label>
-                            <input type="email" class="form-control" id="staffEmail" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="staffPhone" class="form-label" data-translate="phone">Phone Number</label>
-                            <input type="tel" class="form-control" id="staffPhone" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="staffRole" class="form-label" data-translate="role">Role</label>
-                            <select class="form-select" id="staffRole" required>
-                                <option value="Form Teacher" data-translate="formTeacher">Form Teacher</option>
-                                <option value="Regular Teacher" data-translate="regularTeacher">Regular Teacher</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-full" data-translate="saveStaff">Save Staff</button>
-                    </form>
-                </div>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="staffModalLabel">Add Staff</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="staffForm">
+                    <input type="hidden" id="staffId" name="id">
+                    <div class="mb-3">
+                        <label for="staffStaffId" class="form-label">Staff ID</label>
+                        <input type="text" class="form-control" id="staffStaffId" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="staffFullName" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="staffFullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="staffEmail" class="form-label">Email address</label>
+                        <input type="email" class="form-control" id="staffEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label for="staffPhone" class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" id="staffPhone" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="staffRole" class="form-label">Role</label>
+                        <select class="form-select" id="staffRole" required>
+                            <option value="Form Teacher">Form Teacher</option>
+                            <option value="Regular Teacher">Regular Teacher</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="formMasterGroup">
+                        <label for="formMasterClass" class="form-label">Form Master Class (Optional)</label>
+                        <select class="form-select" id="formMasterClass">
+                            <option selected value="">Select Class</option>
+                            <!-- Dynamically populated -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="classesTaught" class="form-label">Classes Taught</label>
+                        <select class="form-select" id="classesTaught" multiple>
+                            <!-- Dynamically populated -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subjectsTaught" class="form-label">Subjects Taught</label>
+                        <select class="form-select" id="subjectsTaught" multiple>
+                            <!-- Dynamically populated -->
+                        </select>
+                    </div>
+                    <div class="mb-3" id="staffPasswordGroup">
+                        <label for="staffPassword" class="form-label">Password (Required for new staff)</label>
+                        <input type="password" class="form-control" id="staffPassword">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Staff</button>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
     <!-- Add/Edit Student Modal -->
     <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
