@@ -511,16 +511,31 @@ app.post('/api/staff', async (req, res) => {
     });
 });
 
-// Update staff (PUT endpoint)
+// Update staff (PUT endpoint) - Updated to match the POST logic for consistency
 app.put('/api/staff/:id', async (req, res) => {
-    if (!req.session.isAuthenticated) 
+    if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
 
     const id = req.params.id;
     const { staff_id, name, email, phone, role, classes_taught, subjects_taught, form_master_class } = req.body;
 
+    // Log request body for debugging
+    console.log('Update staff (PUT) request body:', req.body);
+
+    // Validate required fields
     if (!staff_id || !name || !phone || !role) {
-        return res.status(400).json({ success: false, message: 'Required fields are missing.' });
+        return res.status(400).json({ success: false, message: 'Required fields (staff_id, name, phone, role) are missing.' });
+    }
+
+    // Validate staff_id format
+    if (typeof staff_id !== 'string' || staff_id.trim() === '') {
+        return res.status(400).json({ success: false, message: 'Invalid staff_id format.' });
+    }
+
+    // Validate form_master_class format if provided
+    if (form_master_class && !/^\d+:\d+$/.test(form_master_class)) {
+        return res.status(400).json({ success: false, message: 'Invalid form_master_class format. Expected "section_id:class_id".' });
     }
 
     const term = 1;
@@ -531,21 +546,31 @@ app.put('/api/staff/:id', async (req, res) => {
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
 
+        // Update staff details
         const updateQuery = 'UPDATE staff SET staff_id = ?, name = ?, email = ?, phone = ?, role = ? WHERE id = ?';
-        db.query(updateQuery, [staff_id, name, email, phone, role, id], (err) => {
+        db.query(updateQuery, [staff_id.trim(), name.trim(), email || null, phone.trim(), role.trim(), id], (err, result) => {
             if (err) return rollbackError('Error updating staff:', err);
+            if (result.affectedRows === 0) {
+                return db.rollback(() => {
+                    res.status(404).json({ success: false, message: 'Staff member not found.' });
+                });
+            }
+            console.log(`Updated staff record for ID ${id} (PUT)`);
             deleteOldRelationships(id);
         });
 
         function deleteOldRelationships(staffId) {
-            db.query('DELETE FROM staff_classes WHERE staff_id = ?', [staffId], (err) => {
+            db.query('DELETE FROM staff_classes WHERE staff_id = ?', [staffId], (err, result) => {
                 if (err) return rollbackError('Error deleting staff classes:', err);
+                console.log(`Deleted ${result.affectedRows} staff_classes for staffId ${staffId} (PUT)`);
 
-                db.query('DELETE FROM staff_subjects WHERE staff_id = ?', [staffId], (err) => {
+                db.query('DELETE FROM staff_subjects WHERE staff_id = ?', [staffId], (err, result) => {
                     if (err) return rollbackError('Error deleting staff subjects:', err);
+                    console.log(`Deleted ${result.affectedRows} staff_subjects for staffId ${staffId} (PUT)`);
 
-                    db.query('DELETE FROM staff_form_master WHERE staff_id = ? AND term = ?', [staffId, term], (err) => {
+                    db.query('DELETE FROM staff_form_master WHERE staff_id = ?', [staffId], (err, result) => {
                         if (err) return rollbackError('Error deleting form master:', err);
+                        console.log(`Deleted ${result.affectedRows} staff_form_master records for staffId ${staffId} (PUT)`);
                         insertRelationships(staffId);
                     });
                 });
@@ -553,57 +578,47 @@ app.put('/api/staff/:id', async (req, res) => {
         }
 
         function insertRelationships(staffId) {
-            if (classes_taught && classes_taught.length > 0) {
+            if (classes_taught && Array.isArray(classes_taught) && classes_taught.length > 0) {
                 const classValues = classes_taught.map(cls => {
                     const [section_id, class_id] = cls.split(':').map(Number);
-                    return [
-                        staffId,
-                        section_id === 1 ? class_id : null,
-                        section_id === 2 ? class_id : null,
-                        section_id,
-                        term
-                    ];
-                }).filter(row => row[1] !== null || row[2] !== null);
+                    if (isNaN(section_id) || isNaN(class_id) || ![1, 2].includes(section_id)) return null;
+                    return [staffId, section_id === 1 ? class_id : null, section_id === 2 ? class_id : null, section_id, term];
+                }).filter(row => row !== null);
 
                 if (classValues.length > 0) {
-                    const classInsertQuery = `
-                        INSERT INTO staff_classes (staff_id, class_id, western_class_id, section_id, term)
-                        VALUES ?
-                    `;
-                    db.query(classInsertQuery, [classValues], (err) => {
+                    const classInsertQuery = `INSERT INTO staff_classes (staff_id, class_id, western_class_id, section_id, term) VALUES ?`;
+                    db.query(classInsertQuery, [classValues], (err, result) => {
                         if (err) return rollbackError('Error inserting staff classes:', err);
+                        console.log(`Inserted ${result.affectedRows} staff_classes for staffId ${staffId} (PUT)`);
                     });
                 }
             }
 
-            if (subjects_taught && subjects_taught.length > 0) {
+            if (subjects_taught && Array.isArray(subjects_taught) && subjects_taught.length > 0) {
                 const subjectValues = subjects_taught.map(subject => {
                     const [section_id, subject_id] = subject.split(':').map(Number);
+                    if (isNaN(section_id) || isNaN(subject_id) || ![1, 2].includes(section_id)) return null;
                     return [staffId, subject_id, section_id, term];
-                }).filter(row => row[1] && row[2]);
+                }).filter(row => row !== null);
 
                 if (subjectValues.length > 0) {
-                    const subjectInsertQuery = `
-                        INSERT INTO staff_subjects (staff_id, subject_id, section_id, term)
-                        VALUES ?
-                    `;
-                    db.query(subjectInsertQuery, [subjectValues], (err) => {
-                        if (err) {
-                            console.error('Error inserting staff subjects:', err);
-                            return rollbackError('Error inserting staff subjects:', err);
-                        }
+                    const subjectInsertQuery = `INSERT INTO staff_subjects (staff_id, subject_id, section_id, term) VALUES ?`;
+                    db.query(subjectInsertQuery, [subjectValues], (err, result) => {
+                        if (err) return rollbackError('Error inserting staff subjects:', err);
+                        console.log(`Inserted ${result.affectedRows} staff_subjects for staffId ${staffId} (PUT)`);
                     });
                 }
             }
 
             if (form_master_class) {
                 const [section_id, class_id] = form_master_class.split(':').map(Number);
-                const fmInsertQuery = `
-                    INSERT INTO staff_form_master (staff_id, class_id, western_class_id, section_id, term)
-                    VALUES (?, ?, ?, ?, ?)
-                `;
-                db.query(fmInsertQuery, [staffId, section_id === 1 ? class_id : null, section_id === 2 ? class_id : null, section_id, term], (err) => {
+                if (isNaN(section_id) || isNaN(class_id) || ![1, 2].includes(section_id)) {
+                    return rollbackError('Invalid form_master_class format:', new Error('Expected section_id:class_id'));
+                }
+                const fmInsertQuery = `INSERT INTO staff_form_master (staff_id, class_id, western_class_id, section_id, term) VALUES (?, ?, ?, ?, ?)`;
+                db.query(fmInsertQuery, [staffId, section_id === 1 ? class_id : null, section_id === 2 ? class_id : null, section_id, term], (err, result) => {
                     if (err) return rollbackError('Error inserting form master:', err);
+                    console.log(`Inserted form master record for staffId ${staffId} (PUT)`);
                 });
             }
 
