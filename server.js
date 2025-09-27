@@ -5,17 +5,39 @@ const session = require('express-session');
 const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
 const app = express();
 
 const port = process.env.PORT || 5000;
+
+// Multer configuration for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, 'public/uploads/staff'); // Save to public/uploads/staff
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, `${req.body.staffId}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 200 * 1024 }, // 200KB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png'];
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error('Only JPEG and PNG images are allowed.'));
+        }
+        cb(null, true);
+    }
+});
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Session middleware
 app.use(session({
     secret: 'your-secret-key', // Replace with a strong, unique secret
     resave: false,
@@ -145,7 +167,64 @@ app.post('/api/update-admin-credentials', async (req, res) => {
     });
 });
 
-// Fetch all classes (Islamic and Western)
+// Upload staff profile picture
+app.post('/api/staff/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { staffId } = req.body;
+
+    if (!staffId) {
+        return res.status(400).json({ success: false, message: 'Staff ID is required.' });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    }
+
+    try {
+        const filePath = `uploads/staff/${req.file.filename}`;
+        const query = 'UPDATE staff SET profile_picture = ? WHERE id = ?';
+
+        db.query(query, [filePath, staffId], (err, result) => {
+            if (err) {
+                console.error('Error uploading staff profile picture:', err);
+                return res.status(500).json({ success: false, message: 'Database error.' });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ success: false, message: 'Staff member not found.' });
+            }
+            res.status(200).json({ success: true, message: 'Staff Records Save successfully.', filePath });
+        });
+    } catch (error) {
+        console.error('Error processing profile picture:', error);
+        res.status(500).json({ success: false, message: 'Error processing image.' });
+    }
+});
+
+// Retrieve staff profile picture
+app.get('/api/staff/profile-picture/:id', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const staffId = req.params.id;
+    const query = 'SELECT profile_picture FROM staff WHERE id = ?';
+
+    db.query(query, [staffId], (err, results) => {
+        if (err) {
+            console.error('Error fetching staff profile picture:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        if (results.length === 0 || !results[0].profile_picture) {
+            return res.status(200).json({ success: true, data: 'uploads/staff/default.jpg' }); // Default image
+        }
+        res.status(200).json({ success: true, data: results[0].profile_picture });
+    });
+});
+
+// Fetch all classes
 app.get('/api/classes', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
@@ -184,7 +263,6 @@ app.get('/api/subjects', (req, res) => {
     });
 });
 
-
 // Fetch all staff
 app.get('/api/staff', (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -199,6 +277,7 @@ app.get('/api/staff', (req, res) => {
             s.email,
             s.phone,
             s.role,
+            s.profile_picture,
             GROUP_CONCAT(DISTINCT 
                 CASE 
                     WHEN sc.section_id = 1 THEN c.class_name
@@ -223,7 +302,7 @@ app.get('/api/staff', (req, res) => {
         LEFT JOIN staff_form_master sfm ON s.id = sfm.staff_id AND sfm.term = (SELECT MAX(term) FROM staff_form_master)
         LEFT JOIN Classes c_fm ON sfm.class_id = c_fm.class_id AND sfm.section_id = 1
         LEFT JOIN Western_Classes wc_fm ON sfm.western_class_id = wc_fm.western_class_id AND sfm.section_id = 2
-        GROUP BY s.id, s.staff_id, s.name, s.email, s.phone, s.role
+        GROUP BY s.id, s.staff_id, s.name, s.email, s.phone, s.role, s.profile_picture
         ORDER BY s.id DESC;
     `;
 
@@ -243,7 +322,7 @@ app.get('/api/staff/:id', (req, res) => {
     }
 
     const staffId = req.params.id;
-    const staffQuery = 'SELECT id, staff_id, name, email, phone, role FROM staff WHERE id = ?';
+    const staffQuery = 'SELECT id, staff_id, name, email, phone, role, profile_picture FROM staff WHERE id = ?';
 
     db.query(staffQuery, [staffId], (err, staffResults) => {
         if (err) {
@@ -286,8 +365,7 @@ app.get('/api/staff/:id', (req, res) => {
     });
 });
 
-// Add or Update staff (Handles all relationships)
-// Add or Update staff (Handles all relationships)
+// Add or Update staff
 app.post('/api/staff', async (req, res) => {
     if (!req.session.isAuthenticated) 
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
@@ -308,7 +386,6 @@ app.post('/api/staff', async (req, res) => {
         }
 
         if (!isUpdate) {
-            // Use provided password or fallback to "default"
             const rawPassword = password || "default";
             bcrypt.hash(rawPassword, 10, (err, hash) => {
                 if (err) {
@@ -324,7 +401,7 @@ app.post('/api/staff', async (req, res) => {
         }
 
         function insertStaff(hashedPassword) {
-            const createQuery = 'INSERT INTO staff (staff_id, name, email, phone, role, password) VALUES (?, ?, ?, ?, ?, ?)';
+            const createQuery = 'INSERT INTO staff (staff_id, name, email, phone, role, password, profile_picture) VALUES (?, ?, ?, ?, ?, ?, NULL)';
             db.query(createQuery, [staff_id, name, email, phone, role, hashedPassword], (err, result) => {
                 if (err) {
                     return db.rollback(() => {
@@ -365,7 +442,6 @@ app.post('/api/staff', async (req, res) => {
         }
 
         function insertRelationships(staffId) {
-            // Classes Taught
             if (classes_taught && classes_taught.length > 0) {
                 const classValues = classes_taught.map(cls => {
                     const [section_id, class_id] = cls.split(':').map(Number);
@@ -389,14 +465,11 @@ app.post('/api/staff', async (req, res) => {
                 }
             }
 
-            // Subjects Taught
             if (subjects_taught && subjects_taught.length > 0) {
                 const subjectValues = subjects_taught.map(subject => {
                     const [section_id, subject_id] = subject.split(':').map(Number);
                     return [staffId, subject_id, section_id, term];
-                }).filter(row => row[1] && row[2]); // Ensure valid subject_id and section_id
-
-                console.log('Inserting subjects for staff_id:', staffId, 'Values:', subjectValues); // Debug log
+                }).filter(row => row[1] && row[2]);
 
                 if (subjectValues.length > 0) {
                     const subjectInsertQuery = `
@@ -412,7 +485,6 @@ app.post('/api/staff', async (req, res) => {
                 }
             }
 
-            // Form Master
             if (form_master_class) {
                 const [section_id, class_id] = form_master_class.split(':').map(Number);
                 const fmInsertQuery = `
@@ -451,7 +523,7 @@ app.put('/api/staff/:id', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Required fields are missing.' });
     }
 
-    const term = 1; // default term
+    const term = 1;
 
     db.beginTransaction((err) => {
         if (err) {
@@ -481,7 +553,6 @@ app.put('/api/staff/:id', async (req, res) => {
         }
 
         function insertRelationships(staffId) {
-            // Classes Taught
             if (classes_taught && classes_taught.length > 0) {
                 const classValues = classes_taught.map(cls => {
                     const [section_id, class_id] = cls.split(':').map(Number);
@@ -505,14 +576,11 @@ app.put('/api/staff/:id', async (req, res) => {
                 }
             }
 
-            // Subjects Taught
             if (subjects_taught && subjects_taught.length > 0) {
                 const subjectValues = subjects_taught.map(subject => {
                     const [section_id, subject_id] = subject.split(':').map(Number);
                     return [staffId, subject_id, section_id, term];
-                }).filter(row => row[1] && row[2]); // Ensure valid subject_id and section_id
-
-                console.log('Inserting subjects for staff_id:', staffId, 'Values:', subjectValues); // Debug log
+                }).filter(row => row[1] && row[2]);
 
                 if (subjectValues.length > 0) {
                     const subjectInsertQuery = `
@@ -528,7 +596,6 @@ app.put('/api/staff/:id', async (req, res) => {
                 }
             }
 
-            // Form Master
             if (form_master_class) {
                 const [section_id, class_id] = form_master_class.split(':').map(Number);
                 const fmInsertQuery = `
@@ -889,11 +956,10 @@ app.post('/api/bookings', (req, res) => {
     });
 });
 
-// New: Fetch all classes for dynamic dropdowns
+// Fetch all classes for dynamic dropdowns
 app.get('/api/academic/classes', (req, res) => {
     if (!req.session.isAuthenticated) return res.status(401).json({ success: false, message: 'Unauthorized.' });
     
-    // Union two class tables, renaming IDs to 'id' for consistent handling
     const query = `
         SELECT class_id as id, class_name as name, level, section_id FROM Classes 
         UNION ALL
@@ -907,7 +973,6 @@ app.get('/api/academic/classes', (req, res) => {
         res.status(200).json({ success: true, data: results });
     });
 });
-
 
 // Fetch all students
 app.get('/api/students', (req, res) => {
