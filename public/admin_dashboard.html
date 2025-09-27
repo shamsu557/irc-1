@@ -135,6 +135,24 @@
             background-color: #3267d6;
         }
 
+        /* Profile Picture Styles */
+        .profile-picture {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #e0e0e0;
+        }
+
+        .profile-picture-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 10px;
+            object-fit: cover;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
         /* Responsive Tables */
         .table-responsive {
             overflow-x: auto;
@@ -178,6 +196,10 @@
             .main-content {
                 margin-left: 200px;
             }
+            .profile-picture {
+                width: 35px;
+                height: 35px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -210,6 +232,10 @@
                 margin: 0.5rem;
                 max-width: 95%;
             }
+            .profile-picture {
+                width: 30px;
+                height: 30px;
+            }
         }
 
         @media (max-width: 576px) {
@@ -229,6 +255,10 @@
             .modal-content {
                 border-radius: 0.5rem;
             }
+            .profile-picture {
+                width: 25px;
+                height: 25px;
+            }
         }
     </style>
 </head>
@@ -237,8 +267,8 @@
     <div class="sidebar" id="sidebar">
         <div class="p-4 border-b border-gray-700">
             <h3 class="text-xl font-bold text-white" data-translate="adminPanel">Admin Panel</h3>
-            <p class="text-sm text-gray-400 mt-2">Role: <span id="userRoleDisplay"></span></p>
-            <p class="text-sm text-gray-400 mt-1">Username: <span id="usernameDisplay"></span></p>
+            <p class="text-sm text-gray-400 mt-2">Role: <span id="userRoleDisplay">N/A</span></p>
+            <p class="text-sm text-gray-400 mt-1">Username: <span id="usernameDisplay">N/A</span></p>
         </div>
         <ul class="nav flex-column mt-4" id="sidebarNav">
             <li class="nav-item">
@@ -347,16 +377,21 @@
             <button class="btn btn-primary mb-4" id="addStaffBtn"><i class="fas fa-plus-circle"></i> <span data-translate="addStaff">Add New Staff</span></button>
             <div class="bg-white p-4 rounded-lg shadow table-responsive">
                 <table class="table w-full">
-                       <thead>
-                <tr>
-                    <th>#</th>
-                    <th data-translate="staffId">Staff ID</th> <th data-translate="name">Name</th>
-                    <th data-translate="email">Email</th>
-                    <th data-translate="phone">Phone</th>
-                    <th data-translate="role">Role</th>
-                    <th data-translate="classesTaught">Classes Taught</th> <th data-translate="subjectTaught">Subjects Taught</th> <th data-translate="formMasterInfo">Form Master Info</th> <th data-translate="actions">Actions</th>
-                </tr>
-            </thead>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th data-translate="staffId">Staff ID</th>
+                            <th data-translate="profilePicture">Profile Picture</th>
+                            <th data-translate="name">Name</th>
+                            <th data-translate="email">Email</th>
+                            <th data-translate="phone">Phone</th>
+                            <th data-translate="role">Role</th>
+                            <th data-translate="classesTaught">Classes Taught</th>
+                            <th data-translate="subjectTaught">Subjects Taught</th>
+                            <th data-translate="formMasterInfo">Form Master Info</th>
+                            <th data-translate="actions">Actions</th>
+                        </tr>
+                    </thead>
                     <tbody id="staffTableBody"></tbody>
                 </table>
             </div>
@@ -569,27 +604,32 @@
                 </div>
                 <div class="modal-body p-4">
                     <div class="alert alert-info text-center mb-4" role="alert" data-translate="firstLoginNotice">First login detected. Please update your credentials for security.</div>
-                    <form id="firstLoginForm">
+                    <form id="firstLoginForm" novalidate>
+                        <input type="hidden" id="currentUsername" name="username">
                         <div class="mb-3">
                             <label for="newName" class="form-label" data-translate="name">Name</label>
                             <input type="text" class="form-control" id="newName" name="newName" required>
+                            <div class="invalid-feedback" data-translate="nameRequired">Name is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="newUsername" class="form-label" data-translate="newUsername">New Username</label>
                             <input type="text" class="form-control" id="newUsername" name="newUsername" required>
-                            <input type="hidden" id="currentUsername" name="username">
+                            <div class="invalid-feedback" data-translate="usernameRequired">Username is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="newPassword" class="form-label" data-translate="newPasswordLabel">New Password</label>
-                            <input type="password" class="form-control" id="newPassword" name="newPassword" required>
+                            <input type="password" class="form-control" id="newPassword" name="newPassword" required minlength="8">
+                            <div class="invalid-feedback" data-translate="passwordLength">Password must be at least 8 characters long.</div>
                         </div>
                         <div class="mb-3">
                             <label for="confirmPassword" class="form-label" data-translate="confirmPasswordLabel">Confirm Password</label>
                             <input type="password" class="form-control" id="confirmPassword" required>
+                            <div class="invalid-feedback" data-translate="passwordMatch">Passwords must match.</div>
                         </div>
                         <div class="mb-3">
                             <label for="newPhone" class="form-label" data-translate="phone">Phone Number</label>
                             <input type="tel" class="form-control" id="newPhone" name="newPhone" required>
+                            <div class="invalid-feedback" data-translate="phoneRequired">Phone number is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="securityQuestion" class="form-label" data-translate="securityQuestion">Security Question</label>
@@ -598,10 +638,12 @@
                                 <option value="What is your mother's maiden name?" data-translate="maidenNameQuestion">What is your mother's maiden name?</option>
                                 <option value="What was your first car's make?" data-translate="carMakeQuestion">What was your first car's make?</option>
                             </select>
+                            <div class="invalid-feedback" data-translate="questionRequired">Security question is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="securityAnswer" class="form-label" data-translate="securityAnswer">Security Answer</label>
                             <input type="text" class="form-control" id="securityAnswer" name="securityAnswer" required>
+                            <div class="invalid-feedback" data-translate="answerRequired">Security answer is required.</div>
                         </div>
                         <button type="submit" class="btn btn-primary w-full" data-translate="updateCredentials">Update Credentials</button>
                         <div id="first-login-error-message" class="text-danger text-center mt-3 d-none"></div>
@@ -631,67 +673,79 @@
 
     <!-- Add/Edit Staff Modal -->
     <div class="modal fade" id="staffModal" tabindex="-1" aria-labelledby="staffModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="staffModalLabel">Add Staff</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="staffForm">
-                    <input type="hidden" id="staffId" name="id">
-                    <div class="mb-3">
-                        <label for="staffStaffId" class="form-label">Staff ID</label>
-                        <input type="text" class="form-control" id="staffStaffId" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="staffFullName" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="staffFullName" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="staffEmail" class="form-label">Email address</label>
-                        <input type="email" class="form-control" id="staffEmail">
-                    </div>
-                    <div class="mb-3">
-                        <label for="staffPhone" class="form-label">Phone Number</label>
-                        <input type="tel" class="form-control" id="staffPhone" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="staffRole" class="form-label">Role</label>
-                        <select class="form-select" id="staffRole" required>
-                            <option value="Form Teacher">Form Teacher</option>
-                            <option value="Regular Teacher">Regular Teacher</option>
-                        </select>
-                    </div>
-                    <div class="mb-3" id="formMasterGroup">
-                        <label for="formMasterClass" class="form-label">Form Master Class (Optional)</label>
-                        <select class="form-select" id="formMasterClass">
-                            <option selected value="">Select Class</option>
-                            <!-- Dynamically populated -->
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="classesTaught" class="form-label">Classes Taught</label>
-                        <select class="form-select" id="classesTaught" multiple>
-                            <!-- Dynamically populated -->
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="subjectsTaught" class="form-label">Subjects Taught</label>
-                        <select class="form-select" id="subjectsTaught" multiple>
-                            <!-- Dynamically populated -->
-                        </select>
-                    </div>
-                    <div class="mb-3" id="staffPasswordGroup">
-                        <label for="staffPassword" class="form-label">Password (Required for new staff)</label>
-                        <input type="password" class="form-control" id="staffPassword">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save Staff</button>
-                </form>
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="staffModalLabel" data-translate="addStaff">Add Staff</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="staffForm" novalidate>
+                        <input type="hidden" id="staffId" name="id">
+                        <div class="mb-3">
+                            <label for="staffStaffId" class="form-label" data-translate="staffId">Staff ID</label>
+                            <input type="text" class="form-control" id="staffStaffId" required>
+                            <div class="invalid-feedback" data-translate="staffIdRequired">Staff ID is required.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="staffFullName" class="form-label" data-translate="name">Full Name</label>
+                            <input type="text" class="form-control" id="staffFullName" required>
+                            <div class="invalid-feedback" data-translate="nameRequired">Full name is required.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="staffEmail" class="form-label" data-translate="email">Email address</label>
+                            <input type="email" class="form-control" id="staffEmail">
+                            <div class="invalid-feedback" data-translate="emailInvalid">Enter a valid email address.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="staffPhone" class="form-label" data-translate="phone">Phone Number</label>
+                            <input type="tel" class="form-control" id="staffPhone" required>
+                            <div class="invalid-feedback" data-translate="phoneRequired">Phone number is required.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="staffRole" class="form-label" data-translate="role">Role</label>
+                            <select class="form-select" id="staffRole" required>
+                                <option value="Form Teacher" data-translate="formTeacher">Form Teacher</option>
+                                <option value="Regular Teacher" data-translate="regularTeacher">Regular Teacher</option>
+                            </select>
+                            <div class="invalid-feedback" data-translate="roleRequired">Role is required.</div>
+                        </div>
+                        <div class="mb-3" id="formMasterGroup">
+                            <label for="formMasterClass" class="form-label" data-translate="formMasterClass">Form Master Class (Optional)</label>
+                            <select class="form-select" id="formMasterClass">
+                                <option selected value="">Select Class</option>
+                                <!-- Dynamically populated -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="classesTaught" class="form-label" data-translate="classesTaught">Classes Taught</label>
+                            <select class="form-select" id="classesTaught" multiple>
+                                <!-- Dynamically populated -->
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="subjectsTaught" class="form-label" data-translate="subjectsTaught">Subjects Taught</label>
+                            <select class="form-select" id="subjectsTaught" multiple>
+                                <!-- Dynamically populated -->
+                            </select>
+                        </div>
+                        <div class="mb-3" id="staffPasswordGroup">
+                            <label for="staffPassword" class="form-label" data-translate="password">Password (Required for new staff)</label>
+                            <input type="password" class="form-control" id="staffPassword" minlength="8">
+                            <div class="invalid-feedback" data-translate="passwordLength">Password must be at least 8 characters long.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="staffProfilePicture" class="form-label" data-translate="profilePicture">Profile Picture (JPEG/PNG, ≤ 200KB)</label>
+                            <input type="file" class="form-control" id="staffProfilePicture" accept="image/jpeg,image/png">
+                            <div class="invalid-feedback" data-translate="profilePictureInvalid">Please upload a valid JPEG or PNG image (≤ 200KB).</div>
+                            <img id="staffProfilePicturePreview" class="profile-picture-preview" src="/uploads/staff/default.jpg" alt="Profile Picture Preview">
+                        </div>
+                        <button type="submit" class="btn btn-primary" data-translate="saveStaff">Save Staff</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
     <!-- Add/Edit Student Modal -->
     <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
@@ -702,11 +756,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="studentForm">
+                    <form id="studentForm" novalidate>
                         <input type="hidden" id="studentId">
                         <div class="mb-3">
                             <label for="studentFullName" class="form-label" data-translate="name">Full Name</label>
                             <input type="text" class="form-control" id="studentFullName" required>
+                            <div class="invalid-feedback" data-translate="nameRequired">Full name is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="studentLevel" class="form-label" data-translate="level">Level</label>
@@ -715,10 +770,12 @@
                                 <option value="Medium" data-translate="mediumClass">Medium Class</option>
                                 <option value="High" data-translate="highClass">High Class</option>
                             </select>
+                            <div class="invalid-feedback" data-translate="levelRequired">Level is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="studentClass" class="form-label" data-translate="class">Class</label>
                             <select class="form-select" id="studentClass" required></select>
+                            <div class="invalid-feedback" data-translate="classRequired">Class is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="studentGender" class="form-label" data-translate="gender">Gender</label>
@@ -727,6 +784,7 @@
                                 <option value="Female" data-translate="female">Female</option>
                                 <option value="Other" data-translate="other">Other</option>
                             </select>
+                            <div class="invalid-feedback" data-translate="genderRequired">Gender is required.</div>
                         </div>
                         <button type="submit" class="btn btn-primary w-full" data-translate="saveStudent">Save Student</button>
                     </form>
@@ -744,23 +802,27 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="adminForm">
+                    <form id="adminForm" novalidate>
                         <input type="hidden" id="adminId">
                         <div class="mb-3">
                             <label for="adminUsername" class="form-label" data-translate="username">Username</label>
                             <input type="text" class="form-control" id="adminUsername" required>
+                            <div class="invalid-feedback" data-translate="usernameRequired">Username is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="adminName" class="form-label" data-translate="name">Name</label>
                             <input type="text" class="form-control" id="adminName" required>
+                            <div class="invalid-feedback" data-translate="nameRequired">Name is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="adminPhone" class="form-label" data-translate="phone">Phone</label>
                             <input type="tel" class="form-control" id="adminPhone" required>
+                            <div class="invalid-feedback" data-translate="phoneRequired">Phone number is required.</div>
                         </div>
-                        <div class="mb-3">
-                            <label for="adminPassword" class="form-label" data-translate="password">Password</label>
-                            <input type="password" class="form-control" id="adminPassword" required>
+                        <div class="mb-3" id="adminPasswordGroup">
+                            <label for="adminPassword" class="form-label" data-translate="password">Password (Required for new admin)</label>
+                            <input type="password" class="form-control" id="adminPassword" minlength="8">
+                            <div class="invalid-feedback" data-translate="passwordLength">Password must be at least 8 characters long.</div>
                         </div>
                         <div class="mb-3">
                             <label for="adminRole" class="form-label" data-translate="role">Role</label>
@@ -769,6 +831,7 @@
                                 <option value="DeputyAdmin" data-translate="deputyAdmin">DeputyAdmin</option>
                                 <option value="Admin" data-translate="admin">Admin</option>
                             </select>
+                            <div class="invalid-feedback" data-translate="roleRequired">Role is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="adminSecurityQuestion" class="form-label" data-translate="securityQuestion">Security Question</label>
@@ -777,10 +840,12 @@
                                 <option value="What is your mother's maiden name?" data-translate="maidenNameQuestion">What is your mother's maiden name?</option>
                                 <option value="What was your first car's make?" data-translate="carMakeQuestion">What was your first car's make?</option>
                             </select>
+                            <div class="invalid-feedback" data-translate="questionRequired">Security question is required.</div>
                         </div>
                         <div class="mb-3">
                             <label for="adminSecurityAnswer" class="form-label" data-translate="securityAnswer">Security Answer</label>
                             <input type="text" class="form-control" id="adminSecurityAnswer" required>
+                            <div class="invalid-feedback" data-translate="answerRequired">Security answer is required.</div>
                         </div>
                         <button type="submit" class="btn btn-primary w-full" data-translate="saveAdmin">Save Admin</button>
                     </form>
