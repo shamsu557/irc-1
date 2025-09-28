@@ -2,7 +2,7 @@
         const translations = {
             en: {
                 backToHome: "Back to Home",
-                secureAccess: "Secure access to the Halqatu Ibadurrahman Litahfizil Qur'an staff system.",
+                secureAccess: "Secure access to the Ibadurrahhman College staff system.",
                 secure: "Secure",
                 control: "Control",
                 analytics: "Analytics",
@@ -29,6 +29,7 @@
                 securityQuestion5: "What is the name of your hometown?",
                 newSecurityQuestion: "Security Question",
                 newSecurityAnswer: "Security Answer",
+                signInDesc: "Sign in to access the staff dashboard.",
                 newPasswordLabel: "New Password",
                 confirmPasswordLabel: "Confirm Password",
                 staffIdNotFound: "Staff ID not found.",
@@ -50,10 +51,11 @@
             },
             ar: {
                 backToHome: "العودة إلى الرئيسية",
-                secureAccess: "الوصول الآمن إلى نظام حلقة عباد الرحمن لتحفيظ القرآن للموظفين.",
+                secureAccess: "الوصول الآمن إلى نظام كلية عباد الرحمن للموظفين",
                 secure: "آمن",
                 control: "التحكم",
                 analytics: "التحليلات",
+                staffIdLabel: "رقم الموظف",
                 staffLogin: "تسجيل دخول الموظفين",
                 signInDesc: "قم بتسجيل الدخول للوصول إلى لوحة تحكم الموظفين. كلمة المرور الافتراضية هي 'default' لتسجيل الدخول الأول.",
                 staffIdLabel: "معرف الموظف",
