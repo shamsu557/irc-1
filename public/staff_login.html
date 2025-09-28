@@ -14,37 +14,66 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Amiri:wght@400;700&display=swap');
         :root {
-            --primary-color: #047857; /* Emerald 700 */
-            --secondary-color: #fcd34d; /* Amber 300 */
-            --dark-color: #1f2937; /* Gray 800 */
+            --primary-color: #004d40;
+            --secondary-color: #2f4f4f;
+            --light-color: #f0f8f0;
+            --white-color: #ffffff;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0fdf4; /* Emerald 50 background */
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--secondary-color);
+            flex-direction: column;
         }
         .text-arabic {
             font-family: 'Amiri', serif;
         }
-        .card-container {
-            max-width: 440px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        .login-container {
+            width: 90%;
+            max-width: 1200px;
+            background-color: var(--white-color);
+            border-radius: 1rem;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+        .branding-panel {
+            background-color: var(--secondary-color);
+            color: var(--white-color);
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
+        .login-form-panel {
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(0, 77, 64, 0.25);
+            border-color: var(--primary-color);
         }
         .btn-primary-custom {
             background-color: var(--primary-color);
-            transition: background-color 0.3s, transform 0.1s;
+            border-color: var(--primary-color);
+            transition: background-color 0.3s ease, transform 0.2s ease;
         }
         .btn-primary-custom:hover {
-            background-color: #065f46; /* Slightly darker emerald */
-            transform: translateY(-1px);
+            background-color: #00695c;
+            border-color: #00695c;
+            transform: translateY(-2px);
         }
-        .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.15rem rgba(4, 120, 87, 0.25);
-        }
-        .modal-header {
-            border-bottom: none;
-        }
-        /* Custom input group for password visibility toggle */
         .password-input-group {
             position: relative;
         }
@@ -59,111 +88,144 @@
             cursor: pointer;
             color: #6b7280;
         }
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1050;
+        }
+        .navbar-custom {
+            background-color: var(--white-color);
+            padding: 1rem 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            box-shadow: var(--card-shadow);
+        }
+        .navbar-custom .navbar-brand,
+        .navbar-custom .btn {
+            color: var(--secondary-color);
+        }
+        .brand-text {
+            color: var(--secondary-color) !important;
+            font-size: 0.8rem;
+        }
+        .modal-header {
+            border-bottom: none;
+        }
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .login-container {
+                margin: 1rem;
+            }
+            .branding-panel, .login-form-panel {
+                padding: 1.5rem;
+                min-height: 300px;
+            }
+            .navbar-custom {
+                padding: 0.5rem 1rem;
+            }
+        }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
-
-    <!-- Staff Login Card -->
-    <div id="loginFormSection" class="w-full card-container bg-white p-6 md:p-8 rounded-xl shadow-lg transition-all duration-300">
-        <header class="text-center mb-6">
-            <h1 class="text-3xl font-extrabold text-gray-900 mb-1" style="color: var(--primary-color);">HALQATU IBADURRAHMAN</h1>
-            <p class="text-sm text-gray-500 font-medium" data-translate="secureAccess"></p>
-        </header>
-
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-bold text-gray-800" data-translate="staffLogin">Staff Login</h2>
-            <button id="langToggle" class="text-sm font-semibold text-gray-600 hover:text-gray-900 transition duration-150">العربية</button>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container">
+            <a class="navbar-brand fw-bold brand-text mx-auto" href="/">
+                <i class="fas fa-graduation-cap me-2"></i> IRC
+            </a>
+            <div class="ms-auto">
+                <button class="btn btn-primary text-white" onclick="window.location.href='/'" data-translate="backToHome">
+                    Back to Home
+                </button>
+            </div>
         </div>
-
-        <form id="staffLoginForm" class="needs-validation" novalidate>
-            <div class="mb-4">
-                <label for="staffId" class="block text-sm font-medium text-gray-700 mb-1" data-translate="staffIdLabel">Staff ID</label>
-                <input type="text" id="staffId" name="staffId" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" required>
-                <div class="invalid-feedback" data-translate="allFieldsRequired"></div>
-            </div>
-
-            <div class="mb-4 password-input-group">
-                <label for="password" class="block text-sm font-medium text-gray-700 mb-1" data-translate="passwordLabel">Password</label>
-                <input type="password" id="password" name="password" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500" required minlength="6">
-                <span id="togglePassword" class="password-toggle">
-                    <i class="fas fa-eye-slash"></i>
-                </span>
-                <div class="invalid-feedback" data-translate="allFieldsRequired"></div>
-            </div>
-
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center">
-                    <input id="rememberMe" name="rememberMe" type="checkbox" class="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500">
-                    <label for="rememberMe" class="ml-2 block text-sm text-gray-900" data-translate="rememberMe">Remember me</label>
+    </nav>
+    <br>
+    <div class="alert-container"></div>
+    <div class="login-container">
+        <div class="row g-0">
+            <!-- Branding Panel -->
+            <div class="col-lg-6 branding-panel text-center">
+                <div>
+                    <p class="lead mb-4" data-translate="secureAccess">Secure access to the Ibadurrahman College Staff system.</p>
+                    <div class="row text-center mt-5">
+                        <div class="col-4">
+                            <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                            <h5 data-translate="secure">Secure</h5>
+                        </div>
+                        <div class="col-4">
+                            <i class="fas fa-cogs fa-3x mb-3"></i>
+                            <h5 data-translate="control">Control</h5>
+                        </div>
+                        <div class="col-4">
+                            <i class="fas fa-chart-line fa-3x mb-3"></i>
+                            <h5 data-translate="analytics">Analytics</h5>
+                        </div>
+                    </div>
                 </div>
-                <a href="#" class="text-sm font-medium text-emerald-600 hover:text-emerald-500 transition duration-150" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal" data-translate="forgotPassword">Forgot Password?</a>
             </div>
 
-            <button type="submit" class="w-full btn-primary-custom text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition duration-150" data-translate="signIn">Sign In</button>
-        </form>
-        
-        <p class="mt-6 text-center text-xs text-gray-400" data-translate="authorizedOnly">Authorized personnel only</p>
+            <!-- Login Form Panel -->
+            <div class="col-lg-6 login-form-panel">
+                <div class="w-100 mt-4 mt-lg-0">
+                    <div class="text-center mb-5">
+                        <h2 class="fw-bold text-dark" data-translate="staffLogin">Staff Login</h2>
+                        <p class="text-muted" data-translate="signInDesc">Sign in to access the staff dashboard.</p>
+                    </div>
+
+                    <form id="staffLoginForm" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="staffId" class="form-label" data-translate="staffIdLabel">Staff ID</label>
+                            <div class="input-group">
+                                <span class="input-group-text rounded-start-pill"><i class="fas fa-user"></i></span>
+                                <input type="text" id="staffId" name="staffId" class="form-control rounded-end-pill" placeholder="Enter your staff ID" required>
+                            </div>
+                            <div class="invalid-feedback" data-translate="allFieldsRequired"></div>
+                        </div>
+
+                        <div class="mb-3 password-input-group">
+                            <label for="password" class="form-label" data-translate="passwordLabel">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text rounded-start-pill"><i class="fas fa-lock"></i></span>
+                                <input type="password" id="password" name="password" class="form-control rounded-end-pill" placeholder="Enter your password" required minlength="6">
+                                <span id="togglePassword" class="password-toggle">
+                                    <i class="fas fa-eye"></i>
+                                </span>
+                            </div>
+                            <div class="invalid-feedback" data-translate="allFieldsRequired"></div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input id="rememberMe" name="rememberMe" type="checkbox" class="form-check-input">
+                                    <label for="rememberMe" class="form-check-label" data-translate="rememberMe">Remember me</label>
+                                </div>
+                            </div>
+                            <div class="col-6 text-end">
+                                <a href="#" class="text-primary" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal" data-translate="forgotPassword">Forgot Password?</a>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary-custom w-100 py-2 mb-3 rounded-pill text-white" data-translate="signIn">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                    </form>
+
+                    <div class="text-center">
+                        <p class="mb-0 text-muted" data-translate="authorizedOnly">Authorized personnel only</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Update Credentials Card (Hidden by Default) -->
-    <div id="updateCredentialsSection" class="hidden w-full card-container bg-white p-6 md:p-8 rounded-xl shadow-lg transition-all duration-300">
-        <header class="text-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-800" style="color: var(--primary-color);" data-translate="updateCredentials">Update Your Credentials</h2>
-            <p class="text-sm text-gray-500 font-medium" data-translate="updateCredentialsDesc">Please update your credentials to continue.</p>
-        </header>
-        
-        <form id="updateCredentialsForm" class="needs-validation" novalidate>
-            <input type="hidden" id="originalStaffId">
-
-            <div class="mb-3">
-                <label for="newStaffId" class="block text-sm font-medium text-gray-700 mb-1" data-translate="newStaffIdLabel">New Staff ID</label>
-                <input type="text" id="newStaffId" name="newStaffId" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-            </div>
-            
-            <div class="mb-3">
-                <label for="newName" class="block text-sm font-medium text-gray-700 mb-1" data-translate="nameLabel">Full Name</label>
-                <input type="text" id="newName" name="newName" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-            </div>
-            
-            <div class="mb-3">
-                <label for="newPhone" class="block text-sm font-medium text-gray-700 mb-1" data-translate="phoneLabel">Phone Number</label>
-                <input type="tel" id="newPhone" name="newPhone" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-            </div>
-            
-            <div class="mb-3">
-                <label for="newEmail" class="block text-sm font-medium text-gray-700 mb-1" data-translate="emailLabel">Email (Optional)</label>
-                <input type="email" id="newEmail" name="newEmail" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg">
-            </div>
-
-            <div class="mb-3 password-input-group">
-                <label for="newPasswordInput" class="block text-sm font-medium text-gray-700 mb-1" data-translate="newPasswordLabel">New Password</label>
-                <!-- **FIX:** Removed pattern attribute and ensured minlength=6 to allow simpler passwords -->
-                <input type="password" id="newPasswordInput" name="newPassword" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required minlength="6">
-                <span id="toggleNewPassword" class="password-toggle">
-                    <i class="fas fa-eye-slash"></i>
-                </span>
-                <div class="invalid-feedback">Password must be at least 6 characters.</div>
-            </div>
-
-            <div class="mb-3">
-                <label for="newSecurityQuestion" class="block text-sm font-medium text-gray-700 mb-1" data-translate="newSecurityQuestion">Security Question</label>
-                <select id="newSecurityQuestion" name="newSecurityQuestion" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-                    <option value="" disabled selected data-translate="selectQuestion">Select a security question</option>
-                    <option value="What is your pet's name?" data-translate="securityQuestion1">What is your pet's name?</option>
-                    <option value="What is your mother's maiden name?" data-translate="securityQuestion2">What is your mother's maiden name?</option>
-                    <option value="What is the name of your first school?" data-translate="securityQuestion3">What is the name of your first school?</option>
-                    <option value="What is your favorite book?" data-translate="securityQuestion4">What is your favorite book?</option>
-                    <option value="What is the name of your hometown?" data-translate="securityQuestion5">What is the name of your hometown?</option>
-                </select>
-            </div>
-            
-            <div class="mb-4">
-                <label for="newSecurityAnswerInput" class="block text-sm font-medium text-gray-700 mb-1" data-translate="newSecurityAnswer">Security Answer</label>
-                <input type="text" id="newSecurityAnswerInput" name="newSecurityAnswer" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
-            </div>
-
-            <button type="submit" class="w-full btn-primary-custom text-white font-semibold py-2.5 rounded-lg shadow-md hover:shadow-lg transition duration-150" data-translate="updateCredentialsBtn">Update Credentials</button>
-        </form>
+    <!-- Language Toggle -->
+    <div class="text-center mt-4">
+        <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
     </div>
 
     <!-- Forgot Password Modal -->
@@ -179,10 +241,10 @@
                     <div id="forgotStep1" class="transition duration-300">
                         <p class="text-sm text-gray-600 mb-4">Enter your Staff ID to begin the password reset process.</p>
                         <div class="mb-4">
-                            <label for="forgotStaffId" class="block text-sm font-medium text-gray-700 mb-1" data-translate="staffIdLabel">Staff ID</label>
-                            <input type="text" id="forgotStaffId" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                            <label for="forgotStaffId" class="form-label" data-translate="staffIdLabel">Staff ID</label>
+                            <input type="text" id="forgotStaffId" class="form-control" required>
                         </div>
-                        <button id="forgotNextBtn" type="button" class="w-full btn-primary-custom text-white font-semibold py-2.5 rounded-lg transition duration-150" data-translate="next">Next</button>
+                        <button id="forgotNextBtn" type="button" class="btn btn-primary-custom w-100 py-2 rounded-pill text-white" data-translate="next">Next</button>
                     </div>
 
                     <!-- Step 2: Answer Security Question -->
@@ -190,16 +252,16 @@
                         <p class="text-sm text-gray-600 mb-4">Please answer your security question to verify your identity.</p>
                         <div class="mb-4 p-3 bg-gray-100 rounded-lg">
                             <label class="block text-xs font-semibold text-gray-500 uppercase mb-1" data-translate="securityQuestion">Security Question</label>
-                            <p id="securityQuestionDisplay" class="text-base font-medium text-gray-800">Your question will appear here.</p>
+                            <p id="securityQuestionDisplay" class="text-base font-medium text-gray-800"></p>
                         </div>
                         <div class="mb-4">
-                            <label for="forgotSecurityAnswer" class="block text-sm font-medium text-gray-700 mb-1" data-translate="securityAnswer">Security Answer</label>
-                            <input type="text" id="forgotSecurityAnswer" class="form-control w-full px-4 py-2 border border-gray-300 rounded-lg" required>
+                            <label for="forgotSecurityAnswer" class="form-label" data-translate="securityAnswer">Security Answer</label>
+                            <input type="text" id="forgotSecurityAnswer" class="form-control" required>
                         </div>
-                        <button id="forgotVerifyBtn" type="button" class="w-full btn-primary-custom text-white font-semibold py-2.5 rounded-lg transition duration-150" data-translate="verify">Verify</button>
+                        <button id="forgotVerifyBtn" type="button" class="btn btn-primary-custom w-100 py-2 rounded-pill text-white" data-translate="verify">Verify</button>
                     </div>
 
-                    <!-- Step 3: Reset Password -->
+                 <!-- Step 3: Reset Password -->
                     <form id="forgotStep3" class="hidden transition duration-300 needs-validation" novalidate>
                         <p class="text-sm text-gray-600 mb-4">Set a new password for your account.</p>
                         
@@ -235,13 +297,92 @@
                     <p id="messageText" class="text-gray-700"></p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition" data-bs-dismiss="modal" data-translate="close">Close</button>
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal" data-translate="close">Close</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Update Credentials Section -->
+    <div id="updateCredentialsSection" class="d-none login-container">
+        <div class="row g-0">
+            <div class="col-lg-6 branding-panel text-center">
+                <div>
+                    <p class="lead mb-4" data-translate="secureAccess">Secure access to the Ibadurrahman College Staff system.</p>
+                    <div class="row text-center mt-5">
+                        <div class="col-4">
+                            <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                            <h5 data-translate="secure">Secure</h5>
+                        </div>
+                        <div class="col-4">
+                            <i class="fas fa-cogs fa-3x mb-3"></i>
+                            <h5 data-translate="control">Control</h5>
+                        </div>
+                        <div class="col-4">
+                            <i class="fas fa-chart-line fa-3x mb-3"></i>
+                            <h5 data-translate="analytics">Analytics</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6 login-form-panel">
+                <div class="w-100 mt-4 mt-lg-0">
+                    <div class="text-center mb-5">
+                        <h2 class="fw-bold text-dark" data-translate="updateCredentials">Update Your Credentials</h2>
+                        <p class="text-muted" data-translate="updateCredentialsDesc">Please update your credentials to continue.</p>
+                    </div>
+                    <form id="updateCredentialsForm" class="needs-validation" novalidate>
+                        <input type="hidden" id="originalStaffId">
+                        <div class="mb-3">
+                            <label for="newStaffId" class="form-label" data-translate="newStaffIdLabel">New Staff ID</label>
+                            <input type="text" id="newStaffId" name="newStaffId" class="form-control rounded-pill" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newName" class="form-label" data-translate="nameLabel">Full Name</label>
+                            <input type="text" id="newName" name="newName" class="form-control rounded-pill" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPhone" class="form-label" data-translate="phoneLabel">Phone Number</label>
+                            <input type="tel" id="newPhone" name="newPhone" class="form-control rounded-pill" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newEmail" class="form-label" data-translate="emailLabel">Email (Optional)</label>
+                            <input type="email" id="newEmail" name="newEmail" class="form-control rounded-pill">
+                        </div>
+                        <div class="mb-3 password-input-group">
+                            <label for="newPasswordInput" class="form-label" data-translate="newPasswordLabel">New Password</label>
+                            <input type="password" id="newPasswordInput" name="newPassword" class="form-control rounded-pill" required minlength="6">
+                            <span id="toggleNewPassword" class="password-toggle">
+                                <i class="fas fa-eye"></i>
+                            </span>
+                            <div class="invalid-feedback">Password must be at least 6 characters.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newSecurityQuestion" class="form-label" data-translate="newSecurityQuestion">Security Question</label>
+                            <select id="newSecurityQuestion" name="newSecurityQuestion" class="form-control rounded-pill" required>
+                                <option value="" disabled selected data-translate="selectQuestion">Select a security question</option>
+                                <option value="What is your pet's name?" data-translate="securityQuestion1">What is your pet's name?</option>
+                                <option value="What is your mother's maiden name?" data-translate="securityQuestion2">What is your mother's maiden name?</option>
+                                <option value="What is the name of your first school?" data-translate="securityQuestion3">What is the name of your first school?</option>
+                                <option value="What is your favorite book?" data-translate="securityQuestion4">What is your favorite book?</option>
+                                <option value="What is the name of your hometown?" data-translate="securityQuestion5">What is the name of your hometown?</option>
+                            </select>
+                        </div>
+                        <div class="mb-4">
+                            <label for="newSecurityAnswerInput" class="form-label" data-translate="newSecurityAnswer">Security Answer</label>
+                            <input type="text" id="newSecurityAnswerInput" name="newSecurityAnswer" class="form-control rounded-pill" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary-custom w-100 py-2 rounded-pill" data-translate="updateCredentialsBtn">Update Credentials</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="text-center mt-4">
+            <button id="langToggleUpdate" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
+        </div>
+    </div>
+
     <script src="js/staff_login.js"></script>
-        
+
 </body>
 </html>
