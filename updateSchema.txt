@@ -244,6 +244,7 @@ CREATE TABLE staff (
     security_answer VARCHAR(100) DEFAULT NULL,
     profile_picture VARCHAR(255) DEFAULT NULL,    -- Path to profile picture
     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    first_login BOOLEAN DEFAULT TRUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- =========================
 -- Staff_Classes Table
