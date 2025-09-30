@@ -9,21 +9,20 @@ const multer = require('multer');
 const app = express();
 
 const port = process.env.PORT || 5000;
-
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'public/uploads/staff'); // Save to public/uploads/staff
+        cb(null, 'public/uploads'); // ✅ Save directly to public/uploads (no subfolder)
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `${req.body.staffId}-${uniqueSuffix}${path.extname(file.originalname)}`);
+        cb(null, `${req.body.staffId || 'file'}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 200 * 1024 }, // 200KB limit
+    limits: { fileSize: 400 * 1024 }, // 400KB limit
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/jpeg', 'image/png'];
         if (!allowedTypes.includes(file.mimetype)) {
@@ -432,7 +431,7 @@ app.post('/api/staff/upload-profile-picture', upload.single('profilePicture'), a
     }
 
     try {
-        const filePath = `uploads/staff/${req.file.filename}`;
+        const filePath = `uploads/${req.file.filename}`;
         const query = 'UPDATE staff SET profile_picture = ? WHERE id = ?';
 
         db.query(query, [filePath, staffId], (err, result) => {
@@ -466,7 +465,7 @@ app.get('/api/staff/profile-picture/:id', (req, res) => {
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
         if (results.length === 0 || !results[0].profile_picture) {
-            return res.status(200).json({ success: true, data: 'uploads/staff/default.jpg' }); // Default image
+            return res.status(200).json({ success: true, data: 'uploads/default.jpg' }); // Default image
         }
         res.status(200).json({ success: true, data: results[0].profile_picture });
     });
