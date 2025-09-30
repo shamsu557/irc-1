@@ -178,48 +178,93 @@ app.post('/api/admin-login', async (req, res) => {
 });
 
 // Update admin credentials on first login
+// Update admin credentials on first login (with debug logs)
 app.post('/api/update-admin-credentials', async (req, res) => {
-    const { username, newUsername, newPassword, newPhone, securityQuestion, securityAnswer, newName } = req.body;
+    try {
+        console.log("Incoming request body:", req.body);
 
-    if (!username || !newUsername || !newPassword || !newPhone || !securityQuestion || !securityAnswer || !newName) {
-        return res.status(400).json({ success: false, message: 'All fields are required.' });
-    }
+        const { username, newUsername, newPassword, newPhone, securityQuestion, securityAnswer, newName } = req.body;
 
-    const trimmedUsername = newUsername.trim();
-    const trimmedAnswer = securityAnswer.trim().toUpperCase();
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    const checkQuery = 'SELECT * FROM admins WHERE username = ? AND username != ?';
-    db.query(checkQuery, [trimmedUsername, username.trim()], (err, results) => {
-        if (err) {
-            console.error('Error checking username:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        if (results.length > 0) {
-            return res.status(400).json({ success: false, message: 'Username already exists.' });
+        // Require only the essentials
+        if (!username || !newUsername || !newPassword) {
+            console.warn("Missing required fields:", { username, newUsername, newPassword });
+            return res.status(400).json({ success: false, message: 'Username, new username, and new password are required.' });
         }
 
-        const updateQuery = 'UPDATE admins SET username = ?, password = ?, name = ?, phone = ?, security_question = ?, security_answer = ?, first_login = FALSE WHERE username = ?';
-        db.query(updateQuery, [trimmedUsername, hashedPassword, newName, newPhone, securityQuestion, trimmedAnswer, username.trim()], (err, result) => {
+        const trimmedUsername = newUsername.trim();
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        console.log("Checking if new username already exists:", trimmedUsername);
+
+        // Check if another user already has the new username
+        const checkQuery = 'SELECT * FROM admins WHERE username = ? AND username != ?';
+        db.query(checkQuery, [trimmedUsername, username.trim()], (err, results) => {
             if (err) {
-                console.error('Error updating admin credentials:', err);
+                console.error('DB error checking username:', err);
                 return res.status(500).json({ success: false, message: 'Database error.' });
             }
+            console.log("Check query results:", results);
 
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ success: false, message: 'Admin not found.' });
+            if (results.length > 0) {
+                console.warn("Username already exists:", trimmedUsername);
+                return res.status(400).json({ success: false, message: 'Username already exists.' });
             }
 
-            req.session.username = trimmedUsername;
-            res.status(200).json({
-                success: true,
-                message: 'Credentials updated successfully.',
-                redirect: '/admin-dashboard'
+            // Build update dynamically
+            let updateFields = ['username = ?', 'password = ?', 'first_login = FALSE'];
+            let values = [trimmedUsername, hashedPassword];
+
+            if (newName) {
+                updateFields.push('name = ?');
+                values.push(newName);
+            }
+            if (newPhone) {
+                updateFields.push('phone = ?');
+                values.push(newPhone);
+            }
+            if (securityQuestion) {
+                updateFields.push('security_question = ?');
+                values.push(securityQuestion);
+            }
+            if (securityAnswer) {
+                updateFields.push('security_answer = ?');
+                values.push(securityAnswer.trim().toUpperCase());
+            }
+
+            values.push(username.trim());
+
+            const updateQuery = `UPDATE admins SET ${updateFields.join(', ')} WHERE username = ?`;
+            console.log("Executing update query:", updateQuery);
+            console.log("With values:", values);
+
+            db.query(updateQuery, values, (err, result) => {
+                if (err) {
+                    console.error('DB error updating credentials:', err);
+                    return res.status(500).json({ success: false, message: 'Database error.' });
+                }
+
+                console.log("Update result:", result);
+
+                if (result.affectedRows === 0) {
+                    console.warn("Admin not found for username:", username.trim());
+                    return res.status(404).json({ success: false, message: 'Admin not found.' });
+                }
+
+                req.session.username = trimmedUsername;
+                console.log("Credentials updated successfully for:", trimmedUsername);
+
+                res.status(200).json({
+                    success: true,
+                    message: 'Credentials updated successfully.',
+                    redirect: '/admin-dashboard'
+                });
             });
         });
-    });
+    } catch (error) {
+        console.error('Unexpected error updating credentials:', error);
+        res.status(500).json({ success: false, message: 'Server error.' });
+    }
 });
-
 
  // Update staff credentials on first login
         app.post('/api/update-staff-credentials', async (req, res) => {
