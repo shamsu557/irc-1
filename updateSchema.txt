@@ -183,31 +183,31 @@ CREATE TABLE Western_Fee_Structures (
 -- Students
 -- =========================
 CREATE TABLE Students (
-    student_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
+    id INT AUTO_INCREMENT PRIMARY KEY,                  -- internal numeric PK
+    student_id VARCHAR(50) UNIQUE NOT NULL,             -- manual student ID (e.g., HIR/25/TAH/0001)
+    full_name VARCHAR(100) NOT NULL,                    -- ✅ changed from name -> full_name
     date_of_birth DATE NOT NULL,
-    gender VARCHAR(10) NOT NULL,
-    phone VARCHAR(20) DEFAULT NULL,
+    gender VARCHAR(10) NOT NULL CHECK (gender IN ('Male', 'Female', 'Other')),
+    guardian_phone VARCHAR(20) DEFAULT NULL,            -- ✅ changed from phone -> guardian_phone
     address TEXT NOT NULL,
     email VARCHAR(255) DEFAULT NULL,
+    profile_picture VARCHAR(255) DEFAULT '/uploads/students/default.jpg', -- consistent with your modal
     created_date DATE DEFAULT CURRENT_DATE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =========================
--- Enrollments
--- =========================
 CREATE TABLE Student_Enrollments (
     enrollment_id INT AUTO_INCREMENT PRIMARY KEY,
-    student_id INT NOT NULL,
+    student_id INT NOT NULL,   -- references Students.id (numeric PK)
     section_id INT NOT NULL,
     class_ref INT NOT NULL,
     level INT NOT NULL,
     term INT NOT NULL CHECK (term >= 1),
     enrollment_date DATE DEFAULT CURRENT_DATE,
-    FOREIGN KEY (student_id) REFERENCES Students(student_id),
+    FOREIGN KEY (student_ref) REFERENCES Students(id) ON DELETE CASCADE,
     FOREIGN KEY (section_id) REFERENCES Sections(section_id),
-    UNIQUE KEY unique_enrollment (student_id, section_id, class_ref, term)
+    UNIQUE KEY unique_enrollment (student_ref, section_id, class_ref, term)
 );
+
 
 -- =========================
 -- Student Fees
@@ -344,19 +344,6 @@ END//
 DELIMITER ;
 
 -- =========================
--- Student Subjects
--- =========================
-CREATE TABLE Student_Subjects (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    enrollment_id INT NOT NULL,
-    subject_id INT NOT NULL,
-    term INT NOT NULL,
-    FOREIGN KEY (enrollment_id) REFERENCES Student_Enrollments(enrollment_id),
-    FOREIGN KEY (subject_id) REFERENCES Subjects(subject_id),
-    UNIQUE KEY unique_student_subject (enrollment_id, subject_id, term)
-);
-
--- =========================
 -- Daily Memorization
 -- =========================
 CREATE TABLE Daily_Memorization_Scheme (
@@ -421,6 +408,15 @@ CREATE TABLE Student_Attendance (
     UNIQUE KEY unique_attendance (enrollment_id, date)
 );
 
+CREATE TABLE Student_Subjects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    enrollment_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    term INT NOT NULL,
+    FOREIGN KEY (enrollment_id) REFERENCES Student_Enrollments(enrollment_id),
+    FOREIGN KEY (subject_id) REFERENCES Subjects(subject_id),
+    UNIQUE KEY unique_student_subject (enrollment_id, subject_id, term)
+);
 
 INSERT INTO Daily_Memorization_Scheme (week, day, from_surah_ayah, to_surah_ayah, term, class_id) VALUES
 -- Term 1: Weeks 1-7 (Right table)

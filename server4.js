@@ -6,24 +6,26 @@ const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
+const moment = require('moment'); // install with: npm install moment
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const port = process.env.PORT || 5000;
-
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'public/uploads/staff'); // Save to public/uploads/staff
+        cb(null, 'public/uploads'); // âœ… Save directly to public/uploads (no subfolder)
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, `${req.body.staffId}-${uniqueSuffix}${path.extname(file.originalname)}`);
+        cb(null, `${req.body.staffId || 'file'}-${uniqueSuffix}${path.extname(file.originalname)}`);
     }
 });
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 200 * 1024 }, // 200KB limit
+    limits: { fileSize: 400 * 1024 }, // 400KB limit
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/jpeg', 'image/png'];
         if (!allowedTypes.includes(file.mimetype)) {
@@ -75,15 +77,14 @@ app.get('/admin-login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin_login.html'));
 });
 
-app.get('/staff-login', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'staff_login.html'));
-});
-
 app.get('/admin-dashboard', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.redirect('/admin-login');
     }
     res.sendFile(path.join(__dirname, 'public', 'admin_dashboard.html'));
+});
+app.get('/staff-login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'staff_login.html'));
 });
 
 app.get('/staff-dashboard', (req, res) => {
@@ -91,49 +92,6 @@ app.get('/staff-dashboard', (req, res) => {
         return res.redirect('/staff-login');
     }
     res.sendFile(path.join(__dirname, 'public', 'staff_dashboard.html'));
-});
-
-// Admin login route
-app.post('/api/admin-login', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ success: false, message: 'Username and password are required.' });
-    }
-
-    const query = 'SELECT * FROM admins WHERE username = ?';
-    db.query(query, [username.trim()], async (err, results) => {
-        if (err) {
-            console.error('Database error during login:', err);
-            return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
-        }
-
-        if (results.length === 0) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-        }
-
-        const admin = results[0];
-
-        try {
-            const isMatch = await bcrypt.compare(password, admin.password);
-            if (isMatch || (admin.role === 'SuperAdmin' && password === 'admin' && username.trim().toLowerCase() === 'admin')) {
-                req.session.isAuthenticated = true;
-                req.session.username = username.trim();
-                req.session.role = admin.role;
-                req.session.userType = 'admin';
-                return res.status(200).json({
-                    success: true,
-                    message: admin.first_login ? 'First-time login detected. Please update credentials.' : 'Login successful.',
-                    redirect: admin.first_login ? '/admin-dashboard?first_login=true' : '/admin-dashboard'
-                });
-            } else {
-                return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-            }
-        } catch (error) {
-            console.error('Error comparing passwords:', error);
-            return res.status(500).json({ success: false, message: 'Server error during password verification.' });
-        }
-    });
 });
 
 // Staff login route
@@ -179,47 +137,135 @@ app.post('/api/staff-login', async (req, res) => {
     });
 });
 
-// Update admin credentials on first login
-app.post('/api/update-admin-credentials', async (req, res) => {
-    const { username, newUsername, newPassword, newPhone, securityQuestion, securityAnswer, newName } = req.body;
+// Admin login route
+app.post('/api/admin-login', async (req, res) => {
+    const { username, password } = req.body;
 
-    if (!username || !newUsername || !newPassword || !newPhone || !securityQuestion || !securityAnswer || !newName) {
-        return res.status(400).json({ success: false, message: 'All fields are required.' });
+    if (!username || !password) {
+        return res.status(400).json({ success: false, message: 'Username and password are required.' });
     }
 
-    const trimmedUsername = newUsername.trim();
-    const trimmedAnswer = securityAnswer.trim().toUpperCase();
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    const checkQuery = 'SELECT * FROM admins WHERE username = ? AND username != ?';
-    db.query(checkQuery, [trimmedUsername, username.trim()], (err, results) => {
+    const query = 'SELECT * FROM admins WHERE username = ?';
+    db.query(query, [username.trim()], async (err, results) => {
         if (err) {
-            console.error('Error checking username:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        if (results.length > 0) {
-            return res.status(400).json({ success: false, message: 'Username already exists.' });
+            console.error('Database error during login:', err);
+            return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
         }
 
-        const updateQuery = 'UPDATE admins SET username = ?, password = ?, name = ?, phone = ?, security_question = ?, security_answer = ?, first_login = FALSE WHERE username = ?';
-        db.query(updateQuery, [trimmedUsername, hashedPassword, newName, newPhone, securityQuestion, trimmedAnswer, username.trim()], (err, result) => {
+        if (results.length === 0) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+        }
+
+        const admin = results[0];
+
+        try {
+            const isMatch = await bcrypt.compare(password, admin.password);
+            if (isMatch || (admin.role === 'SuperAdmin' && password === 'admin' && username.trim().toLowerCase() === 'admin')) {
+                req.session.isAuthenticated = true;
+                req.session.username = username.trim();
+                req.session.role = admin.role;
+                return res.status(200).json({
+                    success: true,
+                    message: admin.first_login ? 'First-time login detected. Please update credentials.' : 'Login successful.',
+                    redirect: admin.first_login ? '/admin-dashboard?first_login=true' : '/admin-dashboard'
+                });
+            } else {
+                return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+            }
+        } catch (error) {
+            console.error('Error comparing passwords:', error);
+            return res.status(500).json({ success: false, message: 'Server error during password verification.' });
+        }
+    });
+});
+
+// Update admin credentials on first login
+// Update admin credentials on first login (with debug logs)
+app.post('/api/update-admin-credentials', async (req, res) => {
+    try {
+        console.log("Incoming request body:", req.body);
+
+        const { username, newUsername, newPassword, newPhone, securityQuestion, securityAnswer, newName } = req.body;
+
+        // Require only the essentials
+        if (!username || !newUsername || !newPassword) {
+            console.warn("Missing required fields:", { username, newUsername, newPassword });
+            return res.status(400).json({ success: false, message: 'Username, new username, and new password are required.' });
+        }
+
+        const trimmedUsername = newUsername.trim();
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        console.log("Checking if new username already exists:", trimmedUsername);
+
+        // Check if another user already has the new username
+        const checkQuery = 'SELECT * FROM admins WHERE username = ? AND username != ?';
+        db.query(checkQuery, [trimmedUsername, username.trim()], (err, results) => {
             if (err) {
-                console.error('Error updating admin credentials:', err);
+                console.error('DB error checking username:', err);
                 return res.status(500).json({ success: false, message: 'Database error.' });
             }
+            console.log("Check query results:", results);
 
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ success: false, message: 'Admin not found.' });
+            if (results.length > 0) {
+                console.warn("Username already exists:", trimmedUsername);
+                return res.status(400).json({ success: false, message: 'Username already exists.' });
             }
 
-            req.session.username = trimmedUsername;
-            res.status(200).json({
-                success: true,
-                message: 'Credentials updated successfully.',
-                redirect: '/admin-dashboard'
+            // Build update dynamically
+            let updateFields = ['username = ?', 'password = ?', 'first_login = FALSE'];
+            let values = [trimmedUsername, hashedPassword];
+
+            if (newName) {
+                updateFields.push('name = ?');
+                values.push(newName);
+            }
+            if (newPhone) {
+                updateFields.push('phone = ?');
+                values.push(newPhone);
+            }
+            if (securityQuestion) {
+                updateFields.push('security_question = ?');
+                values.push(securityQuestion);
+            }
+            if (securityAnswer) {
+                updateFields.push('security_answer = ?');
+                values.push(securityAnswer.trim().toUpperCase());
+            }
+
+            values.push(username.trim());
+
+            const updateQuery = `UPDATE admins SET ${updateFields.join(', ')} WHERE username = ?`;
+            console.log("Executing update query:", updateQuery);
+            console.log("With values:", values);
+
+            db.query(updateQuery, values, (err, result) => {
+                if (err) {
+                    console.error('DB error updating credentials:', err);
+                    return res.status(500).json({ success: false, message: 'Database error.' });
+                }
+
+                console.log("Update result:", result);
+
+                if (result.affectedRows === 0) {
+                    console.warn("Admin not found for username:", username.trim());
+                    return res.status(404).json({ success: false, message: 'Admin not found.' });
+                }
+
+                req.session.username = trimmedUsername;
+                console.log("Credentials updated successfully for:", trimmedUsername);
+
+                res.status(200).json({
+                    success: true,
+                    message: 'Credentials updated successfully.',
+                    redirect: '/admin-dashboard'
+                });
             });
         });
-    });
+    } catch (error) {
+        console.error('Unexpected error updating credentials:', error);
+        res.status(500).json({ success: false, message: 'Server error.' });
+    }
 });
 
  // Update staff credentials on first login
@@ -370,6 +416,7 @@ app.post('/api/update-admin-credentials', async (req, res) => {
                 res.status(500).json({ success: false, message: `Error processing password: ${error.message}` });
             }
         });
+        
 // Upload staff profile picture
 app.post('/api/staff/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -387,7 +434,7 @@ app.post('/api/staff/upload-profile-picture', upload.single('profilePicture'), a
     }
 
     try {
-        const filePath = `uploads/staff/${req.file.filename}`;
+        const filePath = `uploads/${req.file.filename}`;
         const query = 'UPDATE staff SET profile_picture = ? WHERE id = ?';
 
         db.query(query, [filePath, staffId], (err, result) => {
@@ -421,7 +468,7 @@ app.get('/api/staff/profile-picture/:id', (req, res) => {
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
         if (results.length === 0 || !results[0].profile_picture) {
-            return res.status(200).json({ success: true, data: 'uploads/staff/default.jpg' }); // Default image
+            return res.status(200).json({ success: true, data: 'uploads/default.jpg' }); // Default image
         }
         res.status(200).json({ success: true, data: results[0].profile_picture });
     });
@@ -604,7 +651,7 @@ app.post('/api/staff', async (req, res) => {
         }
 
         function insertStaff(hashedPassword) {
-            const createQuery = 'INSERT INTO staff (staff_id, name, email, phone, role, password, profile_picture, first_login) VALUES (?, ?, ?, ?, ?, ?, NULL, TRUE)';
+            const createQuery = 'INSERT INTO staff (staff_id, name, email, phone, role, password, profile_picture) VALUES (?, ?, ?, ?, ?, ?, NULL)';
             db.query(createQuery, [staff_id, name, email, phone, role, hashedPassword], (err, result) => {
                 if (err) {
                     return db.rollback(() => {
@@ -714,7 +761,7 @@ app.post('/api/staff', async (req, res) => {
     });
 });
 
-// Update staff (PUT endpoint)
+// Update staff (PUT endpoint) - Updated to match the POST logic for consistency
 app.put('/api/staff/:id', async (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
@@ -868,7 +915,7 @@ app.post('/api/logout', (req, res) => {
             console.error('Error destroying session:', err);
             return res.status(500).json({ success: false, message: 'Logout failed.' });
         }
-        res.status(200).json({ success: true, message: 'Logged out successfully.', redirect: req.session.userType === 'staff' ? '/staff-login' : '/admin-login' });
+        res.status(200).json({ success: true, message: 'Logged out successfully.', redirect: '/admin-login' });
     });
 });
 
@@ -1105,54 +1152,28 @@ app.get('/api/user-details', (req, res) => {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
-    const userType = req.session.userType;
-    if (userType === 'admin') {
-        const username = req.session.username;
-        const query = 'SELECT username, name, role, first_login FROM admins WHERE username = ?';
-        db.query(query, [username], (err, results) => {
-            if (err) {
-                console.error('Error fetching admin details:', err);
-                return res.status(500).json({ success: false, message: 'Database error.' });
+    const username = req.session.username;
+    const query = 'SELECT username, name, role, first_login FROM admins WHERE username = ?';
+    db.query(query, [username], (err, results) => {
+        if (err) {
+            console.error('Error fetching user details:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'User not found.' });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: {
+                username: results[0].username,
+                name: results[0].name,
+                role: results[0].role,
+                firstLogin: results[0].first_login
             }
-            if (results.length === 0) {
-                return res.status(404).json({ success: false, message: 'Admin not found.' });
-            }
-            res.status(200).json({
-                success: true,
-                data: {
-                    username: results[0].username,
-                    name: results[0].name,
-                    role: results[0].role,
-                    firstLogin: results[0].first_login,
-                    userType: 'admin'
-                }
-            });
         });
-    } else if (userType === 'staff') {
-        const staffId = req.session.staffId;
-        const query = 'SELECT staff_id, name, role, first_login FROM staff WHERE staff_id = ?';
-        db.query(query, [staffId], (err, results) => {
-            if (err) {
-                console.error('Error fetching staff details:', err);
-                return res.status(500).json({ success: false, message: 'Database error.' });
-            }
-            if (results.length === 0) {
-                return res.status(404).json({ success: false, message: 'Staff not found.' });
-            }
-            res.status(200).json({
-                success: true,
-                data: {
-                    staffId: results[0].staff_id,
-                    name: results[0].name,
-                    role: results[0].role,
-                    firstLogin: results[0].first_login,
-                    userType: 'staff'
-                }
-            });
-        });
-    } else {
-        res.status(400).json({ success: false, message: 'Invalid user type.' });
-    }
+    });
 });
 
 // Fetch all bookings
@@ -1218,346 +1239,543 @@ app.get('/api/academic/classes', (req, res) => {
     });
 });
 
-// Fetch all students
+
+
+// ==========================
+// GET ALL STUDENTS
+// ==========================
 app.get('/api/students', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
     const query = `
-        SELECT s.student_id, s.name, s.gender, e.class_ref, 
-               CASE WHEN e.section_id = 1 THEN c.class_name ELSE w.class_name END AS class_name
+        SELECT 
+            s.id,
+            s.student_id,
+            s.full_name AS name,
+            s.gender,
+            s.guardian_phone,
+            s.address,
+            DATE_FORMAT(s.date_of_birth, '%Y-%m-%d') AS date_of_birth,
+            s.email,
+            s.profile_picture,
+            GROUP_CONCAT(
+                COALESCE(c.class_name, wc.class_name)
+                ORDER BY se.section_id, se.class_ref SEPARATOR ', '
+            ) AS classes,
+            GROUP_CONCAT(
+                CONCAT(su.dept_id, ':', su.subject_name)
+                ORDER BY su.dept_id, ss.subject_id SEPARATOR ', '
+            ) AS subjects
         FROM Students s
-        JOIN Student_Enrollments e ON s.student_id = e.student_id
-        LEFT JOIN Classes c ON e.class_ref = c.class_id AND e.section_id = 1
-        LEFT JOIN Western_Classes w ON e.class_ref = w.western_class_id AND e.section_id = 2
+        LEFT JOIN Student_Enrollments se ON s.id = se.student_id
+        LEFT JOIN Classes c ON se.section_id = 1 AND se.class_ref = c.class_id
+        LEFT JOIN Western_Classes wc ON se.section_id = 2 AND se.class_ref = wc.western_class_id
+        LEFT JOIN Student_Subjects ss ON se.enrollment_id = ss.enrollment_id
+        LEFT JOIN Subjects su ON ss.subject_id = su.subject_id
+        GROUP BY s.id
     `;
+
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching students:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
         }
+
+        results.forEach(student => {
+            student.profile_picture = student.profile_picture
+                ? 'Uploads/' + student.profile_picture.split('/').pop()
+                : 'Uploads/default.jpg';
+            student.classes = student.classes ? student.classes.split(', ') : [];
+            student.subjects = student.subjects ? student.subjects.split(', ') : [];
+        });
+
         res.status(200).json({ success: true, data: results });
     });
 });
 
-// Fetch single student
+// ==========================
+// GET SINGLE STUDENT
+// ==========================
 app.get('/api/students/:id', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
     const studentId = req.params.id;
-    const query = `
-        SELECT s.student_id, s.name, s.gender, s.date_of_birth, s.phone, s.address, s.email, e.class_ref, e.section_id, e.level, e.term, e.enrollment_date,
-               CASE WHEN e.section_id = 1 THEN c.class_name ELSE w.class_name END AS class_name
+
+    const studentQuery = `
+        SELECT 
+            s.id,
+            s.student_id,
+            s.full_name AS name,
+            s.gender,
+            DATE_FORMAT(s.date_of_birth, '%Y-%m-%d') AS date_of_birth,
+            s.guardian_phone,
+            s.address,
+            s.email,
+            s.profile_picture,
+            GROUP_CONCAT(
+                CONCAT(se.section_id, ':', se.class_ref)
+                ORDER BY se.section_id, se.class_ref SEPARATOR ','
+            ) AS classes,
+            GROUP_CONCAT(
+                CONCAT(su.dept_id, ':', ss.subject_id)
+                ORDER BY su.dept_id, ss.subject_id SEPARATOR ','
+            ) AS subjects
         FROM Students s
-        JOIN Student_Enrollments e ON s.student_id = e.student_id
-        LEFT JOIN Classes c ON e.class_ref = c.class_id AND e.section_id = 1
-        LEFT JOIN Western_Classes w ON e.class_ref = w.western_class_id AND e.section_id = 2
-        WHERE s.student_id = ?
+        LEFT JOIN Student_Enrollments se ON s.id = se.student_id
+        LEFT JOIN Student_Subjects ss ON se.enrollment_id = ss.enrollment_id
+        LEFT JOIN Subjects su ON ss.subject_id = su.subject_id
+        WHERE s.id = ?
+        GROUP BY s.id
     `;
-    db.query(query, [studentId], (err, results) => {
+
+    db.query(studentQuery, [studentId], (err, studentResults) => {
         if (err) {
             console.error('Error fetching student:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
         }
-        if (results.length === 0) {
+
+        if (studentResults.length === 0) {
             return res.status(404).json({ success: false, message: 'Student not found.' });
         }
-        res.status(200).json({ success: true, data: results[0] });
+
+        const student = studentResults[0];
+        student.profile_picture = student.profile_picture
+            ? 'Uploads/' + student.profile_picture.split('/').pop()
+            : 'Uploads/default.jpg';
+        student.classes = student.classes ? student.classes.split(',') : [];
+        student.subjects = student.subjects ? student.subjects.split(',') : [];
+
+        res.status(200).json({ success: true, data: student });
     });
 });
 
-// Create student
-app.post('/api/students', (req, res) => {
-    if (!req.session.isAuthenticated) {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+// ==========================
+// POST ADD STUDENT
+// ==========================
+app.post('/api/students', upload.single('profile_picture'), (req, res) => {
+    const {
+        student_id, full_name, guardian_phone, email, address, gender,
+        date_of_birth, level = 1, term = 1
+    } = req.body;
+
+    // Updated: Handle both classes/classes[] and subjects/subjects[]
+    const classes = req.body['classes[]'] || req.body.classes
+        ? (Array.isArray(req.body['classes[]'] || req.body.classes)
+            ? (req.body['classes[]'] || req.body.classes)
+            : [(req.body['classes[]'] || req.body.classes)])
+        : [];
+    const subjects = req.body['subjects[]'] || req.body.subjects
+        ? (Array.isArray(req.body['subjects[]'] || req.body.subjects)
+            ? (req.body['subjects[]'] || req.body.subjects).map(s => s.includes(':') ? s.split(':')[1] : s)
+            : [(req.body['subjects[]'] || req.body.subjects).includes(':') ? (req.body['subjects[]'] || req.body.subjects).split(':')[1] : (req.body['subjects[]'] || req.body.subjects)])
+        : [];
+
+    console.log('Received request body:', req.body); // Debug
+    console.log('Processed classes:', classes); // Debug
+    console.log('Processed subjects:', subjects); // Debug
+
+    // Validate inputs
+    if (!student_id || !full_name || !guardian_phone || !address || !gender || !date_of_birth) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+    if (classes.length === 0) {
+        return res.status(400).json({ success: false, message: 'At least one class is required.' });
     }
 
-    const { name, gender, date_of_birth, phone, address, email, section_id, class_ref, level, term } = req.body;
-    if (!name || !gender || !date_of_birth || !phone || !address || !section_id || !class_ref || !level || !term) {
-        return res.status(400).json({ success: false, message: 'All required fields must be provided.' });
-    }
+    // Validate classes
+    const classQueries = classes.map(cls => {
+        const [section_id, class_ref] = cls.split(':').map(Number);
+        const table = section_id === 1 ? 'Classes' : 'Western_Classes';
+        const idField = section_id === 1 ? 'class_id' : 'western_class_id';
+        return `SELECT ${idField} FROM ${table} WHERE ${idField} = ${class_ref}`;
+    });
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
-        return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use YYYY-MM-DD.' });
-    }
-
-    if (!['Male', 'Female', 'Other'].includes(gender)) {
-        return res.status(400).json({ success: false, message: 'Gender must be Male, Female, or Other.' });
-    }
-
-    if (![1, 2].includes(parseInt(section_id))) {
-        return res.status(400).json({ success: false, message: 'Invalid section_id (must be 1 or 2).' });
-    }
-
-    const classTable = section_id == 1 ? 'Classes' : 'Western_Classes';
-    const classColumn = section_id == 1 ? 'class_id' : 'western_class_id';
-    const checkClassQuery = `SELECT ${classColumn} FROM ${classTable} WHERE ${classColumn} = ?`;
-    db.query(checkClassQuery, [class_ref], (err, results) => {
+    db.query(classQueries.join(' UNION '), (err, validClasses) => {
         if (err) {
-            console.error('Error checking class:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            console.error('Error validating classes:', err);
+            return res.status(500).json({ success: false, message: 'Failed to validate classes.', error: err.message });
         }
-        if (results.length === 0) {
-            return res.status(400).json({ success: false, message: 'Invalid class_ref for the selected section.' });
+        const validClassIds = validClasses.map(c => c.class_id || c.western_class_id);
+        const invalidClasses = classes.filter(cls => {
+            const [, class_ref] = cls.split(':').map(Number);
+            return !validClassIds.includes(class_ref);
+        });
+        if (invalidClasses.length > 0) {
+            return res.status(400).json({ success: false, message: 'Invalid class IDs provided.' });
         }
 
-        db.beginTransaction((err) => {
+        // Validate subjects
+        if (subjects.length > 0) {
+            db.query(`SELECT subject_id FROM Subjects WHERE subject_id IN (?)`, [subjects.map(Number)], (err2, validSubjects) => {
+                if (err2) {
+                    console.error('Error validating subjects:', err2);
+                    return res.status(500).json({ success: false, message: 'Failed to validate subjects.', error: err2.message });
+                }
+                const validSubjectIds = validSubjects.map(s => s.subject_id);
+                const invalidSubjects = subjects.filter(sub => !validSubjectIds.includes(Number(sub)));
+                if (invalidSubjects.length > 0) {
+                    return res.status(400).json({ success: false, message: 'Invalid subject IDs provided.' });
+                }
+                proceedWithInsert();
+            });
+        } else {
+            proceedWithInsert();
+        }
+    });
+
+    function proceedWithInsert() {
+        // Validate date_of_birth
+        let parsedDob;
+        if (date_of_birth.includes('/')) {
+            parsedDob = moment(date_of_birth, 'DD/MM/YYYY', true);
+            if (!parsedDob.isValid()) return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use DD/MM/YYYY.' });
+        } else {
+            parsedDob = moment(date_of_birth, 'YYYY-MM-DD', true);
+            if (!parsedDob.isValid()) return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use YYYY-MM-DD.' });
+        }
+        const formattedDob = parsedDob.format('YYYY-MM-DD');
+
+        const profilePic = req.file ? req.file.filename : null;
+
+        // Insert student
+        const insertStudentSql = `
+            INSERT INTO Students (student_id, full_name, guardian_phone, email, address, gender, date_of_birth, profile_picture)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+
+        db.query(insertStudentSql, [student_id, full_name, guardian_phone, email || null, address, gender, formattedDob, profilePic], (err, result) => {
             if (err) {
-                console.error('Transaction start error:', err);
-                return res.status(500).json({ success: false, message: 'Database error.' });
+                console.error('Error inserting student:', err);
+                return res.status(500).json({ success: false, message: 'Failed to save student.', error: err.message });
             }
 
-            const insertStudentQuery = 'INSERT INTO Students (name, date_of_birth, gender, phone, address, email) VALUES (?, ?, ?, ?, ?, ?)';
-            db.query(insertStudentQuery, [name, date_of_birth, gender, phone, address, email || null], (err, result) => {
-                if (err) {
-                    return db.rollback(() => {
-                        console.error('Error inserting student:', err);
-                        res.status(500).json({ success: false, message: 'Database error.' });
-                    });
+            const studentDbId = result.insertId;
+
+            // Insert enrollments
+            const enrollSql = `
+                INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term)
+                VALUES ?
+            `;
+            const enrollValues = classes.map(cls => {
+                const [section_id, class_ref] = cls.split(':').map(Number);
+                return [studentDbId, section_id, class_ref, level, term];
+            });
+
+            db.query(enrollSql, [enrollValues], (err2, enrResult) => {
+                if (err2) {
+                    console.error('Error inserting enrollments:', err2);
+                    return res.status(500).json({ success: false, message: 'Failed to save enrollments.', error: err2.message });
                 }
 
-                const studentId = result.insertId;
-                const insertEnrollmentQuery = 'INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term) VALUES (?, ?, ?, ?, ?)';
-                db.query(insertEnrollmentQuery, [studentId, section_id, class_ref, level, term], (err) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            console.error('Error inserting enrollment:', err);
-                            res.status(500).json({ success: false, message: 'Database error.' });
-                        });
+                if (subjects.length > 0) {
+                    // Fetch enrollment IDs
+                    db.query(`SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?`, [studentDbId], (err3, enrollments) => {
+                        if (err3) {
+                            console.error('Error fetching enrollments:', err3);
+                            return res.status(500).json({ success: false, message: 'Failed to fetch enrollments.', error: err3.message });
+                        }
+
+                        const subjSql = `INSERT INTO Student_Subjects (enrollment_id, subject_id, term) VALUES ?`;
+                        const subjValues = enrollments.reduce((acc, enrollment) => {
+                            subjects.forEach(sub => {
+                                acc.push([enrollment.enrollment_id, Number(sub), term]);
+                            });
+                            return acc;
+                        }, []);
+
+                        if (subjValues.length > 0) {
+                            db.query(subjSql, [subjValues], (err4) => {
+                                if (err4) {
+                                    console.error('Error inserting subjects:', err4);
+                                    return res.status(500).json({ success: false, message: 'Failed to save subjects.', error: err4.message });
+                                }
+                                res.json({ success: true, data: { id: studentDbId } });
+                            });
+                        } else {
+                            res.json({ success: true, data: { id: studentDbId } });
+                        }
+                    });
+                } else {
+                    res.json({ success: true, data: { id: studentDbId } });
+                }
+            });
+        });
+    }
+});
+
+// ==========================
+// PUT UPDATE STUDENT
+// ==========================
+app.put('/api/students/:id', upload.single('profile_picture'), (req, res) => {
+    const studentDbId = req.params.id;
+    const {
+        student_id, full_name, guardian_phone, email, address, gender,
+        date_of_birth, level = 1, term = 1
+    } = req.body;
+
+    // Updated: Handle both classes/classes[] and subjects/subjects[]
+    const classes = req.body['classes[]'] || req.body.classes
+        ? (Array.isArray(req.body['classes[]'] || req.body.classes)
+            ? (req.body['classes[]'] || req.body.classes)
+            : [(req.body['classes[]'] || req.body.classes)])
+        : [];
+    const subjects = req.body['subjects[]'] || req.body.subjects
+        ? (Array.isArray(req.body['subjects[]'] || req.body.subjects)
+            ? (req.body['subjects[]'] || req.body.subjects).map(s => s.includes(':') ? s.split(':')[1] : s)
+            : [(req.body['subjects[]'] || req.body.subjects).includes(':') ? (req.body['subjects[]'] || req.body.subjects).split(':')[1] : (req.body['subjects[]'] || req.body.subjects)])
+        : [];
+
+    console.log('Received request body:', req.body); // Debug
+    console.log('Processed classes:', classes); // Debug
+    console.log('Processed subjects:', subjects); // Debug
+
+    // Validate inputs
+    if (!student_id || !full_name || !guardian_phone || !address || !gender || !date_of_birth) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+    if (classes.length === 0) {
+        return res.status(400).json({ success: false, message: 'At least one class is required.' });
+    }
+
+    // Validate classes
+    const classQueries = classes.map(cls => {
+        const [section_id, class_ref] = cls.split(':').map(Number);
+        const table = section_id === 1 ? 'Classes' : 'Western_Classes';
+        const idField = section_id === 1 ? 'class_id' : 'western_class_id';
+        return `SELECT ${idField} FROM ${table} WHERE ${idField} = ${class_ref}`;
+    });
+
+    db.query(classQueries.join(' UNION '), (err, validClasses) => {
+        if (err) {
+            console.error('Error validating classes:', err);
+            return res.status(500).json({ success: false, message: 'Failed to validate classes.', error: err.message });
+        }
+        const validClassIds = validClasses.map(c => c.class_id || c.western_class_id);
+        const invalidClasses = classes.filter(cls => {
+            const [, class_ref] = cls.split(':').map(Number);
+            return !validClassIds.includes(class_ref);
+        });
+        if (invalidClasses.length > 0) {
+            return res.status(400).json({ success: false, message: 'Invalid class IDs provided.' });
+        }
+
+        // Validate subjects
+        if (subjects.length > 0) {
+            db.query(`SELECT subject_id FROM Subjects WHERE subject_id IN (?)`, [subjects.map(Number)], (err2, validSubjects) => {
+                if (err2) {
+                    console.error('Error validating subjects:', err2);
+                    return res.status(500).json({ success: false, message: 'Failed to validate subjects.', error: err2.message });
+                }
+                const validSubjectIds = validSubjects.map(s => s.subject_id);
+                const invalidSubjects = subjects.filter(sub => !validSubjectIds.includes(Number(sub)));
+                if (invalidSubjects.length > 0) {
+                    return res.status(400).json({ success: false, message: 'Invalid subject IDs provided.' });
+                }
+                proceedWithUpdate();
+            });
+        } else {
+            proceedWithUpdate();
+        }
+    });
+
+    function proceedWithUpdate() {
+        // Validate date_of_birth
+        let parsedDob;
+        if (date_of_birth.includes('/')) {
+            parsedDob = moment(date_of_birth, 'DD/MM/YYYY', true);
+            if (!parsedDob.isValid()) return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use DD/MM/YYYY.' });
+        } else {
+            parsedDob = moment(date_of_birth, 'YYYY-MM-DD', true);
+            if (!parsedDob.isValid()) return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use YYYY-MM-DD.' });
+        }
+        const formattedDob = parsedDob.format('YYYY-MM-DD');
+
+        const profilePic = req.file ? req.file.filename : null;
+
+        // Update student
+        const updateSql = `
+            UPDATE Students SET
+                student_id = ?,
+                full_name = ?,
+                guardian_phone = ?,
+                email = ?,
+                address = ?,
+                gender = ?,
+                date_of_birth = ?
+                ${profilePic ? ', profile_picture = ?' : ''}
+            WHERE id = ?
+        `;
+        const params = [student_id, full_name, guardian_phone, email || null, address, gender, formattedDob];
+        if (profilePic) params.push(profilePic);
+        params.push(studentDbId);
+
+        db.query(updateSql, params, (err) => {
+            if (err) {
+                console.error('Error updating student:', err);
+                return res.status(500).json({ success: false, message: 'Failed to update student.', error: err.message });
+            }
+
+            // Clear existing enrollments and subjects
+            db.query(`DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)`, [studentDbId], (err2) => {
+                if (err2) {
+                    console.error('Error clearing subjects:', err2);
+                    return res.status(500).json({ success: false, message: 'Failed to clear subjects.', error: err2.message });
+                }
+
+                db.query(`DELETE FROM Student_Enrollments WHERE student_id = ?`, [studentDbId], (err3) => {
+                    if (err3) {
+                        console.error('Error clearing enrollments:', err3);
+                        return res.status(500).json({ success: false, message: 'Failed to clear enrollments.', error: err3.message });
                     }
 
-                    db.commit((err) => {
-                        if (err) {
-                            return db.rollback(() => {
-                                console.error('Commit error:', err);
-                                res.status(500).json({ success: false, message: 'Database error.' });
-                            });
+                    // Insert new enrollments
+                    const enrollSql = `
+                        INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term)
+                        VALUES ?
+                    `;
+                    const enrollValues = classes.map(cls => {
+                        const [section_id, class_ref] = cls.split(':').map(Number);
+                        return [studentDbId, section_id, class_ref, level, term];
+                    });
+
+                    db.query(enrollSql, [enrollValues], (err4, enrResult) => {
+                        if (err4) {
+                            console.error('Error inserting enrollments:', err4);
+                            return res.status(500).json({ success: false, message: 'Failed to update enrollments.', error: err4.message });
                         }
-                        res.status(200).json({ success: true, message: 'Student created successfully.', id: studentId });
+
+                        if (subjects.length > 0) {
+                            // Fetch new enrollment IDs
+                            db.query(`SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?`, [studentDbId], (err5, enrollments) => {
+                                if (err5) {
+                                    console.error('Error fetching enrollments:', err5);
+                                    return res.status(500).json({ success: false, message: 'Failed to fetch enrollments.', error: err5.message });
+                                }
+
+                                const subjSql = `INSERT INTO Student_Subjects (enrollment_id, subject_id, term) VALUES ?`;
+                                const subjValues = enrollments.reduce((acc, enrollment) => {
+                                    subjects.forEach(sub => {
+                                        acc.push([enrollment.enrollment_id, Number(sub), term]);
+                                    });
+                                    return acc;
+                                }, []);
+
+                                if (subjValues.length > 0) {
+                                    db.query(subjSql, [subjValues], (err6) => {
+                                        if (err6) {
+                                            console.error('Error inserting subjects:', err6);
+                                            return res.status(500).json({ success: false, message: 'Failed to update subjects.', error: err6.message });
+                                        }
+                                        res.json({ success: true, data: { id: studentDbId } });
+                                    });
+                                } else {
+                                    res.json({ success: true, data: { id: studentDbId } });
+                                }
+                            });
+                        } else {
+                            res.json({ success: true, data: { id: studentDbId } });
+                        }
                     });
                 });
             });
         });
-    });
+    }
 });
 
-// Update student
-app.put('/api/students/:id', (req, res) => {
-    if (!req.session.isAuthenticated) {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
 
-    const studentId = req.params.id;
-    const { name, gender, date_of_birth, phone, address, email, section_id, class_ref, level, term } = req.body;
-    if (!name || !gender || !date_of_birth || !phone || !address || !section_id || !class_ref || !level || !term) {
-        return res.status(400).json({ success: false, message: 'All required fields must be provided.' });
-    }
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
-        return res.status(400).json({ success: false, message: 'Invalid Date of Birth format. Use YYYY-MM-DD.' });
-    }
-
-    if (!['Male', 'Female', 'Other'].includes(gender)) {
-        return res.status(400).json({ success: false, message: 'Gender must be Male, Female, or Other.' });
-    }
-
-    if (![1, 2].includes(parseInt(section_id))) {
-        return res.status(400).json({ success: false, message: 'Invalid section_id (must be 1 or 2).' });
-    }
-
-    const classTable = section_id == 1 ? 'Classes' : 'Western_Classes';
-    const classColumn = section_id == 1 ? 'class_id' : 'western_class_id';
-    const checkClassQuery = `SELECT ${classColumn} FROM ${classTable} WHERE ${classColumn} = ?`;
-    db.query(checkClassQuery, [class_ref], (err, results) => {
-        if (err) {
-            console.error('Error checking class:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        if (results.length === 0) {
-            return res.status(400).json({ success: false, message: 'Invalid class_ref for the selected section.' });
-        }
-
-        db.beginTransaction((err) => {
-            if (err) {
-                console.error('Transaction start error:', err);
-                return res.status(500).json({ success: false, message: 'Database error.' });
-            }
-
-            const updateStudentQuery = 'UPDATE Students SET name = ?, date_of_birth = ?, gender = ?, phone = ?, address = ?, email = ? WHERE student_id = ?';
-            db.query(updateStudentQuery, [name, date_of_birth, gender, phone, address, email || null, studentId], (err, result) => {
-                if (err) {
-                    return db.rollback(() => {
-                        console.error('Error updating student:', err);
-                        res.status(500).json({ success: false, message: 'Database error.' });
-                    });
-                }
-                if (result.affectedRows === 0) {
-                    return db.rollback(() => {
-                        res.status(404).json({ success: false, message: 'Student not found.' });
-                    });
-                }
-
-                const updateEnrollmentQuery = 'UPDATE Student_Enrollments SET section_id = ?, class_ref = ?, level = ?, term = ? WHERE student_id = ?';
-                db.query(updateEnrollmentQuery, [section_id, class_ref, level, term, studentId], (err, result) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            console.error('Error updating enrollment:', err);
-                            res.status(500).json({ success: false, message: 'Database error.' });
-                        });
-                    }
-                    if (result.affectedRows === 0) {
-                        return db.rollback(() => {
-                            res.status(404).json({ success: false, message: 'Enrollment not found.' });
-                        });
-                    }
-
-                    db.commit((err) => {
-                        if (err) {
-                            return db.rollback(() => {
-                                console.error('Commit error:', err);
-                                res.status(500).json({ success: false, message: 'Database error.' });
-                            });
-                        }
-                        res.status(200).json({ success: true, message: 'Student updated successfully.' });
-                    });
-                });
-            });
-        });
-    });
-});
-
+// ==========================
 // Delete student
+// ==========================
 app.delete('/api/students/:id', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.role !== 'SuperAdmin') {
+    if (!req.session.isAuthenticated)
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
 
     const studentId = req.params.id;
-    db.beginTransaction((err) => {
+
+    db.beginTransaction(err => {
         if (err) {
             console.error('Transaction start error:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            return res.status(500).json({ success: false, message: 'Transaction start error.', error: err.message });
         }
 
-        const deleteRelatedQueries = `
-            DELETE FROM Student_Fee_Payments WHERE student_fee_id IN (SELECT student_fee_id FROM Student_Fees WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?));
-            DELETE FROM Student_Fees WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?);
-            DELETE FROM Student_Memorization_Assessments WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?);
-            DELETE FROM Student_Subject_Assessments WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?);
-            DELETE FROM Student_Attendance WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?);
-            DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?);
-            DELETE FROM Student_Enrollments WHERE student_id = ?;
+        // Delete subjects
+        const deleteSubjectsQuery = `
+            DELETE FROM Student_Subjects 
+            WHERE enrollment_id IN (
+                SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?
+            )
         `;
-        db.query(deleteRelatedQueries, [studentId, studentId, studentId, studentId, studentId, studentId, studentId], (err) => {
+        db.query(deleteSubjectsQuery, [studentId], err => {
             if (err) {
-                return db.rollback(() => {
-                    console.error('Error deleting related records:', err);
-                    res.status(500).json({ success: false, message: 'Database error.' });
-                });
+                console.error('Error deleting subjects:', err);
+                return db.rollback(() => res.status(500).json({ success: false, message: 'Database error deleting subjects.', error: err.message }));
             }
 
-            const deleteStudentQuery = 'DELETE FROM Students WHERE student_id = ?';
-            db.query(deleteStudentQuery, [studentId], (err, result) => {
+            // Delete enrollments
+            const deleteEnrollmentsQuery = `DELETE FROM Student_Enrollments WHERE student_id = ?`;
+            db.query(deleteEnrollmentsQuery, [studentId], err => {
                 if (err) {
-                    return db.rollback(() => {
-                        console.error('Error deleting student:', err);
-                        res.status(500).json({ success: false, message: 'Database error.' });
-                    });
-                }
-                if (result.affectedRows === 0) {
-                    return db.rollback(() => {
-                        res.status(404).json({ success: false, message: 'Student not found.' });
-                    });
+                    console.error('Error deleting enrollments:', err);
+                    return db.rollback(() => res.status(500).json({ success: false, message: 'Database error deleting enrollments.', error: err.message }));
                 }
 
-                db.commit((err) => {
+                // Delete student
+                const deleteStudentQuery = `DELETE FROM Students WHERE id = ?`;
+                db.query(deleteStudentQuery, [studentId], (err, result) => {
                     if (err) {
-                        return db.rollback(() => {
-                            console.error('Commit error:', err);
-                            res.status(500).json({ success: false, message: 'Database error.' });
-                        });
+                        console.error('Error deleting student:', err);
+                        return db.rollback(() => res.status(500).json({ success: false, message: 'Database error deleting student.', error: err.message }));
                     }
-                    res.status(200).json({ success: true, message: 'Student deleted successfully.' });
+                    if (result.affectedRows === 0) {
+                        return db.rollback(() => res.status(404).json({ success: false, message: 'Student not found.' }));
+                    }
+
+                    db.commit(err => {
+                        if (err) {
+                            console.error('Commit error:', err);
+                            return db.rollback(() => res.status(500).json({ success: false, message: 'Commit error.', error: err.message }));
+                        }
+                        res.status(200).json({ success: true, message: 'Student deleted successfully.' });
+                    });
                 });
             });
         });
     });
 });
 
-// Generate report sheet
-app.post('/api/generate-report-sheet', (req, res) => {
-    if (!req.session.isAuthenticated) {
+// ==========================
+// Upload student profile picture
+// ==========================
+app.post('/api/students/upload-profile-picture', upload.single('profile_picture'), (req, res) => {
+    if (!req.session.isAuthenticated)
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
+
+    const studentId = req.body.studentId;
+    const profilePicture = req.file ? `Uploads/${req.file.filename}` : null;
+
+    if (!studentId || !profilePicture) {
+        console.log('Missing studentId or profile picture:', { studentId, profilePicture });
+        return res.status(400).json({ success: false, message: 'Student ID and profile picture are required.' });
     }
 
-    const { studentId, reportType, term } = req.body;
-    if (!studentId || !reportType) {
-        return res.status(400).json({ success: false, message: 'Student ID and report type are required.' });
-    }
-
-    if (reportType === 'terminal' && !term) {
-        return res.status(400).json({ success: false, message: 'Term is required for terminal reports.' });
-    }
-
-    if (!['terminal', 'sessional'].includes(reportType)) {
-        return res.status(400).json({ success: false, message: 'Invalid report type.' });
-    }
-
-    if (term && !['1st Term', '2nd Term', '3rd Term'].includes(term)) {
-        return res.status(400).json({ success: false, message: 'Invalid term.' });
-    }
-
-    const termCondition = reportType === 'terminal' ? 'AND e.term = ?' : '';
-    const queryParams = reportType === 'terminal' ? [studentId, term] : [studentId];
-
-    const query = `
-        SELECT s.student_id, s.name, s.gender, e.term, e.level,
-               CASE WHEN e.section_id = 1 THEN c.class_name ELSE w.class_name END AS class_name,
-               sub.subject_name,
-               ssa.ca1_score, ssa.ca2_score, ssa.ca3_score, ssa.exam_score,
-               (ssa.ca1_score + ssa.ca2_score + ssa.ca3_score + ssa.exam_score) AS total_score,
-               ssa.comments
-        FROM Students s
-        JOIN Student_Enrollments e ON s.student_id = e.student_id
-        LEFT JOIN Classes c ON e.class_ref = c.class_id AND e.section_id = 1
-        LEFT JOIN Western_Classes w ON e.class_ref = w.western_class_id AND e.section_id = 2
-        JOIN Student_Subjects ss ON e.enrollment_id = ss.enrollment_id
-        JOIN Subjects sub ON ss.subject_id = sub.subject_id
-        LEFT JOIN Student_Subject_Assessments ssa ON ss.id = ssa.id
-        WHERE s.student_id = ? ${termCondition}
-        ORDER BY sub.subject_name
+    const updateQuery = `
+        UPDATE Students
+        SET profile_picture = ?
+        WHERE id = ?
     `;
-    db.query(query, queryParams, (err, results) => {
+    db.query(updateQuery, [profilePicture, studentId], (err, result) => {
         if (err) {
-            console.error('Error generating report:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            console.error('Error updating profile picture:', err);
+            return res.status(500).json({ success: false, message: 'Database error updating profile picture.', error: err.message });
         }
-        if (results.length === 0) {
-            return res.status(404).json({ success: false, message: 'No data found for this student.' });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Student not found.' });
         }
-
-        const reportData = {
-            student_id: results[0].student_id,
-            name: results[0].name,
-            gender: results[0].gender,
-            class_name: results[0].class_name,
-            level: results[0].level,
-            term: reportType === 'terminal' ? results[0].term : 'Sessional',
-            subjects: results.map(row => ({
-                subject_name: row.subject_name,
-                ca1_score: row.ca1_score,
-                ca2_score: row.ca2_score,
-                ca3_score: row.ca3_score,
-                exam_score: row.exam_score,
-                total_score: row.total_score,
-                comments: row.comments
-            }))
-        };
-
-        res.status(200).json({ success: true, message: 'Report sheet generated successfully.', data: reportData });
+        res.status(200).json({ success: true, message: 'Profile picture uploaded successfully.', profile_picture: profilePicture });
     });
 });
 
