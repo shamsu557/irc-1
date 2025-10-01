@@ -142,7 +142,9 @@ const translations = {
         profilePictureSaved: "Profile picture uploaded successfully.",
         selectClass: "Select Class",
         guardianPhone: "Guardian Phone",
-        duplicateStudent: "Duplicate student registration detected."
+        duplicateStudent: "Duplicate student registration detected.",
+        confirmDelete: "Are you sure you want to delete this record?",
+        recordDeleted: "Record deleted successfully."
     },
     ar: {
         adminPanel: "لوحة التحكم الإدارية",
@@ -284,7 +286,9 @@ const translations = {
         profilePictureSaved: "تم رفع الصورة الشخصية بنجاح.",
         selectClass: "اختر الفصل",
         guardianPhone: "هاتف الوصي",
-        duplicateStudent: "تم اكتشاف تسجيل طالب مكرر."
+        duplicateStudent: "تم اكتشاف تسجيل طالب مكرر.",
+        confirmDelete: "هل أنت متأكد من أنك تريد حذف هذا السجل؟",
+        recordDeleted: "تم حذف السجل بنجاح."
     }
 };
 
@@ -423,16 +427,34 @@ function renderStaffTable(staffData) {
     });
 }
 
-const renderStudents = (students) => {
+// Updated: Render students without subjects column and fix class name duplication
+const renderStudents = async (students) => {
     const studentTableBody = document.getElementById('studentTableBody');
     studentTableBody.innerHTML = '';
 
+    // Fetch class names to map section_id:class_id to actual names
+    const classData = await fetchData('/api/classes');
+    const classMap = {};
+    if (classData.success) {
+        classData.data.forEach(cls => {
+            classMap[`${cls.section_id}:${cls.id}`] = cls.name;
+        });
+    } else {
+        console.error('Failed to fetch classes for rendering:', classData.message);
+    }
+
     students.forEach(student => {
+        console.log('Rendering student:', student); // Debug: Log student data
         const dob = student.date_of_birth 
             ? formatDate(student.date_of_birth)
             : 'N/A';
-        const classes = Array.isArray(student.classes) ? student.classes.join(', ') : student.classes || 'N/A';
-        const subjects = Array.isArray(student.subjects) ? student.subjects.join(', ') : student.subjects || 'N/A';
+        // Ensure unique class names and map section_id:class_id to names
+        const uniqueClasses = Array.isArray(student.classes) 
+            ? [...new Set(student.classes)].map(cls => classMap[cls] || cls).filter(name => name)
+            : [student.classes || 'N/A'];
+        const classesDisplay = uniqueClasses.join(', ');
+
+        console.log('Student classes:', student.classes, 'Mapped classes:', uniqueClasses); // Debug
 
         const row = document.createElement('tr');
         row.innerHTML = `
@@ -444,8 +466,7 @@ const renderStudents = (students) => {
             <td>${student.name || student.full_name || 'N/A'}</td>
             <td>${student.gender || 'N/A'}</td>
             <td>${dob}</td>
-            <td>${classes}</td>
-            <td>${subjects}</td>
+            <td>${classesDisplay}</td>
             <td>${student.guardian_phone || 'N/A'}</td>
             <td>${student.address || 'N/A'}</td>
             <td>
@@ -463,7 +484,7 @@ const renderStudents = (students) => {
 document.getElementById('studentTableBody').addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('edit-button')) {
         const studentId = e.target.dataset.id;
-        fetch(`/api/students/${studentId}`)
+        fetch(`${API_BASE_URL}/api/students/${studentId}`)
             .then(res => res.json())
             .then(result => {
                 if (result.success) {
@@ -576,7 +597,6 @@ const fetchDataAndRender = async (url, renderFunc) => {
     }
 };
 
-// Updated: Populate classes with section_id:id format
 async function populateClasses() {
     const data = await fetchData('/api/classes');
     console.log('Classes data:', data); // Debug
@@ -623,7 +643,6 @@ async function populateClasses() {
     }
 }
 
-// Updated: Populate subjects with subject_id only
 async function populateSubjects() {
     const data = await fetchData('/api/subjects');
     console.log('Subjects data:', data); // Debug
@@ -641,7 +660,7 @@ async function populateSubjects() {
 
         data.data.forEach(sub => {
             const option = document.createElement('option');
-            option.value = sub.id; // Updated: Use sub.id only
+            option.value = sub.id; // Use sub.id only
             option.textContent = sub.name;
             option.dataset.sectionId = sub.section_id; // Store section_id for filtering
             if (sub.section_id === 1) {
@@ -663,7 +682,6 @@ async function populateSubjects() {
     }
 }
 
-// Updated: Filter subjects based on selected classes
 document.getElementById('studentClasses').addEventListener('change', async () => {
     const selectedClasses = Array.from(document.getElementById('studentClasses').selectedOptions).map(opt => opt.value);
     const sectionIds = [...new Set(selectedClasses.map(cls => cls.split(':')[0]))];
@@ -683,7 +701,7 @@ document.getElementById('studentClasses').addEventListener('change', async () =>
             data.data.forEach(sub => {
                 if (sectionIds.includes(sub.section_id.toString())) {
                     const option = document.createElement('option');
-                    option.value = sub.id; // Updated: Use sub.id only
+                    option.value = sub.id; // Use sub.id only
                     option.textContent = sub.name;
                     option.dataset.sectionId = sub.section_id; // Store section_id
                     if (sub.section_id === 1) {
@@ -794,7 +812,7 @@ function validateForm(form) {
     return true;
 }
 
-// Updated: Add Student button handler
+// Add Student button handler
 document.getElementById('addStudentBtn').addEventListener('click', () => {
     document.getElementById('studentId').value = '';
     document.getElementById('studentCustomId').value = '';
@@ -825,7 +843,7 @@ document.getElementById('addStudentBtn').addEventListener('click', () => {
     document.getElementById('studentClasses').dispatchEvent(new Event('change'));
 });
 
-// Updated: Edit Student function
+// Edit Student function
 function editStudent(student) {
     document.getElementById('studentId').value = student.id;
     document.getElementById('studentCustomId').value = student.student_id || '';
@@ -857,7 +875,7 @@ function editStudent(student) {
     // Trigger subject filtering based on selected classes
     document.getElementById('studentClasses').dispatchEvent(new Event('change'));
 
-    // Updated: Set subjects using subject_id only
+    // Set subjects using subject_id only
     const subjectSelect = document.getElementById('studentSubjects');
     Array.from(subjectSelect.options).forEach(opt => opt.selected = false);
     if (Array.isArray(student.subjects)) {
@@ -879,7 +897,7 @@ function editStudent(student) {
     studentModal.show();
 }
 
-// Updated: Student Form handler
+// Student Form handler
 document.getElementById('studentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!validateForm(document.getElementById('studentForm'))) return;
@@ -928,7 +946,7 @@ document.getElementById('studentForm').addEventListener('submit', async (e) => {
     formData.append('level', 1);
     formData.append('term', 1);
     classes.forEach(cls => formData.append('classes[]', cls));
-    subjects.forEach(sub => formData.append('subjects[]', sub)); // Updated: Send subject_id only
+    subjects.forEach(sub => formData.append('subjects[]', sub));
 
     const file = document.getElementById('studentProfilePicture').files[0];
     if (file) formData.append('profile_picture', file);
@@ -1075,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Add Modal Triggers
-    addStaffBtn.addEventListener('click', () => {
+    document.getElementById('addStaffBtn').addEventListener('click', () => {
         document.getElementById('staffId').value = '';
         document.getElementById('staffStaffId').value = '';
         document.getElementById('staffFullName').value = '';
@@ -1101,7 +1119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         staffModal.show();
     });
 
-    addAdminBtn.addEventListener('click', () => {
+    document.getElementById('addAdminBtn').addEventListener('click', () => {
         document.getElementById('adminId').value = '';
         document.getElementById('adminUsername').value = '';
         document.getElementById('adminName').value = '';
@@ -1117,13 +1135,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Report Type Change Handling
-    reportTypeSelect.addEventListener('change', () => {
-        termContainer.style.display = reportTypeSelect.value === 'terminal' ? 'block' : 'none';
+    document.getElementById('report-type').addEventListener('change', () => {
+        document.getElementById('term-container').style.display = document.getElementById('report-type').value === 'terminal' ? 'block' : 'none';
     });
 
     // Export Buttons
-    exportBookingsPdfBtn.addEventListener('click', exportToPDF);
-    exportBookingsExcelBtn.addEventListener('click', exportToExcel);
+    document.getElementById('exportBookingsPdfBtn').addEventListener('click', exportToPDF);
+    document.getElementById('exportBookingsExcelBtn').addEventListener('click', exportToExcel);
 
     // Role change listener for Form Master visibility
     document.getElementById('staffRole').addEventListener('change', (e) => {
@@ -1142,9 +1160,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // First Login Handling
-    firstLoginForm.addEventListener('submit', async (e) => {
+    document.getElementById('firstLoginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!validateForm(firstLoginForm)) return;
+        if (!validateForm(document.getElementById('firstLoginForm'))) return;
 
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
@@ -1185,9 +1203,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Staff Form Handling
-    staffForm.addEventListener('submit', async (e) => {
+    document.getElementById('staffForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!validateForm(staffForm)) return;
+        if (!validateForm(document.getElementById('staffForm'))) return;
         const id = document.getElementById('staffId').value;
         const staffData = {
             id,
@@ -1252,7 +1270,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             showMessageModal('success', translations[currentLang].staffSaved);
             staffModal.hide();
-            staffForm.reset();
+            document.getElementById('staffForm').reset();
             document.getElementById('staffPassword').value = 'default';
             document.getElementById('staffPassword').disabled = true;
             document.getElementById('staffPasswordGroup').style.display = 'block';
@@ -1266,9 +1284,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Admin Form Handling
-    adminForm.addEventListener('submit', async (e) => {
+    document.getElementById('adminForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!validateForm(adminForm)) return;
+        if (!validateForm(document.getElementById('adminForm'))) return;
         const id = document.getElementById('adminId').value;
         const adminData = {
             username: document.getElementById('adminUsername').value,
@@ -1294,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (result.success) {
             showMessageModal('adminSaved', id ? 'Admin updated successfully.' : 'Admin added successfully.');
             adminModal.hide();
-            adminForm.reset();
+            document.getElementById('adminForm').reset();
             document.getElementById('adminPasswordGroup').style.display = 'block';
             document.getElementById('adminPassword').required = true;
             refreshData();
@@ -1304,35 +1322,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Fees Form Handling
-    setFeesForm.addEventListener('submit', async (e) => {
+    document.getElementById('setFeesForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!validateForm(setFeesForm)) return;
+        if (!validateForm(document.getElementById('setFeesForm'))) return;
         const feesData = {
             basicFees: document.getElementById('basicFees').value,
             mediumFees: document.getElementById('mediumFees').value,
             highFees: document.getElementById('highFees').value
         };
         showMessageModal('feesSaved', 'feesSaved');
-        setFeesForm.reset();
+        document.getElementById('setFeesForm').reset();
     });
 
     // Academic Calendar Form Handling
-    academicCalendarForm.addEventListener('submit', async (e) => {
+    document.getElementById('academicCalendarForm').addEventListener('submit', async (e) => {
         e.preventDefault();
-        if (!validateForm(academicCalendarForm)) return;
+        if (!validateForm(document.getElementById('academicCalendarForm'))) return;
         const startDate = document.getElementById('termStartDate').value;
         const endDate = document.getElementById('termEndDate').value;
         const result = await postData('/api/schedule', { startDate, endDate });
         if (result.success) {
             showMessageModal('datesSaved', 'Academic calendar updated successfully.');
-            academicCalendarForm.reset();
+            document.getElementById('academicCalendarForm').reset();
         } else {
             showMessageModal('error', result.message || 'Failed to save academic calendar.');
         }
     });
 
     // Generate ID Card
-    generateIdCardButton.addEventListener('click', async () => {
+    document.getElementById('generate-id-card-button').addEventListener('click', async () => {
         const entityType = document.getElementById('id-card-entity-type').value;
         const entityId = document.getElementById('id-card-entity-id').value;
         const result = await postData('/api/generate-id-card', { entityType, entityId });
@@ -1344,7 +1362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Generate Report Sheet
-    generateReportSheetButton.addEventListener('click', async () => {
+    document.getElementById('generate-report-sheet-button').addEventListener('click', async () => {
         const studentId = document.getElementById('report-student-id').value;
         const reportType = document.getElementById('report-type').value;
         const session = document.getElementById('report-session').value;
@@ -1360,7 +1378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Generate Report Sheets (Bulk)
-    generateReportSheetsBtn.addEventListener('click', async () => {
+    document.getElementById('generateReportSheetsBtn').addEventListener('click', async () => {
         const result = await postData('/api/generate-report-sheets', {});
         if (result.success) {
             showMessageModal('reportSheetsGenerated', 'Report sheets generated successfully.');
