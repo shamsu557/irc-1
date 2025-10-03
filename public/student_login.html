@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-translate="studentLogin">Student Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Amiri:wght@400;700&display=swap');
+        :root {
+            --primary-color: #004d40; /* Dark Green */
+            --secondary-color: #2f4f4f; /* Dark Slate Gray */
+            --light-color: #f0f8f0;
+            --white-color: #ffffff;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--secondary-color);
+            flex-direction: column;
+        }
+        .text-arabic {
+            font-family: 'Amiri', serif;
+        }
+        .login-container {
+            width: 90%;
+            max-width: 1200px;
+            background-color: var(--white-color);
+            border-radius: 1rem;
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            margin-top: 2rem;
+        }
+        .branding-panel {
+            background-color: var(--secondary-color);
+            color: var(--white-color);
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn-primary:hover {
+            background-color: #00695c;
+            border-color: #00695c;
+            transform: translateY(-2px);
+        }
+        .login-form-panel {
+            background-color: var(--white-color);
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(0, 77, 64, 0.25);
+            border-color: var(--primary-color);
+        }
+        .btn-primary-custom {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn-primary-custom:hover {
+            background-color: #00695c;
+            border-color: #00695c;
+            transform: translateY(-2px);
+        }
+        .password-input-group {
+            position: relative;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding-right: 0.75rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        .alert-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1050;
+        }
+        .navbar-custom {
+            background-color: var(--white-color);
+            padding: 1rem 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            box-shadow: var(--card-shadow);
+        }
+        .navbar-custom .navbar-brand,
+        .navbar-custom .btn {
+            color: var(--secondary-color);
+        }
+        .brand-text {
+            color: var(--secondary-color) !important;
+            font-size: 0.8rem;
+        }
+        .modal-header {
+            border-bottom: none;
+        }
+        .d-none { display: none !important; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-custom">
+        <div class="container">
+            <a class="navbar-brand fw-bold brand-text mx-auto" href="/">
+                <i class="fas fa-graduation-cap me-2"></i> IRC
+            </a>
+            <div class="ms-auto">
+                <button class="btn btn-primary text-white" onclick="window.location.href='/'" data-translate="backToHome">
+                    Back to Home
+                </button>
+            </div>
+        </div>
+    </nav>
+    <br>
+
+    <div class="alert-container"></div>
+
+    <div id="loginFormSection" class="login-container">
+        <div class="row g-0">
+            <div class="col-lg-6 branding-panel text-center">
+                <div>
+                    <h1 class="fw-bold mb-3">Ibadurrahman College</h1>
+                    <p class="lead mb-4" data-translate="secureAccess">Secure access to the Ibadurrahman College Student system.</p>
+                    <div class="row text-center mt-5">
+                        <div class="col-4"><i class="fas fa-shield-alt fa-3x mb-3"></i><h5 data-translate="secure">Secure</h5></div>
+                        <div class="col-4"><i class="fas fa-book fa-3x mb-3"></i><h5 data-translate="learning">Learning</h5></div>
+                        <div class="col-4"><i class="fas fa-chart-line fa-3x mb-3"></i><h5 data-translate="progress">Progress</h5></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 login-form-panel">
+                <div class="w-100 mt-4 mt-lg-0">
+                    <div class="text-center mb-5">
+                        <h2 class="fw-bold text-dark" data-translate="studentLogin">Student Login</h2>
+                        <p class="text-muted" data-translate="signInDesc">Sign in to access the student dashboard.</p>
+                    </div>
+
+                    <form id="studentLoginForm" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="studentId" class="form-label" data-translate="studentIdLabel">Student ID</label>
+                            <div class="input-group">
+                                <span class="input-group-text rounded-start-pill"><i class="fas fa-user"></i></span>
+                                <input type="text" id="studentId" name="studentId" class="form-control rounded-end-pill" placeholder="e.g., HIR/25/TAH/0001" required>
+                            </div>
+                            <div class="invalid-feedback" data-translate="allFieldsRequired">Student ID is required.</div>
+                        </div>
+
+                        <div class="mb-3 password-input-group">
+                            <label for="password" class="form-label" data-translate="passwordLabel">Password (Use your Student ID)</label>
+                            <div class="input-group">
+                                <span class="input-group-text rounded-start-pill"><i class="fas fa-lock"></i></span>
+                                <input type="password" id="password" name="password" class="form-control rounded-end-pill" placeholder="e.g., HIR/25/TAH/0001" required>
+                                <span id="togglePassword" class="password-toggle"><i class="fas fa-eye"></i></span>
+                            </div>
+                            <div class="invalid-feedback" data-translate="allFieldsRequired">Password is required.</div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input id="rememberMe" name="rememberMe" type="checkbox" class="form-check-input">
+                                    <label for="rememberMe" class="form-check-label" data-translate="rememberMe">Remember me</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary-custom w-100 py-2 mb-3 rounded-pill text-white" data-translate="signIn">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+
+                        <div class="text-center"><p class="mb-0 text-muted" data-translate="authorizedOnly">Authorized students only</p></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-xl shadow-2xl">
+                <div class="modal-header">
+                    <h5 class="modal-title font-bold text-gray-800" id="messageModalLabel">Message</h5>
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal" data-translate="close">Close</button>
+                </div>
+                <div class="modal-body p-6">
+                    <p id="messageText" class="text-gray-700"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
+    </div>
+
+    <script>
+        const translations = {
+            en: {
+                studentLogin: "Student Login",
+                studentIdLabel: "Student ID",
+                passwordLabel: "Password (Use your Student ID)",
+                toggleLanguage: "العربية",
+                backToHome: "Back to Home",
+                secureAccess: "Secure access to the Ibadurrahman College Student system.",
+                secure: "Secure",
+                learning: "Learning",
+                progress: "Progress",
+                signInDesc: "Sign in to access the student dashboard.",
+                allFieldsRequired: "All fields are required.",
+                rememberMe: "Remember me",
+                signIn: "Sign In",
+                authorizedOnly: "Authorized students only",
+                close: "Close",
+                errors: {
+                    invalidCredentials: "Invalid Student ID or Password.",
+                    serverError: "Failed to connect to the server."
+                }
+            },
+            ar: {
+                studentLogin: "تسجيل دخول الطالب",
+                studentIdLabel: "معرف الطالب",
+                passwordLabel: "كلمة المرور (استخدم معرف الطالب)",
+                toggleLanguage: "English",
+                backToHome: "العودة إلى الصفحة الرئيسية",
+                secureAccess: "الوصول الآمن إلى نظام طلاب كلية عباد الرحمن",
+                secure: "آمن",
+                learning: "التعلم",
+                progress: "التقدم",
+                signInDesc: "تسجيل الدخول للوصول إلى لوحة تحكم الطالب.",
+                allFieldsRequired: "جميع الحقول مطلوبة.",
+                rememberMe: "تذكرني",
+                signIn: "تسجيل الدخول",
+                authorizedOnly: "للطلاب المخولين فقط",
+                close: "إغلاق",
+                errors: {
+                    invalidCredentials: "معرف الطالب أو كلمة المرور غير صالحة.",
+                    serverError: "فشل الاتصال بالخادم."
+                }
+            }
+        };
+
+        let currentLang = localStorage.getItem("lang") || "en";
+        const API_BASE_URL = 'http://localhost:5000';
+
+        async function fetchData(url, method = 'GET', body = null) {
+            const options = { 
+                method, 
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include' // Include cookies for session
+            };
+            if (body) options.body = JSON.stringify(body);
+            const response = await fetch(url, options);
+            return await response.json();
+        }
+
+        function translatePage(lang) {
+            document.querySelectorAll("[data-translate]").forEach(el => {
+                const key = el.getAttribute("data-translate");
+                const keys = key.split(".");
+                let value = translations[lang];
+                keys.forEach(k => value = value?.[k]);
+                if (value) {
+                    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+                        el.setAttribute("placeholder", value);
+                    } else {
+                        el.textContent = value;
+                    }
+                }
+            });
+            document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+            localStorage.setItem("lang", lang);
+        }
+
+        function showMessageModal(title, message) {
+            const modalTitle = document.getElementById('messageModalLabel');
+            const modalText = document.getElementById('messageText');
+            const messageModalElement = document.getElementById('messageModal');
+
+            if (modalTitle && modalText && messageModalElement) {
+                modalTitle.textContent = title;
+                modalText.textContent = message;
+                const modal = new bootstrap.Modal(messageModalElement);
+                modal.show();
+            } else {
+                alert(`${title}: ${message}`);
+            }
+        }
+
+        async function submitLogin() {
+            const studentLoginForm = document.getElementById('studentLoginForm');
+            if (!studentLoginForm.checkValidity()) {
+                studentLoginForm.classList.add('was-validated');
+                return;
+            }
+
+            const studentId = document.getElementById('studentId').value.trim();
+            const password = document.getElementById('password').value.trim();
+
+            if (studentId !== password) {
+                showMessageModal('❌', translations[currentLang].errors.invalidCredentials);
+                return;
+            }
+
+            try {
+                const response = await fetchData(`${API_BASE_URL}/api/student-login`, 'POST', { studentId });
+                const { success, message, redirect } = response;
+
+                if (success) {
+                    window.location.href = redirect || '/student-dashboard';
+                } else {
+                    showMessageModal('❌', message || translations[currentLang].errors.invalidCredentials);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessageModal('🛑', translations[currentLang].errors.serverError);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            translatePage(currentLang);
+
+            const langToggleBtn = document.getElementById("langToggle");
+            if (langToggleBtn) {
+                langToggleBtn.addEventListener("click", () => {
+                    currentLang = currentLang === "en" ? "ar" : "en";
+                    translatePage(currentLang);
+                });
+            }
+
+            const studentLoginForm = document.getElementById('studentLoginForm');
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('password');
+
+            if (studentLoginForm) {
+                studentLoginForm.addEventListener('submit', event => {
+                    event.preventDefault();
+                    submitLogin();
+                });
+            }
+
+            if (togglePassword && passwordInput) {
+                togglePassword.addEventListener('click', () => {
+                    const type = passwordInput.type === 'password' ? 'text' : 'password';
+                    passwordInput.type = type;
+                    togglePassword.querySelector('i').classList.toggle('fa-eye');
+                    togglePassword.querySelector('i').classList.toggle('fa-eye-slash');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
