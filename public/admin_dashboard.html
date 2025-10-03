@@ -401,14 +401,25 @@
         <div id="student-management-view" style="display: none;">
             <h2 class="text-2xl font-semibold mb-4" data-translate="studentManagement">Student Management</h2>
             <button class="btn btn-primary mb-4" id="addStudentBtn"><i class="fas fa-plus-circle"></i> <span data-translate="addStudent">Add New Student</span></button>
+            <div class="mb-3">
+                <label for="studentClassFilter" class="form-label" data-translate="selectClass">Select Class to View</label>
+                <select class="form-select" id="studentClassFilter">
+                    <option value="">All Classes</option>
+                    <!-- Dynamically populated -->
+                </select>
+            </div>
             <div class="bg-white p-4 rounded-lg shadow table-responsive">
                 <table class="table w-full">
                     <thead>
                         <tr>
-                            <th data-translate="name">Name</th>
-                            <th data-translate="class">Class</th>
-                            <th data-translate="level">Level</th>
+                            <th data-translate="studentId">Student ID</th>
+                            <th data-translate="profilePicture">Profile Picture</th>
+                            <th data-translate="name">Full Name</th>
                             <th data-translate="gender">Gender</th>
+                            <th data-translate="dateOfBirth">Date of Birth</th>
+                            <th data-translate="classes">Class(es)</th>
+                            <th data-translate="guardianPhone">Guardian Phone</th>
+                            <th data-translate="address">Address</th>
                             <th data-translate="actions">Actions</th>
                         </tr>
                     </thead>
@@ -747,51 +758,96 @@
         </div>
     </div>
 
-    <!-- Add/Edit Student Modal -->
-    <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="studentModalLabel" data-translate="addStudent">Add Student</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="studentForm" novalidate>
-                        <input type="hidden" id="studentId">
-                        <div class="mb-3">
-                            <label for="studentFullName" class="form-label" data-translate="name">Full Name</label>
-                            <input type="text" class="form-control" id="studentFullName" required>
-                            <div class="invalid-feedback" data-translate="nameRequired">Full name is required.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="studentLevel" class="form-label" data-translate="level">Level</label>
-                            <select class="form-select" id="studentLevel" required>
-                                <option value="Basic" data-translate="basicClass">Basic Class</option>
-                                <option value="Medium" data-translate="mediumClass">Medium Class</option>
-                                <option value="High" data-translate="highClass">High Class</option>
-                            </select>
-                            <div class="invalid-feedback" data-translate="levelRequired">Level is required.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="studentClass" class="form-label" data-translate="class">Class</label>
-                            <select class="form-select" id="studentClass" required></select>
-                            <div class="invalid-feedback" data-translate="classRequired">Class is required.</div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="studentGender" class="form-label" data-translate="gender">Gender</label>
-                            <select class="form-select" id="studentGender" required>
-                                <option value="Male" data-translate="male">Male</option>
-                                <option value="Female" data-translate="female">Female</option>
-                                <option value="Other" data-translate="other">Other</option>
-                            </select>
-                            <div class="invalid-feedback" data-translate="genderRequired">Gender is required.</div>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-full" data-translate="saveStudent">Save Student</button>
-                    </form>
-                </div>
-            </div>
-        </div>
+<!-- Add/Edit Student Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="studentModalLabel" data-translate="addStudent">Add Student</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="studentForm" novalidate enctype="multipart/form-data">
+          <!-- Hidden DB primary key -->
+          <input type="hidden" id="studentId">
+
+          <!-- School-assigned Student ID -->
+          <div class="mb-3">
+            <label for="studentCustomId" class="form-label" data-translate="studentCustomId">Student ID</label>
+            <input type="text" class="form-control" id="studentCustomId" required>
+            <div class="invalid-feedback" data-translate="studentIdRequired">Student ID is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentFullName" class="form-label" data-translate="name">Full Name</label>
+            <input type="text" class="form-control" id="studentFullName" required>
+            <div class="invalid-feedback" data-translate="nameRequired">Full name is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentGuardianPhone" class="form-label" data-translate="guardianPhone">Guardian Phone</label>
+            <input type="tel" class="form-control" id="studentGuardianPhone" required>
+            <div class="invalid-feedback" data-translate="phoneRequired">Guardian phone is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentEmail" class="form-label" data-translate="email">Email Address (Optional)</label>
+            <input type="email" class="form-control" id="studentEmail">
+            <div class="invalid-feedback" data-translate="emailInvalid">Enter a valid email address.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentAddress" class="form-label" data-translate="address">Address</label>
+            <textarea class="form-control" id="studentAddress" required></textarea>
+            <div class="invalid-feedback" data-translate="addressRequired">Address is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentGender" class="form-label" data-translate="gender">Gender</label>
+            <select class="form-select" id="studentGender" required>
+              <option value="Male" data-translate="male">Male</option>
+              <option value="Female" data-translate="female">Female</option>
+              <option value="Other" data-translate="other">Other</option>
+            </select>
+            <div class="invalid-feedback" data-translate="genderRequired">Gender is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentDob" class="form-label" data-translate="dateOfBirth">Date of Birth</label>
+            <input type="date" class="form-control" id="studentDob" required>
+            <div class="invalid-feedback" data-translate="dobRequired">Date of birth is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentClasses" class="form-label" data-translate="classes">Classes</label>
+            <select class="form-select" id="studentClasses" multiple required>
+              <!-- Dynamically populated -->
+            </select>
+            <div class="invalid-feedback" data-translate="classesRequired">At least one class is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentSubjects" class="form-label" data-translate="subjects">Subjects</label>
+            <select class="form-select" id="studentSubjects" multiple>
+              <!-- Dynamically populated -->
+            </select>
+            <!-- ❌ removed required -->
+            <div class="invalid-feedback" data-translate="subjectsRequired">At least one subject is required.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="studentProfilePicture" class="form-label" data-translate="profilePicture">Profile Picture (JPEG/PNG, ≤ 200KB)</label>
+            <input type="file" class="form-control" id="studentProfilePicture" accept="image/jpeg,image/png">
+            <div class="invalid-feedback" data-translate="profilePictureInvalid">Please upload a valid JPEG or PNG image (≤ 200KB).</div>
+            <img id="studentProfilePicturePreview" class="profile-picture-preview mt-2" src="/uploads/default.jpg" alt="Profile Picture Preview" style="display:none; max-width:100px; border-radius:50%;">
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100" data-translate="saveStudent">Save Student</button>
+        </form>
+      </div>
     </div>
+  </div>
+</div>
 
     <!-- Add/Edit Admin Modal -->
     <div class="modal fade" id="adminModal" tabindex="-1" aria-labelledby="adminModalLabel" aria-hidden="true">
