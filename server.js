@@ -94,48 +94,6 @@ app.get('/staff-dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'staff_dashboard.html'));
 });
 
-// Staff login route
-app.post('/api/staff-login', async (req, res) => {
-    const { staffId, password } = req.body;
-
-    if (!staffId || !password) {
-        return res.status(400).json({ success: false, message: 'Staff ID and password are required.' });
-    }
-
-    const query = 'SELECT * FROM staff WHERE staff_id = ?';
-    db.query(query, [staffId.trim()], async (err, results) => {
-        if (err) {
-            console.error('Database error during staff login:', err);
-            return res.status(500).json({ success: false, message: 'Server error: ' + err.message });
-        }
-
-        if (results.length === 0) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-        }
-
-        const staff = results[0];
-
-        try {
-            const isMatch = await bcrypt.compare(password, staff.password);
-            if (isMatch || (password === 'default' && staffId.trim() === staff.staff_id)) {
-                req.session.isAuthenticated = true;
-                req.session.staffId = staffId.trim();
-                req.session.role = staff.role;
-                req.session.userType = 'staff';
-                return res.status(200).json({
-                    success: true,
-                    message: staff.first_login ? 'First-time login detected. Please update credentials.' : 'Login successful.',
-                    redirect: staff.first_login ? '/staff-dashboard?first_login=true' : '/staff-dashboard'
-                });
-            } else {
-                return res.status(401).json({ success: false, message: 'Invalid credentials.' });
-            }
-        } catch (error) {
-            console.error('Error comparing passwords:', error);
-            return res.status(500).json({ success: false, message: 'Server error during password verification.' });
-        }
-    });
-});
 
 // Admin login route
 app.post('/api/admin-login', async (req, res) => {
@@ -268,155 +226,233 @@ app.post('/api/update-admin-credentials', async (req, res) => {
     }
 });
 
- // Update staff credentials on first login
-        app.post('/api/update-staff-credentials', async (req, res) => {
-            const { staffId, newStaffId, newPassword, newPhone, newName, newEmail, securityQuestion, securityAnswer } = req.body;
+ // ====================================================================
+// STAFF LOGIN AND FIRST-TIME UPDATE ROUTES
+// ====================================================================
 
-            console.log('Received /api/update-staff-credentials:', { staffId, newStaffId, newPassword: '***', newPhone, newName, newEmail, securityQuestion, securityAnswer });
+// Staff Login
+app.post('/api/staff-login', async (req, res) => {
+    const { staffId, password } = req.body;
+    const trimmedStaffId = staffId ? staffId.trim() : null;
 
-            if (!staffId || !newStaffId || !newPassword || !newPhone || !newName || !securityQuestion || !securityAnswer) {
-                return res.status(400).json({ success: false, message: 'All fields except email are required.' });
-            }
+    if (!trimmedStaffId || !password) {
+        return res.status(400).json({ success: false, message: 'Staff ID and password are required.' });
+    }
 
-            if (securityQuestion.trim().length === 0 || securityAnswer.trim().length === 0) {
-                return res.status(400).json({ success: false, message: 'Security question and answer cannot be empty.' });
-            }
-            // CRITICAL: Server allows simple passwords and handles hashing
-            if (newPassword.trim().length < 6) {
-                return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
-            }
+    const query = 'SELECT staff_id, password, first_login, role FROM staff WHERE staff_id = ? AND status = "Active"';
 
+    db.query(query, [trimmedStaffId], async (err, results) => {
+        if (err) {
+            console.error('[DB_ERROR] Login query failed:', err);
+            return res.status(500).json({ success: false, message: 'Server error. Please try again later.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials or inactive account.' });
+        }
+
+        const staff = results[0];
+        let isAuthenticated = false;
+
+        // 1. Check for FIRST-TIME LOGIN (default password, plain text check)
+        if (staff.first_login && password === 'default') {
+            isAuthenticated = true;
+        } 
+        // 2. Standard Login (compare with HASHED password)
+        else if (!staff.first_login && staff.password) {
             try {
-                const trimmedStaffId = newStaffId.trim();
-                const trimmedName = newName.trim();
-                const trimmedPhone = newPhone.trim();
-                const trimmedQuestion = securityQuestion.trim().toUpperCase();
-                const trimmedAnswer = securityAnswer.trim().toUpperCase();
-                
-                const hashedPassword = await bcrypt.hash(newPassword.trim(), 10); 
-
-                const checkQuery = 'SELECT * FROM staff WHERE staff_id = ? AND staff_id != ?';
-                db.query(checkQuery, [trimmedStaffId, staffId.trim()], (err, results) => {
-                    if (err) {
-                        return res.status(500).json({ success: false, message: `Database error: ${err.message}` });
-                    }
-                    if (results.length > 0) {
-                        return res.status(400).json({ success: false, message: 'Staff ID already exists.' });
-                    }
-
-                    const updateQuery = `
-                        UPDATE staff 
-                        SET staff_id = ?, password = ?, name = ?, phone = ?, email = ?, 
-                            security_question = ?, security_answer = ?, first_login = FALSE 
-                        WHERE staff_id = ?
-                    `;
-                    db.query(
-                        updateQuery,
-                        [trimmedStaffId, hashedPassword, trimmedName, trimmedPhone, newEmail || null, trimmedQuestion, trimmedAnswer, staffId.trim()],
-                        (err, result) => {
-                            if (err) {
-                                return res.status(500).json({ success: false, message: `Database error: ${err.message}` });
-                            }
-                            if (result.affectedRows === 0) {
-                                return res.status(404).json({ success: false, message: 'Staff not found.' });
-                            }
-                            req.session.staffId = trimmedStaffId;
-                            res.status(200).json({
-                                success: true,
-                                message: 'Credentials updated successfully.',
-                                redirect: '/staff-dashboard'
-                            });
-                        }
-                    );
-                });
+                isAuthenticated = await bcrypt.compare(password, staff.password);
             } catch (error) {
-                res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+                console.error('[BCRYPT_ERROR] Comparison failed:', error.message);
+                isAuthenticated = false;
             }
-        });
-
-        // Verify Staff ID
-        app.post('/api/staff/forgot-password/verify-staff-id', (req, res) => {
-            const { staff_id } = req.body;
-            if (!staff_id || staff_id.trim().length === 0) {
-                return res.status(400).json({ success: false, message: 'Staff ID is required.' });
-            }
-
-            const query = 'SELECT security_question FROM staff WHERE staff_id = ?';
-            db.query(query, [staff_id.trim()], (err, results) => {
-                if (err) {
-                    return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
-                }
-                if (results.length === 0) {
-                    return res.status(404).json({ success: false, message: 'Staff ID not found.' });
-                }
-                res.status(200).json({ success: true, securityQuestion: results[0].security_question });
-            });
-        });
-
-        // Verify Security Answer
-        app.post('/api/staff/forgot-password/verify-answer', (req, res) => {
-            const { staff_id, securityAnswer } = req.body;
-
-            if (!staff_id || !securityAnswer || staff_id.trim().length === 0 || securityAnswer.trim().length === 0) {
-                return res.status(400).json({ success: false, message: 'Staff ID and security answer are required.' });
-            }
-
-            const query = 'SELECT security_answer FROM staff WHERE staff_id = ?';
-            db.query(query, [staff_id.trim()], (err, results) => {
-                if (err) {
-                    return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
-                }
-                if (results.length === 0) {
-                    return res.status(404).json({ success: false, message: 'Staff ID not found.' });
-                }
-
-                const storedAnswer = results[0].security_answer;
-                const inputAnswer = securityAnswer.trim().toUpperCase();
-                
-                if (inputAnswer === storedAnswer) {
-                    res.status(200).json({ success: true, message: 'Security answer verified.' });
-                } else {
-                    res.status(401).json({ success: false, message: 'Incorrect security answer.' });
-                }
-            });
-        });
-
-        // Reset Password (Server-Side)
-        app.post('/api/staff/forgot-password/reset-password', async (req, res) => {
-            const { staff_id, newPassword } = req.body;
-
-            if (!staff_id || !newPassword || staff_id.trim().length === 0 || newPassword.trim().length === 0) {
-                return res.status(400).json({ success: false, message: 'Staff ID and new password are required.' });
-            }
+        }
+        
+        if (isAuthenticated) {
+            // Set session variables
+            req.session.isAuthenticated = true;
+            req.session.staffId = staff.staff_id;
+            req.session.role = staff.role;
+            req.session.userType = 'staff';
             
-            // CRITICAL: Server allows simple passwords and handles hashing
-            if (newPassword.trim().length < 6) {
-                return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+            const isFirstLogin = staff.first_login;
+
+            return res.status(200).json({
+                success: true,
+                message: isFirstLogin ? 'First-time login detected. Please update credentials.' : 'Login successful.',
+                redirect: isFirstLogin ? '/staff-dashboard?first_login=true' : '/staff-dashboard'
+            });
+        } else {
+            return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+        }
+    });
+});
+
+// Update staff credentials on first login
+app.post('/api/update-staff-credentials', async (req, res) => {
+    // Note: We are using the original staffId (from the hidden field) to find the record.
+    const { staffId, newStaffId, newPassword, newPhone, newName, newEmail, securityQuestion, securityAnswer } = req.body;
+
+    if (!staffId || !newStaffId || !newPassword || !newPhone || !newName || !securityQuestion || !securityAnswer) {
+        return res.status(400).json({ success: false, message: 'All fields except email are required.' });
+    }
+
+    if (securityQuestion.trim().length === 0 || securityAnswer.trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Security question and answer cannot be empty.' });
+    }
+    
+    if (newPassword.trim().length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    }
+
+    try {
+        const trimmedStaffId = newStaffId.trim();
+        const trimmedName = newName.trim();
+        const trimmedPhone = newPhone.trim();
+        const trimmedQuestion = securityQuestion.trim().toUpperCase();
+        const trimmedAnswer = securityAnswer.trim().toUpperCase();
+        
+        const hashedPassword = await bcrypt.hash(newPassword.trim(), 10); 
+
+        // 1. Check if the new Staff ID is already taken by another user
+        const checkQuery = 'SELECT * FROM staff WHERE staff_id = ? AND staff_id != ?';
+        db.query(checkQuery, [trimmedStaffId, staffId.trim()], (err, results) => {
+            if (err) {
+                return res.status(500).json({ success: false, message: `Database error: ${err.message}` });
+            }
+            if (results.length > 0) {
+                return res.status(400).json({ success: false, message: 'New Staff ID already exists.' });
             }
 
-            try {
-                const hashedPassword = await bcrypt.hash(newPassword.trim(), 10); 
-                const query = 'UPDATE staff SET password = ?, first_login = FALSE WHERE staff_id = ?';
-                db.query(query, [hashedPassword, staff_id.trim()], (err, result) => {
+            // 2. Perform the update
+            const updateQuery = `
+                UPDATE staff 
+                SET staff_id = ?, password = ?, name = ?, phone = ?, email = ?, 
+                    security_question = ?, security_answer = ?, first_login = FALSE 
+                WHERE staff_id = ?
+            `;
+            db.query(
+                updateQuery,
+                [trimmedStaffId, hashedPassword, trimmedName, trimmedPhone, newEmail || null, trimmedQuestion, trimmedAnswer, staffId.trim()],
+                (err, result) => {
                     if (err) {
                         return res.status(500).json({ success: false, message: `Database error: ${err.message}` });
                     }
                     if (result.affectedRows === 0) {
-                        return res.status(404).json({ success: false, message: 'Staff ID not found.' });
+                        return res.status(404).json({ success: false, message: 'Staff not found.' });
                     }
                     
-                    // FIX: Ensure redirect is sent for client-side handling
+                    // Update session with the new staff ID
+                    req.session.staffId = trimmedStaffId;
+                    
                     res.status(200).json({
                         success: true,
-                        message: 'Password reset successfully.',
-                        redirect: '/staff-login' // <-- Directs back to login page
+                        message: 'Credentials updated successfully.',
+                        redirect: '/staff-dashboard'
                     });
-                });
-            } catch (error) {
-                res.status(500).json({ success: false, message: `Error processing password: ${error.message}` });
-            }
+                }
+            );
         });
+    } catch (error) {
+        res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+    }
+});
+
+// ====================================================================
+// FORGOT PASSWORD ROUTES
+// ====================================================================
+
+// Verify Staff ID
+app.post('/api/staff/forgot-password/verify-staff-id', (req, res) => {
+    const { staff_id } = req.body;
+    if (!staff_id || staff_id.trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Staff ID is required.' });
+    }
+
+    const query = 'SELECT security_question FROM staff WHERE staff_id = ?';
+    db.query(query, [staff_id.trim()], (err, results) => {
+        if (err) {
+            return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Staff ID not found.' });
+        }
+        // Check if security question is set (required for reset)
+        if (!results[0].security_question || results[0].security_question.trim().length === 0) {
+             return res.status(404).json({ success: false, message: 'Security question not set. Contact administrator.' });
+        }
+        res.status(200).json({ success: true, securityQuestion: results[0].security_question });
+    });
+});
+
+// Verify Security Answer
+app.post('/api/staff/forgot-password/verify-answer', (req, res) => {
+    const { staff_id, securityAnswer } = req.body;
+
+    if (!staff_id || !securityAnswer || staff_id.trim().length === 0 || securityAnswer.trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Staff ID and security answer are required.' });
+    }
+
+    const query = 'SELECT security_answer FROM staff WHERE staff_id = ?';
+    db.query(query, [staff_id.trim()], (err, results) => {
+        if (err) {
+            return res.status(500).json({ success: false, message: `Server error: ${err.message}` });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Staff ID not found.' });
+        }
+
+        const storedAnswer = results[0].security_answer;
+        // NOTE: Comparing the uppercased answer (as stored during update)
+        const inputAnswer = securityAnswer.trim().toUpperCase();
         
+        if (inputAnswer === storedAnswer) {
+            res.status(200).json({ success: true, message: 'Security answer verified.' });
+        } else {
+            res.status(401).json({ success: false, message: 'Incorrect security answer.' });
+        }
+    });
+});
+
+// Reset Password
+app.post('/api/staff/forgot-password/reset-password', async (req, res) => {
+    const { staff_id, newPassword } = req.body;
+
+    if (!staff_id || !newPassword || staff_id.trim().length === 0 || newPassword.trim().length === 0) {
+        return res.status(400).json({ success: false, message: 'Staff ID and new password are required.' });
+    }
+    
+    if (newPassword.trim().length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+    }
+
+    try {
+        const hashedPassword = await bcrypt.hash(newPassword.trim(), 10); 
+        // Resetting password sets first_login to FALSE, ensuring they don't get the update prompt on next login
+        const query = 'UPDATE staff SET password = ?, first_login = FALSE WHERE staff_id = ?';
+        db.query(query, [hashedPassword, staff_id.trim()], (err, result) => {
+            if (err) {
+                return res.status(500).json({ success: false, message: `Database error: ${err.message}` });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ success: false, message: 'Staff ID not found.' });
+            }
+            
+            res.status(200).json({
+                success: true,
+                message: 'Password reset successfully. Please log in with your new password.',
+                redirect: '/staff-login'
+            });
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: `Error processing password: ${error.message}` });
+    }
+});
+
+// ====================================================================
+// PROFILE PICTURE ROUTES
+// ====================================================================
+
 // Upload staff profile picture
 app.post('/api/staff/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -473,7 +509,6 @@ app.get('/api/staff/profile-picture/:id', (req, res) => {
         res.status(200).json({ success: true, data: results[0].profile_picture });
     });
 });
-
 // Fetch all classes
 app.get('/api/classes', (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -630,12 +665,15 @@ app.get('/api/staff/:id', (req, res) => {
 
 // ================== Add or Update staff ==================
 app.post('/api/staff', async (req, res) => {
-    if (!req.session.isAuthenticated) 
+    if (!req.session.isAuthenticated) {
+        console.error('Unauthorized access attempt to /api/staff');
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
 
     const { id, staff_id, name, email, phone, role, password, classes_taught, subjects_taught, form_master_class } = req.body;
 
     if (!staff_id || !name || !phone || !role) {
+        console.error('Missing required fields:', { staff_id, name, phone, role });
         return res.status(400).json({ success: false, message: 'Required fields are missing.' });
     }
 
@@ -672,7 +710,9 @@ app.post('/api/staff', async (req, res) => {
                         res.status(500).json({ success: false, message: 'Database error.' });
                     });
                 }
-                insertRelationships(result.insertId);
+                const newStaffId = result.insertId; // Capture the new ID
+                console.log(`Created staff with ID: ${newStaffId}, staff_id: ${staff_id}`);
+                insertRelationships(newStaffId);
             });
         }
 
@@ -705,7 +745,7 @@ app.post('/api/staff', async (req, res) => {
         }
 
         function insertRelationships(staffId) {
-            if (classes_taught && classes_taught.length > 0) {
+            if (classes_taught && Array.isArray(classes_taught) && classes_taught.length > 0) {
                 const classValues = classes_taught.map(cls => {
                     const [section_id, class_id] = cls.split(':').map(Number);
                     return [
@@ -728,7 +768,7 @@ app.post('/api/staff', async (req, res) => {
                 }
             }
 
-            if (subjects_taught && subjects_taught.length > 0) {
+            if (subjects_taught && Array.isArray(subjects_taught) && subjects_taught.length > 0) {
                 const subjectValues = subjects_taught.map(subject => {
                     const [section_id, subject_id] = subject.split(':').map(Number);
                     return [staffId, subject_id, section_id, term];
@@ -762,12 +802,17 @@ app.post('/api/staff', async (req, res) => {
             db.commit((err) => {
                 if (err) return rollbackError('Commit error:', err);
 
-                // ✅ Fetch enriched staff data to return
                 fetchEnrichedStaff(staffId, (staff) => {
+                    if (!staff) {
+                        console.error('Failed to fetch enriched staff data for ID:', staffId);
+                        return res.status(500).json({ success: false, message: 'Failed to fetch staff data.' });
+                    }
+                    console.log(`Returning staff data for ID: ${staffId}, staff_id: ${staff.staff_id}, profile_picture: ${staff.profile_picture || 'NULL'}`);
                     res.status(200).json({ 
                         success: true, 
                         message: isUpdate ? 'Staff updated successfully.' : 'Staff created successfully.',
-                        data: staff
+                        data: staff,
+                        id: staffId // Explicitly return the staff ID
                     });
                 });
             });
@@ -782,6 +827,65 @@ app.post('/api/staff', async (req, res) => {
     });
 });
 
+// Helper: Fetch Enriched Staff
+function fetchEnrichedStaff(staffId, callback) {
+    const staffQuery = 'SELECT id, staff_id, name, email, phone, role, profile_picture FROM staff WHERE id = ?';
+    const classesQuery = 'SELECT class_id, western_class_id, section_id FROM staff_classes WHERE staff_id = ?';
+    const subjectsQuery = 'SELECT subject_id, section_id FROM staff_subjects WHERE staff_id = ?';
+    const formMasterQuery = `
+        SELECT class_id, western_class_id, section_id 
+        FROM staff_form_master 
+        WHERE staff_id = ? 
+        AND term = (SELECT MAX(term) FROM staff_form_master) 
+        LIMIT 1
+    `;
+
+    db.query(staffQuery, [staffId], (err, staffResults) => {
+        if (err || staffResults.length === 0) {
+            console.error('Error fetching staff:', err || `No staff found for ID: ${staffId}`);
+            return callback(null);
+        }
+
+        const staff = staffResults[0];
+        console.log(`Fetched staff: ID=${staff.id}, staff_id=${staff.staff_id}, profile_picture=${staff.profile_picture || 'NULL'}`);
+
+        db.query(classesQuery, [staffId], (err, classesResults) => {
+            if (err) {
+                console.error('Error fetching classes for staff ID:', staffId, err);
+                return callback(null);
+            }
+            staff.classes = classesResults.map(r => ({
+                class_id: r.class_id || r.western_class_id,
+                section_id: r.section_id
+            }));
+
+            db.query(subjectsQuery, [staffId], (err, subjectsResults) => {
+                if (err) {
+                    console.error('Error fetching subjects for staff ID:', staffId, err);
+                    return callback(null);
+                }
+                staff.subjects = subjectsResults.map(r => ({
+                    subject_id: r.subject_id,
+                    section_id: r.section_id
+                }));
+
+                db.query(formMasterQuery, [staffId], (err, formMasterResults) => {
+                    if (err) {
+                        console.error('Error fetching form master for staff ID:', staffId, err);
+                        return callback(null);
+                    }
+                    staff.formMaster = formMasterResults.length > 0 ? {
+                        class_id: formMasterResults[0].class_id || formMasterResults[0].western_class_id,
+                        section_id: formMasterResults[0].section_id
+                    } : null;
+
+                    console.log(`Enriched staff data for ID: ${staffId}, profile_picture: ${staff.profile_picture || 'NULL'}`);
+                    callback(staff);
+                });
+            });
+        });
+    });
+}
 // ==========================
 // PUT UPDATE STAFF (SAFE UPDATE)
 // ==========================
@@ -870,7 +974,14 @@ app.put('/api/staff/:id', async (req, res) => {
 
         // 3. Update form master class if sent
         function updateFormMaster(staffId) {
-            if (form_master_class) {
+            // Check if form_master_class is explicitly null or undefined
+            if (form_master_class === null || form_master_class === undefined) {
+                db.query("DELETE FROM staff_form_master WHERE staff_id = ?", [staffId], (err) => {
+                    if (err) return rollbackError("Error clearing form master:", err);
+                    finish(staffId); // No new form master record to insert
+                });
+            } else if (form_master_class) {
+                // Handle case where form_master_class is provided
                 db.query("DELETE FROM staff_form_master WHERE staff_id = ?", [staffId], (err) => {
                     if (err) return rollbackError("Error clearing old form master:", err);
 
@@ -885,7 +996,7 @@ app.put('/api/staff/:id', async (req, res) => {
                     );
                 });
             } else {
-                finish(staffId); // skip form master update
+                finish(staffId); // No changes to form master if form_master_class is an empty string or other falsy value
             }
         }
 
@@ -955,7 +1066,6 @@ function fetchEnrichedStaff(staffId, callback) {
         });
     });
 }
-
 
 // Delete staff member
 app.delete('/api/staff/:id', (req, res) => {

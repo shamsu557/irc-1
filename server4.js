@@ -454,80 +454,61 @@ app.post('/api/staff/forgot-password/reset-password', async (req, res) => {
 // ====================================================================
 
 // Upload staff profile picture
-app.post('/api/staff/upload-profile-picture', (req, res) => {
-    // You need a way to pass the staffId in the request body, 
-    // even if it's already in the session, as Multer processes the body before checking session/auth middleware.
-    
-    // NOTE: In a real app, you would verify the staffId against req.session.staffId here.
-    // Assuming staffId is passed in the body for Multer filename generation
-    const staffIdFromClient = req.body.staffId; 
-    
-    if (!req.session.isAuthenticated) {
-        return res.status(401).json({ success: false, message: 'Unauthorized. Please log in.' });
-    }
-    
-    upload(req, res, (err) => {
-        if (err) {
-            return res.status(400).json({ success: false, message: err });
-        }
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: 'No file selected.' });
-        }
-        
-        // Ensure the uploaded file belongs to the logged-in user
-        // We use req.session.staffId to look up the ID, NOT req.body.staffId, for security.
-        const loggedInStaffId = req.session.staffId; 
-        
-        if (!loggedInStaffId) {
-            return res.status(401).json({ success: false, message: 'Session expired or staff ID missing.' });
-        }
-
-        const filePath = req.file.path; // Multer returns the full path
-        const query = 'UPDATE staff SET profile_picture = ? WHERE staff_id = ?'; // Updated to use staff_id
-
-        db.query(query, [filePath, loggedInStaffId], (dbErr, result) => {
-            if (dbErr) {
-                console.error('Error uploading staff profile picture:', dbErr);
-                // In case of DB error, you might want to delete the file
-                return res.status(500).json({ success: false, message: 'Database error. File saved but DB not updated.' });
-            }
-            if (result.affectedRows === 0) {
-                return res.status(404).json({ success: false, message: 'Staff member not found in DB.' });
-            }
-            res.status(200).json({ success: true, message: 'Profile picture saved successfully.', filePath });
-        });
-    });
-});
-
-// Retrieve staff profile picture
-app.get('/api/staff/profile-picture/:staffId', (req, res) => {
-    // NOTE: This route uses :staffId in the URL path, assuming the client knows the ID.
-    // For production, you should only allow access to the logged-in user's picture.
-    
-    // You must be logged in to access this route
+app.post('/api/staff/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
 
-    const requestedStaffId = req.params.staffId;
-    const query = 'SELECT profile_picture FROM staff WHERE staff_id = ?';
+    const { staffId } = req.body;
 
-    db.query(query, [requestedStaffId], (err, results) => {
+    if (!staffId) {
+        return res.status(400).json({ success: false, message: 'Staff ID is required.' });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: 'No file uploaded.' });
+    }
+
+    try {
+        const filePath = `uploads/${req.file.filename}`;
+        const query = 'UPDATE staff SET profile_picture = ? WHERE id = ?';
+
+        db.query(query, [filePath, staffId], (err, result) => {
+            if (err) {
+                console.error('Error uploading staff profile picture:', err);
+                return res.status(500).json({ success: false, message: 'Database error.' });
+            }
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ success: false, message: 'Staff member not found.' });
+            }
+            res.status(200).json({ success: true, message: 'Staff Records Save successfully.', filePath });
+        });
+    } catch (error) {
+        console.error('Error processing profile picture:', error);
+        res.status(500).json({ success: false, message: 'Error processing image.' });
+    }
+});
+
+// Retrieve staff profile picture
+app.get('/api/staff/profile-picture/:id', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const staffId = req.params.id;
+    const query = 'SELECT profile_picture FROM staff WHERE id = ?';
+
+    db.query(query, [staffId], (err, results) => {
         if (err) {
             console.error('Error fetching staff profile picture:', err);
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
-        
-        const picturePath = (results.length > 0 && results[0].profile_picture) 
-            ? results[0].profile_picture 
-            : 'uploads/default.jpg'; 
-            
-        // Send the file directly (using express.static or res.sendFile) or just the path
-        // For simplicity, this endpoint returns the path/URL.
-        res.status(200).json({ success: true, data: picturePath });
+        if (results.length === 0 || !results[0].profile_picture) {
+            return res.status(200).json({ success: true, data: 'uploads/default.jpg' }); // Default image
+        }
+        res.status(200).json({ success: true, data: results[0].profile_picture });
     });
 });
-
 // Fetch all classes
 app.get('/api/classes', (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -684,12 +665,15 @@ app.get('/api/staff/:id', (req, res) => {
 
 // ================== Add or Update staff ==================
 app.post('/api/staff', async (req, res) => {
-    if (!req.session.isAuthenticated) 
+    if (!req.session.isAuthenticated) {
+        console.error('Unauthorized access attempt to /api/staff');
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
 
     const { id, staff_id, name, email, phone, role, password, classes_taught, subjects_taught, form_master_class } = req.body;
 
     if (!staff_id || !name || !phone || !role) {
+        console.error('Missing required fields:', { staff_id, name, phone, role });
         return res.status(400).json({ success: false, message: 'Required fields are missing.' });
     }
 
@@ -726,7 +710,9 @@ app.post('/api/staff', async (req, res) => {
                         res.status(500).json({ success: false, message: 'Database error.' });
                     });
                 }
-                insertRelationships(result.insertId);
+                const newStaffId = result.insertId; // Capture the new ID
+                console.log(`Created staff with ID: ${newStaffId}, staff_id: ${staff_id}`);
+                insertRelationships(newStaffId);
             });
         }
 
@@ -759,7 +745,7 @@ app.post('/api/staff', async (req, res) => {
         }
 
         function insertRelationships(staffId) {
-            if (classes_taught && classes_taught.length > 0) {
+            if (classes_taught && Array.isArray(classes_taught) && classes_taught.length > 0) {
                 const classValues = classes_taught.map(cls => {
                     const [section_id, class_id] = cls.split(':').map(Number);
                     return [
@@ -782,7 +768,7 @@ app.post('/api/staff', async (req, res) => {
                 }
             }
 
-            if (subjects_taught && subjects_taught.length > 0) {
+            if (subjects_taught && Array.isArray(subjects_taught) && subjects_taught.length > 0) {
                 const subjectValues = subjects_taught.map(subject => {
                     const [section_id, subject_id] = subject.split(':').map(Number);
                     return [staffId, subject_id, section_id, term];
@@ -816,12 +802,17 @@ app.post('/api/staff', async (req, res) => {
             db.commit((err) => {
                 if (err) return rollbackError('Commit error:', err);
 
-                // ✅ Fetch enriched staff data to return
                 fetchEnrichedStaff(staffId, (staff) => {
+                    if (!staff) {
+                        console.error('Failed to fetch enriched staff data for ID:', staffId);
+                        return res.status(500).json({ success: false, message: 'Failed to fetch staff data.' });
+                    }
+                    console.log(`Returning staff data for ID: ${staffId}, staff_id: ${staff.staff_id}, profile_picture: ${staff.profile_picture || 'NULL'}`);
                     res.status(200).json({ 
                         success: true, 
                         message: isUpdate ? 'Staff updated successfully.' : 'Staff created successfully.',
-                        data: staff
+                        data: staff,
+                        id: staffId // Explicitly return the staff ID
                     });
                 });
             });
@@ -836,6 +827,65 @@ app.post('/api/staff', async (req, res) => {
     });
 });
 
+// Helper: Fetch Enriched Staff
+function fetchEnrichedStaff(staffId, callback) {
+    const staffQuery = 'SELECT id, staff_id, name, email, phone, role, profile_picture FROM staff WHERE id = ?';
+    const classesQuery = 'SELECT class_id, western_class_id, section_id FROM staff_classes WHERE staff_id = ?';
+    const subjectsQuery = 'SELECT subject_id, section_id FROM staff_subjects WHERE staff_id = ?';
+    const formMasterQuery = `
+        SELECT class_id, western_class_id, section_id 
+        FROM staff_form_master 
+        WHERE staff_id = ? 
+        AND term = (SELECT MAX(term) FROM staff_form_master) 
+        LIMIT 1
+    `;
+
+    db.query(staffQuery, [staffId], (err, staffResults) => {
+        if (err || staffResults.length === 0) {
+            console.error('Error fetching staff:', err || `No staff found for ID: ${staffId}`);
+            return callback(null);
+        }
+
+        const staff = staffResults[0];
+        console.log(`Fetched staff: ID=${staff.id}, staff_id=${staff.staff_id}, profile_picture=${staff.profile_picture || 'NULL'}`);
+
+        db.query(classesQuery, [staffId], (err, classesResults) => {
+            if (err) {
+                console.error('Error fetching classes for staff ID:', staffId, err);
+                return callback(null);
+            }
+            staff.classes = classesResults.map(r => ({
+                class_id: r.class_id || r.western_class_id,
+                section_id: r.section_id
+            }));
+
+            db.query(subjectsQuery, [staffId], (err, subjectsResults) => {
+                if (err) {
+                    console.error('Error fetching subjects for staff ID:', staffId, err);
+                    return callback(null);
+                }
+                staff.subjects = subjectsResults.map(r => ({
+                    subject_id: r.subject_id,
+                    section_id: r.section_id
+                }));
+
+                db.query(formMasterQuery, [staffId], (err, formMasterResults) => {
+                    if (err) {
+                        console.error('Error fetching form master for staff ID:', staffId, err);
+                        return callback(null);
+                    }
+                    staff.formMaster = formMasterResults.length > 0 ? {
+                        class_id: formMasterResults[0].class_id || formMasterResults[0].western_class_id,
+                        section_id: formMasterResults[0].section_id
+                    } : null;
+
+                    console.log(`Enriched staff data for ID: ${staffId}, profile_picture: ${staff.profile_picture || 'NULL'}`);
+                    callback(staff);
+                });
+            });
+        });
+    });
+}
 // ==========================
 // PUT UPDATE STAFF (SAFE UPDATE)
 // ==========================
@@ -924,7 +974,14 @@ app.put('/api/staff/:id', async (req, res) => {
 
         // 3. Update form master class if sent
         function updateFormMaster(staffId) {
-            if (form_master_class) {
+            // Check if form_master_class is explicitly null or undefined
+            if (form_master_class === null || form_master_class === undefined) {
+                db.query("DELETE FROM staff_form_master WHERE staff_id = ?", [staffId], (err) => {
+                    if (err) return rollbackError("Error clearing form master:", err);
+                    finish(staffId); // No new form master record to insert
+                });
+            } else if (form_master_class) {
+                // Handle case where form_master_class is provided
                 db.query("DELETE FROM staff_form_master WHERE staff_id = ?", [staffId], (err) => {
                     if (err) return rollbackError("Error clearing old form master:", err);
 
@@ -939,7 +996,7 @@ app.put('/api/staff/:id', async (req, res) => {
                     );
                 });
             } else {
-                finish(staffId); // skip form master update
+                finish(staffId); // No changes to form master if form_master_class is an empty string or other falsy value
             }
         }
 
@@ -1009,7 +1066,6 @@ function fetchEnrichedStaff(staffId, callback) {
         });
     });
 }
-
 
 // Delete staff member
 app.delete('/api/staff/:id', (req, res) => {
