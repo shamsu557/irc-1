@@ -2128,80 +2128,50 @@ app.get('/api/memorization-progress/:studentId', (req, res) => {
 });
 
 
-// Student login endpoint
+// ======================
+// STUDENT LOGIN ENDPOINT
+// ======================
 app.post('/api/student-login', (req, res) => {
     const { studentId } = req.body;
 
     if (!studentId) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'Student ID is required.' 
+        return res.status(400).json({
+            success: false,
+            message: 'Student ID is required.'
         });
     }
 
-    // Validate student_id format (e.g., IRC/25/WE/213, HIR/25/, HIR/25/TAH/0001)
-    const studentIdRegex = /^[A-Z]+\/\d{2}\/[A-Z]*\/\d*$/;
-    if (!studentIdRegex.test(studentId)) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'Invalid Student ID format. Expected format: [LETTERS]/[2-digit year]/[LETTERS]/[number] (e.g., IRC/25/WE/213 or HIR/25/).' 
-        });
-    }
+    // Since password = studentId, we only check if the student exists
+    const query = 'SELECT * FROM student WHERE student_id = ? LIMIT 1';
 
-    // Query to find student by student_id
-    const query = 'SELECT id, student_id, full_name, profile_picture FROM Students WHERE student_id = ?';
     db.query(query, [studentId], (err, results) => {
         if (err) {
-            console.error('Database error during student login:', err);
-            return res.status(500).json({ 
-                success: false, 
-                message: 'Server error: ' + err.message 
+            console.error('Database error:', err);
+            return res.status(500).json({
+                success: false,
+                message: 'Server error. Please try again later.'
             });
         }
 
         if (results.length === 0) {
-            return res.status(401).json({ 
-                success: false, 
-                message: 'Invalid Student ID.' 
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid Student ID or Password.'
             });
         }
 
-        const student = results[0];
-        req.session.isAuthenticated = true;
-        req.session.studentId = student.id; // Store internal ID for queries
-        req.session.student_id = student.student_id; // Store student_id for display
-        req.session.userType = 'student';
-
-        res.status(200).json({
+        // ✅ Login success
+        return res.json({
             success: true,
-            message: 'Login successful.',
-            redirect: '/student-dashboard'
-        });
-    });
-});
-
-
-// Optional: Endpoint to fetch student details for dashboard
-app.get('/api/student/:id', (req, res) => {
-    const studentId = req.params.id;
-    const query = 'SELECT id, student_id, full_name, profile_picture FROM Students WHERE id = ?';
-    db.query(query, [studentId], (err, results) => {
-        if (err) {
-            console.error('Database error fetching student:', err);
-            return res.status(500).json({ 
-                success: false, 
-                message: 'Database error.' 
-            });
-        }
-        if (results.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Student not found.' 
-            });
-        }
-        res.status(200).json({ 
-            success: true, 
-            data: results[0] 
+            message: 'Login successful',
+            redirect: '/student_dashboard.html',
+            student: {
+                id: results[0].id,
+                student_id: results[0].student_id,
+                full_name: results[0].full_name,
+                email: results[0].email,
+                profile_picture: results[0].profile_picture
+            }
         });
     });
 });
@@ -2211,3 +2181,4 @@ app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 
 });
+
