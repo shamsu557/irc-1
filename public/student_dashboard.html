@@ -1,137 +1,436 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Student Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body {
-      background-color: #f8f9fa;
-    }
-    .sidebar {
-      height: 100vh;
-      background-color: #343a40;
-      color: white;
-      padding: 20px;
-      position: fixed;
-      width: 220px;
-    }
-    .sidebar a {
-      display: block;
-      padding: 10px;
-      color: white;
-      text-decoration: none;
-      border-radius: 5px;
-      margin-bottom: 5px;
-    }
-    .sidebar a:hover {
-      background-color: #495057;
-    }
-    .content {
-      margin-left: 240px;
-      padding: 20px;
-    }
-    .profile-pic {
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      object-fit: cover;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-translate="studentDashboard">Student Dashboard - Ibadurrahman College</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <style>
+        /* Modernized Styles */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Amiri:wght@400;700&display=swap');
+        :root {
+            --primary-color: #10b981; /* Emerald Green */
+            --primary-dark: #059669; 
+            --secondary-color: #4b5563; /* Gray-600 */
+            --light-color: #f9fafb; 
+            --white-color: #ffffff;
+            --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); 
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-color);
+            min-height: 100vh;
+        }
+        .text-arabic {
+            font-family: 'Amiri', serif;
+        }
+        .sidebar {
+            background-color: var(--primary-dark);
+            color: white;
+            min-height: 100vh;
+            padding: 1.5rem 1rem;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.1);
+        }
+        .sidebar a {
+            display: flex;
+            align-items: center;
+            padding: 1rem 1rem;
+            color: rgba(255, 255, 255, 0.9);
+            border-radius: 0.75rem;
+            margin-bottom: 0.75rem;
+            transition: background 0.3s, transform 0.2s;
+            font-weight: 500;
+            text-decoration: none;
+        }
+        .sidebar a:hover, .sidebar .active {
+            background-color: var(--primary-color);
+            color: var(--white-color);
+            transform: translateX(3px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .topbar {
+            background-color: var(--white-color);
+            padding: 1.5rem 2rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .card-custom {
+            border-radius: 1.5rem; 
+            box-shadow: var(--card-shadow);
+            border: none;
+            transition: transform 0.3s ease;
+        }
+        .card-custom:hover {
+            transform: translateY(-5px);
+        }
+        .btn-primary-custom {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn-primary-custom:hover {
+            background-color: var(--primary-dark);
+            border-color: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .text-primary-color {
+            color: var(--primary-color);
+        }
+    </style>
 </head>
-<body>
-  <!-- Sidebar -->
-  <div class="sidebar">
-    <h4>Student Portal</h4>
-    <hr>
-    <a href="#" id="viewProfile">👤 Profile</a>
-    <a href="#" id="viewIdCard">🪪 ID Card</a>
-    <a href="#" id="viewResults">📄 Results</a>
-    <a href="#" id="logout">🚪 Logout</a>
-  </div>
-
-  <!-- Content -->
-  <div class="content">
-    <h2>Welcome, <span id="studentName">Student</span></h2>
-    <p>Student ID: <span id="studentId"></span></p>
-
-    <!-- Profile Section -->
-    <div id="profileSection" class="mt-4">
-      <h4>Profile</h4>
-      <img id="profilePic" src="" alt="Profile Picture" class="profile-pic mb-3">
-      <p><b>Full Name:</b> <span id="profileName"></span></p>
-      <p><b>Email:</b> <span id="profileEmail"></span></p>
+<body class="d-flex">
+    <div class="sidebar col-md-3 col-lg-2 d-none d-md-block">
+        <h4 class="fw-bold mb-5 mt-2 text-3xl"><i class="fas fa-graduation-cap me-2"></i> IRC</h4>
+        <a href="#" class="active"><i class="fas fa-home me-3"></i> <span data-translate="dashboard">Dashboard</span></a>
+        <a href="#"><i class="fas fa-id-card me-3"></i> <span data-translate="idCard">ID Card</span></a>
+        <a href="#"><i class="fas fa-file-alt me-3"></i> <span data-translate="results">Results</span></a>
+        <a href="#"><i class="fas fa-book-open me-3"></i> <span data-translate="hifz">Hifz Progress</span></a>
+        <a href="#"><i class="fas fa-cogs me-3"></i> <span data-translate="settings">Settings</span></a>
+        <a href="#" onclick="logout()"><i class="fas fa-sign-out-alt me-3"></i> <span data-translate="logout">Logout</span></a>
     </div>
 
-    <!-- ID Card Section -->
-    <div id="idCardSection" class="mt-4" style="display: none;">
-      <h4>ID Card</h4>
-      <div class="card p-3" style="max-width: 350px;">
-        <h5 id="idCardName"></h5>
-        <p><b>ID:</b> <span id="idCardId"></span></p>
-        <button class="btn btn-sm btn-primary">Download ID Card</button>
-      </div>
+    <div class="flex-grow-1 d-flex flex-column">
+        <div class="topbar d-flex justify-content-between align-items-center">
+            <h4 class="mb-0 fw-bold text-gray-700">
+                <span data-translate="welcome">Welcome</span>, <span id="studentName" class="text-primary-color">...</span>!
+            </h4>
+            <div class="d-flex align-items-center">
+                <button id="langToggle" class="btn btn-outline-secondary btn-sm rounded-pill px-3 me-2" data-translate="toggleLanguage">العربية</button>
+                <button class="btn btn-danger btn-sm rounded-pill px-3 py-2" onclick="logout()">
+                    <i class="fas fa-sign-out-alt me-1"></i> <span data-translate="logout">Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="container-fluid py-5 px-md-5 flex-grow-1">
+            <h2 class="mb-5 fw-bold text-secondary-color" data-translate="quickOverview">Quick Overview</h2>
+            
+            <div class="row g-4 mb-5">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card card-custom p-4 bg-white">
+                        <div class="d-flex align-items-center">
+                            <div class="p-3 bg-emerald-100 rounded-full me-4">
+                                <i class="fas fa-trophy text-2xl text-primary-color"></i>
+                            </div>
+                            <div>
+                                <h6 class="text-uppercase text-muted text-sm mb-1" data-translate="currentGPA">Current GPA</h6>
+                                <p class="h3 fw-bold mb-0 text-primary-dark" id="currentGPA">...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card card-custom p-4 bg-white">
+                        <div class="d-flex align-items-center">
+                            <div class="p-3 bg-blue-100 rounded-full me-4">
+                                <i class="fas fa-clipboard-check text-2xl text-blue-500"></i>
+                            </div>
+                            <div>
+                                <h6 class="text-uppercase text-muted text-sm mb-1" data-translate="attendanceRate">Attendance Rate</h6>
+                                <p class="h3 fw-bold mb-0 text-blue-600" id="attendanceRate">...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card card-custom p-4 bg-white">
+                        <div class="d-flex align-items-center">
+                            <div class="p-3 bg-red-100 rounded-full me-4">
+                                <i class="fas fa-bell text-2xl text-red-500"></i>
+                            </div>
+                            <div>
+                                <h6 class="text-uppercase text-muted text-sm mb-1" data-translate="unreadNotifications">Unread Alerts</h6>
+                                <p class="h3 fw-bold mb-0 text-red-600" id="unreadNotifications">...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card card-custom p-4 bg-white">
+                        <div class="d-flex align-items-center">
+                            <div class="p-3 bg-yellow-100 rounded-full me-4">
+                                <i class="fas fa-chalkboard text-2xl text-yellow-600"></i>
+                            </div>
+                            <div>
+                                <h6 class="text-uppercase text-muted text-sm mb-1" data-translate="nextClass">Next Class</h6>
+                                <p class="h6 fw-bold mb-0 text-yellow-700" id="nextClassSubject">...</p>
+                                <p class="text-xs text-muted mb-0" id="nextClassTime">...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card card-custom p-5 bg-white h-100">
+                        <h4 class="fw-bold mb-4 text-gray-700"><i class="fas fa-chart-line me-2 text-primary-color"></i> <span data-translate="recentResults">Recent Results</span></h4>
+                        <p class="text-muted" data-translate="latestExamInfo">Latest Exam: Mid-Term II</p>
+                        <table class="table table-hover mt-3">
+                            <thead>
+                                <tr>
+                                    <th data-translate="subject">Subject</th>
+                                    <th data-translate="score">Score</th>
+                                    <th data-translate="grade">Grade</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentResultsTableBody">
+                                </tbody>
+                        </table>
+                        <a href="#" class="mt-3 btn btn-sm btn-outline-success w-100" data-translate="viewAllResults">View Full Transcript</a>
+                    </div>
+                </div>
+                
+                <div class="col-lg-5">
+                    <div class="card card-custom p-5 bg-white h-100 d-flex flex-column">
+                        <h4 class="fw-bold mb-4 text-gray-700"><i class="fas fa-link me-2 text-primary-color"></i> <span data-translate="usefulLinks">Useful Links</span></h4>
+                        
+                        <div class="d-grid gap-3 mb-4">
+                            <button class="btn btn-primary-custom w-100 py-3 text-white fw-bold"><i class="fas fa-calendar-alt me-2"></i> <span data-translate="viewTimetable">View Timetable</span></button>
+                            <button class="btn btn-primary-custom w-100 py-3 text-white fw-bold"><i class="fas fa-envelope me-2"></i> <span data-translate="contactTeacher">Contact Teacher</span></button>
+                            <button class="btn btn-primary-custom w-100 py-3 text-white fw-bold"><i class="fas fa-cogs me-2"></i> <span data-translate="accountSettings">Account Settings</span></button>
+                        </div>
+
+                        <div class="mt-auto pt-4 border-top">
+                            <h5 class="fw-bold text-gray-700" data-translate="support">Support</h5>
+                            <p class="text-sm text-muted mb-1">
+                                <i class="fas fa-phone-alt me-2"></i> <span data-translate="guardianPhone">Guardian Phone:</span> <span id="guardianPhone">...</span>
+                            </p>
+                            <p class="text-sm text-muted mb-0">
+                                <i class="fas fa-envelope me-2"></i> <span data-translate="supportEmail">Support Email:</span> info@irc.edu
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Results Section -->
-    <div id="resultsSection" class="mt-4" style="display: none;">
-      <h4>Sessional Results</h4>
-      <table class="table table-bordered">
-        <thead>
-          <tr>
-            <th>Course</th>
-            <th>Grade</th>
-            <th>Remarks</th>
-          </tr>
-        </thead>
-        <tbody id="resultsTable">
-          <tr><td colspan="3" class="text-center">No results yet</td></tr>
-        </tbody>
-      </table>
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-xl shadow-2xl">
+                <div class="modal-header">
+                    <h5 class="modal-title font-bold text-gray-800" id="messageModalLabel">Message</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-6">
+                    <p id="messageText" class="text-gray-700"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal" data-translate="close">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <script>
-    // Get student info from localStorage (saved after login)
-    const student = JSON.parse(localStorage.getItem('student'));
-    if (!student) {
-      window.location.href = '/index.html'; // redirect if not logged in
-    }
+    <script>
+        // --- MOCK DATABASE / API SIMULATION ---
+        
+        // ⚠️ IMPORTANT: In a real application, replace the functions below 
+        // with secure server-side logic (PHP, Python, Node.js) that connects 
+        // to your actual database and serves the data.
+        
+        const mockStudentData = {
+            student_id: 'IRC/25/TAH/0001',
+            full_name: 'Omar Abdullah',
+            guardian_phone: '+2348012345678',
+            class_name: 'Tarmidh Year 2',
+        };
 
-    document.getElementById('studentName').textContent = student.full_name;
-    document.getElementById('studentId').textContent = student.student_id;
+        const mockMetricsData = {
+            gpa: '4.5 / 5.0',
+            attendance: '98.5%',
+            unread_notifications: 2,
+            next_class: { 
+                subject: 'Fiqh II', 
+                time: '11:00 AM - 11:50 AM' 
+            }
+        };
 
-    // Profile
-    document.getElementById('profilePic').src = student.profile_picture || 'https://via.placeholder.com/100';
-    document.getElementById('profileName').textContent = student.full_name;
-    document.getElementById('profileEmail').textContent = student.email;
+        const mockResultsData = [
+            { subject: 'Arabic Language', score: 92, grade: 'A' },
+            { subject: 'Islamic Jurisprudence', score: 85, grade: 'B+' },
+            { subject: 'Quranic Studies', score: 98, grade: 'A+' },
+            { subject: 'Hadith Studies', score: 78, grade: 'B' },
+        ];
 
-    // ID Card
-    document.getElementById('idCardName').textContent = student.full_name;
-    document.getElementById('idCardId').textContent = student.student_id;
+        // Simulate fetching student info
+        async function fetchStudentInfo() {
+            // Simulate network delay
+            await new Promise(resolve => setTimeout(resolve, 50));
+            return { success: true, student: mockStudentData };
+        }
 
-    // Sidebar navigation
-    document.getElementById('viewProfile').addEventListener('click', () => {
-      document.getElementById('profileSection').style.display = 'block';
-      document.getElementById('idCardSection').style.display = 'none';
-      document.getElementById('resultsSection').style.display = 'none';
-    });
-    document.getElementById('viewIdCard').addEventListener('click', () => {
-      document.getElementById('profileSection').style.display = 'none';
-      document.getElementById('idCardSection').style.display = 'block';
-      document.getElementById('resultsSection').style.display = 'none';
-    });
-    document.getElementById('viewResults').addEventListener('click', () => {
-      document.getElementById('profileSection').style.display = 'none';
-      document.getElementById('idCardSection').style.display = 'none';
-      document.getElementById('resultsSection').style.display = 'block';
-      // Here you can fetch results from backend via /api/student-results
-    });
-    document.getElementById('logout').addEventListener('click', () => {
-      localStorage.removeItem('student');
-      window.location.href = '/index.html';
-    });
-  </script>
+        // Simulate fetching dashboard metrics
+        async function fetchDashboardMetrics() {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            return { success: true, data: mockMetricsData };
+        }
+
+        // Simulate fetching recent results
+        async function fetchRecentResults() {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            return { success: true, results: mockResultsData };
+        }
+        
+        // --- TRANSLATIONS AND SETUP ---
+        const translations = {
+            en: {
+                studentDashboard: "Student Dashboard", dashboard: "Dashboard", idCard: "ID Card", results: "Results", settings: "Settings", logout: "Logout",
+                welcome: "Welcome", quickOverview: "Quick Overview", currentGPA: "Current GPA", attendanceRate: "Attendance Rate", 
+                nextClass: "Next Class", unreadNotifications: "Unread Alerts", recentResults: "Recent Results", usefulLinks: "Useful Links",
+                viewTimetable: "View Timetable", contactTeacher: "Contact Teacher", accountSettings: "Account Settings", hifz: "Hifz Progress",
+                subject: "Subject", score: "Score", grade: "Grade", viewAllResults: "View Full Transcript", support: "Support",
+                latestExamInfo: "Latest Exam: Mid-Term II", guardianPhone: "Guardian Phone:", supportEmail: "Support Email:",
+                toggleLanguage: "العربية", close: "Close",
+                errors: {
+                    loadError: "Failed to load dashboard data."
+                }
+            },
+            ar: {
+                studentDashboard: "لوحة الطالب", dashboard: "الرئيسية", idCard: "بطاقة الطالب", results: "النتائج", settings: "الإعدادات", logout: "تسجيل الخروج",
+                welcome: "مرحباً", quickOverview: "نظرة عامة سريعة", currentGPA: "المعدل الحالي", attendanceRate: "نسبة الحضور", 
+                nextClass: "الحصة القادمة", unreadNotifications: "تنبيهات غير مقروءة", recentResults: "النتائج الأخيرة", usefulLinks: "روابط مفيدة",
+                viewTimetable: "عرض الجدول", contactTeacher: "التواصل مع المعلم", accountSettings: "إعدادات الحساب", hifz: "متابعة الحفظ",
+                subject: "المادة", score: "الدرجة", grade: "التقدير", viewAllResults: "عرض الكشف الكامل", support: "الدعم",
+                latestExamInfo: "الاختبار الأخير: منتصف الفصل الثاني", guardianPhone: "هاتف ولي الأمر:", supportEmail: "بريد الدعم:",
+                toggleLanguage: "English", close: "إغلاق",
+                errors: {
+                    loadError: "فشل في تحميل بيانات لوحة القيادة."
+                }
+            }
+        };
+
+        let currentLang = localStorage.getItem("lang") || "en";
+
+        // --- DATA POPULATION ---
+        function populateDashboard(student, metrics, results) {
+            // Personal Info
+            const firstName = student.full_name ? student.full_name.split(' ')[0] : "Student";
+            document.getElementById("studentName").innerText = firstName;
+            document.getElementById("guardianPhone").innerText = student.guardian_phone || "N/A";
+            
+            // Summary Cards
+            document.getElementById("currentGPA").innerText = metrics.gpa || "N/A";
+            document.getElementById("attendanceRate").innerText = metrics.attendance || "N/A";
+            document.getElementById("unreadNotifications").innerText = metrics.unread_notifications || 0;
+            
+            // Next Class
+            const nextClassPlaceholder = currentLang === 'ar' ? 'لا توجد حصص' : 'No Class';
+            document.getElementById("nextClassSubject").innerText = metrics.next_class ? (metrics.next_class.subject || nextClassPlaceholder) : nextClassPlaceholder;
+            document.getElementById("nextClassTime").innerText = metrics.next_class ? (metrics.next_class.time || "") : "";
+
+            // Recent Results Table
+            const tableBody = document.getElementById("recentResultsTableBody");
+            tableBody.innerHTML = '';
+            if (results && results.length > 0) {
+                results.slice(0, 3).forEach(item => { // Show up to 3 recent results
+                    const row = tableBody.insertRow();
+                    row.insertCell().textContent = item.subject;
+                    row.insertCell().textContent = item.score;
+                    row.insertCell().textContent = item.grade;
+                });
+            } else {
+                const row = tableBody.insertRow();
+                row.insertCell().textContent = currentLang === 'ar' ? 'لا توجد نتائج لعرضها' : 'No results to display';
+                row.cells[0].colSpan = 3;
+                row.cells[0].classList.add('text-center', 'text-muted');
+            }
+        }
+        
+        // --- DATA FETCHING ---
+        async function checkAndFetchData() {
+            try {
+                // Fetch all data from the mock functions
+                const [studentRes, metricsRes, resultsRes] = await Promise.all([
+                    fetchStudentInfo(),
+                    fetchDashboardMetrics(),
+                    fetchRecentResults()
+                ]);
+
+                if (studentRes.success && metricsRes.success && resultsRes.success) {
+                    populateDashboard(studentRes.student, metricsRes.data, resultsRes.results);
+                } else {
+                    throw new Error("Data retrieval failed.");
+                }
+
+                return studentRes.student; // Return student data for translation updates
+
+            } catch (error) {
+                console.error("Dashboard Initialization Error:", error);
+                showMessageModal("⚠️ Data Error", translations[currentLang].errors.loadError);
+                return null;
+            }
+        }
+        
+        // --- UTILITY FUNCTIONS ---
+        function logout() {
+            // In a real app, this redirects to the login page
+            alert("Logging out (simulated). You would be redirected to the login page now.");
+            window.location.href = "/student_login.html"; // Assuming your login page name
+        }
+
+        window.logout = logout; // Expose to HTML
+
+        function translatePage(lang) {
+            document.querySelectorAll("[data-translate]").forEach((el) => {
+                const key = el.getAttribute("data-translate");
+                const keys = key.split(".");
+                let value = translations[lang];
+                keys.forEach((k) => (value = value?.[k]));
+                if (value) {
+                    el.textContent = value;
+                }
+            });
+            document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr");
+            document.body.classList.toggle('text-arabic', lang === 'ar');
+            localStorage.setItem("lang", lang);
+        }
+
+        function showMessageModal(title, message) {
+            const modalTitle = document.getElementById("messageModalLabel");
+            const modalText = document.getElementById("messageText");
+            const messageModalElement = document.getElementById("messageModal");
+            if (modalTitle && modalText && messageModalElement) {
+                modalTitle.textContent = title;
+                modalText.textContent = message;
+                const modal = new bootstrap.Modal(messageModalElement);
+                modal.show();
+            } else {
+                alert(`${title}: ${message}`);
+            }
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            translatePage(currentLang);
+            
+            const student = await checkAndFetchData();
+            
+            const langToggle = document.getElementById("langToggle");
+            if (langToggle) {
+                langToggle.addEventListener("click", async () => {
+                    currentLang = currentLang === "en" ? "ar" : "en";
+                    translatePage(currentLang);
+                    
+                    // Re-run population to update the 'No Class' or 'No results' placeholders
+                    if (student) {
+                         const metricsRes = await fetchDashboardMetrics();
+                         const resultsRes = await fetchRecentResults();
+                         if(metricsRes.success && resultsRes.success) {
+                            populateDashboard(student, metricsRes.data, resultsRes.results);
+                         }
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>
