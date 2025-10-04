@@ -44,6 +44,7 @@ const translations = {
         securityQuestion3: "What is the name of your first school?",
         securityQuestion4: "What is your favorite book?",
         securityQuestion5: "What is the name of your hometown?",
+        collegeName: "Ibadurrahman College",
         next: "Next",
         close: "Close",
         errors: {
@@ -97,6 +98,7 @@ const translations = {
         securityQuestion3: "ما اسم مدرستك الأولى؟",
         securityQuestion4: "ما هو كتابك المفضل؟",
         securityQuestion5: "ما اسم مدينتك الأصلية؟",
+        collegeName: "كلية عباد الرحمن",
         next: "التالي",
         close: "إغلاق",
         errors: {
