@@ -93,6 +93,15 @@ app.get('/staff-dashboard', (req, res) => {
     }
     res.sendFile(path.join(__dirname, 'public', 'staff_dashboard.html'));
 });
+app.get('/student-dashboard', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.redirect('/student-login');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'student_dashboard.html'));
+});
+app.get('/student-login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'student_login.html'));
+});
 
 
 // Admin login route
@@ -2118,6 +2127,140 @@ app.get('/api/memorization-progress/:studentId', (req, res) => {
     });
 });
 
+// Student Login
+app.post('/api/student-login', async (req, res) => {
+    const { studentId, password } = req.body;
+    const trimmedStudentId = studentId ? studentId.trim() : null;
+
+    if (!trimmedStudentId || !password) {
+        return res.status(400).json({ success: false, message: 'Student ID and password are required.' });
+    }
+
+    const query = 'SELECT id, student_id, full_name FROM Students WHERE student_id = ?';
+
+    db.query(query, [trimmedStudentId], async (err, results) => {
+        if (err) {
+            console.error('[DB_ERROR] Login query failed:', err);
+            return res.status(500).json({ success: false, message: 'Server error. Please try again later.' });
+        }
+
+        if (results.length === 0) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+        }
+
+        const student = results[0];
+        let isAuthenticated = false;
+
+        if (password.trim().toUpperCase() === student.student_id.trim().toUpperCase()) {
+            isAuthenticated = true;
+        }
+
+        if (isAuthenticated) {
+            req.session.isAuthenticated = true;
+            req.session.studentId = student.student_id;
+            req.session.userType = 'student';
+
+            return res.status(200).json({
+                success: true,
+                message: 'Login successful.',
+                redirect: '/student-dashboard'
+            });
+        } else {
+            return res.status(401).json({ success: false, message: 'Invalid credentials.' });
+        }
+    });
+});
+
+// Fetch student details (enriched with classes and subjects)
+app.get('/api/student-details', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'student') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const studentId = req.session.studentId; // e.g., 'HIR/25/TAH/1322222'
+
+    const studentQuery = `
+        SELECT 
+            s.id,
+            s.student_id,
+            s.full_name AS name,
+            s.gender,
+            DATE_FORMAT(s.date_of_birth, '%Y-%m-%d') AS date_of_birth,
+            s.guardian_phone,
+            s.address,
+            s.email,
+            s.profile_picture,
+            GROUP_CONCAT(
+                DISTINCT CASE 
+                    WHEN se.section_id = 1 THEN c.class_name
+                    WHEN se.section_id = 2 THEN w.class_name
+                    ELSE NULL
+                END ORDER BY se.section_id, COALESCE(c.class_name, w.class_name) SEPARATOR ', '
+            ) AS classes,
+            GROUP_CONCAT(
+                DISTINCT su.subject_name ORDER BY su.subject_name SEPARATOR ', '
+            ) AS subjects
+        FROM Students s
+        LEFT JOIN Student_Enrollments se ON s.id = se.student_id
+        LEFT JOIN Classes c ON se.class_ref = c.class_id AND se.section_id = 1
+        LEFT JOIN Western_Classes w ON se.class_ref = w.western_class_id AND se.section_id = 2
+        LEFT JOIN Student_Subjects ss ON se.enrollment_id = ss.enrollment_id
+        LEFT JOIN Subjects su ON ss.subject_id = su.subject_id
+        WHERE s.student_id = ?
+        GROUP BY s.id, s.student_id, s.full_name, s.gender, s.date_of_birth, s.guardian_phone, s.address, s.email, s.profile_picture
+    `;
+
+    db.query(studentQuery, [studentId], (err, studentResults) => {
+        if (err) {
+            console.error('Error fetching student details:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+
+        if (studentResults.length === 0) {
+            console.error(`No student found for student_id: ${studentId}`);
+            return res.status(404).json({ success: false, message: 'Student not found.' });
+        }
+
+        const student = studentResults[0];
+        console.log('Raw student query result:', student); // Debug
+
+        // Debug: Check enrollments and subjects
+        db.query('SELECT * FROM Student_Enrollments WHERE student_id = ?', [student.id], (err, enrollments) => {
+            console.log('Student_Enrollments for student_id:', student.id, enrollments);
+        });
+        db.query(`
+            SELECT ss.*, su.subject_name 
+            FROM Student_Subjects ss 
+            JOIN Student_Enrollments se ON ss.enrollment_id = se.enrollment_id 
+            JOIN Subjects su ON ss.subject_id = su.subject_id 
+            WHERE se.student_id = ?
+        `, [student.id], (err, subjects) => {
+            console.log('Student_Subjects for student_id:', student.id, subjects);
+        });
+
+        student.profile_picture = student.profile_picture
+            ? 'Uploads/' + student.profile_picture.split('/').pop()
+            : 'Uploads/default.jpg';
+        student.classes = student.classes ? student.classes.split(', ').filter(cls => cls && cls !== 'null') : [];
+        student.subjects = student.subjects ? student.subjects.split(', ').filter(sub => sub && sub !== 'null') : [];
+
+        console.log('Processed student data:', student); // Debug
+        res.status(200).json({ success: true, data: student });
+    });
+});
+// Student Logout Route
+app.post('/api/student-logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error destroying session:', err);
+            return res.status(500).json({ success: false, message: 'Logout failed.' });
+        }
+        res.status(200).json({ success: true, message: 'Logged out successfully.', redirect: '/student-login' });
+    });
+});
+
+//server
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
+
 });

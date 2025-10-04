@@ -518,6 +518,478 @@ app.get('/api/staff/profile-picture/:id', (req, res) => {
         res.status(200).json({ success: true, data: results[0].profile_picture });
     });
 });
+
+
+
+// Staff Session (to fetch numeric staff ID)
+app.get('/api/staff-session', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const query = 'SELECT id FROM staff WHERE staff_id = ? AND status = "Active"';
+    db.query(query, [req.session.staffId], (err, results) => {
+        if (err) {
+            console.error('Error fetching staff ID:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ success: false, message: 'Staff not found.' });
+        }
+        res.status(200).json({ success: true, data: { staff_id: results[0].id } });
+    });
+});
+
+// Staff Logout
+app.post('/api/staff-logout', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Error destroying session:', err);
+            return res.status(500).json({ success: false, message: 'Logout failed.' });
+        }
+        res.status(200).json({ success: true, message: 'Logged out successfully.' });
+    });
+});
+
+// Staff Dashboard Stats
+app.get('/api/staff-dashboard-stats/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const staffId = req.params.staffId;
+    const query = `
+        SELECT 
+            COUNT(DISTINCT sc.id) AS totalClasses,
+            COUNT(DISTINCT se.student_id) AS totalStudents,
+            AVG(CASE WHEN sa.date = CURDATE() AND sa.attendance_status = 'Present' THEN 1 ELSE 0 END) * 100 AS attendanceToday,
+            AVG((ssa.ca1_score + ssa.ca2_score + ssa.ca3_score + ssa.exam_score) / 4) AS averageGrade
+        FROM staff s
+        LEFT JOIN staff_classes sc ON s.id = sc.staff_id
+        LEFT JOIN Student_Enrollments se ON sc.section_id = se.section_id AND 
+            ((sc.section_id = 1 AND sc.class_id = se.class_ref) OR 
+             (sc.section_id = 2 AND sc.western_class_id = se.class_ref))
+        LEFT JOIN Student_Attendance sa ON se.enrollment_id = sa.enrollment_id
+        LEFT JOIN Student_Subject_Assessments ssa ON se.enrollment_id = ssa.enrollment_id 
+            AND ssa.subject_id IN (SELECT subject_id FROM staff_subjects WHERE staff_id = s.id)
+        WHERE s.id = ?
+    `;
+    db.query(query, [staffId], (err, results) => {
+        if (err) {
+            console.error('Error fetching dashboard stats:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results[0] });
+    });
+});
+
+// Classes (to fetch class names and levels)
+app.get('/api/classes', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const query = `
+        SELECT 
+            class_id, 
+            NULL AS western_class_id, 
+            class_name, 
+            section_id, 
+            level,
+            (SELECT COUNT(*) FROM Student_Enrollments se 
+             WHERE se.section_id = 1 AND se.class_ref = Classes.class_id) AS student_count
+        FROM Classes
+        WHERE section_id = 1
+        UNION
+        SELECT 
+            NULL AS class_id, 
+            western_class_id, 
+            class_name, 
+            section_id, 
+            level,
+            (SELECT COUNT(*) FROM Student_Enrollments se 
+             WHERE se.section_id = 2 AND se.class_ref = Western_Classes.western_class_id) AS student_count
+        FROM Western_Classes
+        WHERE section_id = 2
+    `;
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching classes:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// Staff Students
+app.get('/api/staff-students/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id } = req.query;
+    const query = `
+        SELECT 
+            s.student_id,
+            s.full_name,
+            s.gender
+        FROM staff st
+        JOIN staff_classes sc ON st.id = sc.staff_id
+        JOIN Student_Enrollments se ON sc.section_id = se.section_id AND 
+            ((sc.section_id = 1 AND sc.class_id = se.class_ref) OR 
+             (sc.section_id = 2 AND sc.western_class_id = se.class_ref))
+        JOIN Students s ON se.student_id = s.id
+        WHERE st.id = ? AND sc.section_id = ? AND 
+              ((sc.section_id = 1 AND sc.class_id = ?) OR 
+               (sc.section_id = 2 AND sc.western_class_id = ?))
+    `;
+    db.query(query, [staffId, section_id, class_id, class_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching students:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// Staff Subjects
+app.get('/api/staff-subjects/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id } = req.query;
+    const query = `
+        SELECT DISTINCT su.subject_id, su.subject_name
+        FROM staff st
+        JOIN staff_subjects ss ON st.id = ss.staff_id
+        JOIN Subjects su ON ss.subject_id = su.subject_id
+        WHERE st.id = ? AND ss.section_id = ?
+    `;
+    db.query(query, [staffId, section_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching subjects:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// Staff Memorization Schemes
+app.get('/api/staff-memorization-schemes', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { class_id } = req.query;
+    const query = `
+        SELECT id, week, day, from_surah_ayah, to_surah_ayah
+        FROM Daily_Memorization_Scheme
+        WHERE class_id = ? AND term = 1
+    `;
+    db.query(query, [class_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching memorization schemes:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// Staff Attendance
+app.get('/api/staff-attendance/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id, date, day } = req.query;
+    const query = `
+        SELECT 
+            s.full_name AS student_name,
+            se.enrollment_id,
+            sa.attendance_status
+        FROM staff st
+        JOIN staff_form_master sfm ON st.id = sfm.staff_id
+        JOIN Student_Enrollments se ON sfm.section_id = se.section_id AND 
+            ((sfm.section_id = 1 AND sfm.class_id = se.class_ref) OR 
+             (sfm.section_id = 2 AND sfm.western_class_id = se.class_ref))
+        JOIN Students s ON se.student_id = s.id
+        LEFT JOIN Student_Attendance sa ON se.enrollment_id = sa.enrollment_id AND sa.date = ? AND sa.attendance_day = ?
+        WHERE st.id = ? AND sfm.section_id = ? AND 
+              ((sfm.section_id = 1 AND sfm.class_id = ?) OR 
+               (sfm.section_id = 2 AND sfm.western_class_id = ?))
+        AND sfm.term = (SELECT MAX(term) FROM staff_form_master)
+    `;
+    db.query(query, [date, day, staffId, section_id, class_id, class_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching attendance:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+app.post('/api/staff-attendance/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id, date, day, attendance } = req.body;
+    db.beginTransaction((err) => {
+        if (err) {
+            console.error('Transaction start error:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        const deleteQuery = `
+            DELETE sa FROM Student_Attendance sa
+            JOIN Student_Enrollments se ON sa.enrollment_id = se.enrollment_id
+            JOIN staff_form_master sfm ON se.section_id = sfm.section_id AND 
+                ((sfm.section_id = 1 AND sfm.class_id = se.class_ref) OR 
+                 (sfm.section_id = 2 AND sfm.western_class_id = se.class_ref))
+            JOIN staff st ON sfm.staff_id = st.id
+            WHERE st.id = ? AND sfm.section_id = ? AND 
+                  ((sfm.section_id = 1 AND sfm.class_id = ?) OR 
+                   (sfm.section_id = 2 AND sfm.western_class_id = ?))
+            AND sa.date = ? AND sa.attendance_day = ?
+            AND sfm.term = (SELECT MAX(term) FROM staff_form_master)
+        `;
+        db.query(deleteQuery, [staffId, section_id, class_id, class_id, date, day], (err) => {
+            if (err) {
+                return db.rollback(() => {
+                    console.error('Error deleting old attendance:', err);
+                    res.status(500).json({ success: false, message: 'Database error.' });
+                });
+            }
+            const insertQuery = `
+                INSERT INTO Student_Attendance (enrollment_id, section_id, attendance_day, attendance_status, date)
+                VALUES ?
+            `;
+            const values = attendance.map(record => [
+                record.enrollment_id,
+                section_id,
+                day,
+                record.attendance_status,
+                date
+            ]);
+            db.query(insertQuery, [values], (err) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Error saving attendance:', err);
+                        res.status(500).json({ success: false, message: 'Database error.' });
+                    });
+                }
+                db.commit((err) => {
+                    if (err) {
+                        return db.rollback(() => {
+                            console.error('Commit error:', err);
+                            res.status(500).json({ success: false, message: 'Database error.' });
+                        });
+                    }
+                    res.status(200).json({ success: true, message: 'Attendance saved.' });
+                });
+            });
+        });
+    });
+});
+
+// Staff Assessments
+app.get('/api/staff-assessments/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id, subject_id } = req.query;
+    const query = `
+        SELECT 
+            s.full_name AS student_name,
+            se.enrollment_id,
+            ssa.ca1_score,
+            ssa.ca2_score,
+            ssa.ca3_score,
+            ssa.exam_score,
+            ssa.comments
+        FROM staff st
+        JOIN staff_classes sc ON st.id = sc.staff_id
+        JOIN Student_Enrollments se ON sc.section_id = se.section_id AND 
+            ((sc.section_id = 1 AND sc.class_id = se.class_ref) OR 
+             (sc.section_id = 2 AND sc.western_class_id = se.class_ref))
+        JOIN Students s ON se.student_id = s.id
+        LEFT JOIN Student_Subject_Assessments ssa ON se.enrollment_id = ssa.enrollment_id 
+            AND ssa.subject_id = ? AND ssa.term = 1
+        WHERE st.id = ? AND sc.section_id = ? AND 
+              ((sc.section_id = 1 AND sc.class_id = ?) OR 
+               (sc.section_id = 2 AND sc.western_class_id = ?))
+    `;
+    db.query(query, [subject_id, staffId, section_id, class_id, class_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching assessments:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+app.post('/api/staff-assessments/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id, subject_id, term, assessments } = req.body;
+    db.beginTransaction((err) => {
+        if (err) {
+            console.error('Transaction start error:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        const deleteQuery = `
+            DELETE ssa FROM Student_Subject_Assessments ssa
+            JOIN Student_Enrollments se ON ssa.enrollment_id = se.enrollment_id
+            JOIN staff_classes sc ON se.section_id = sc.section_id AND 
+                ((sc.section_id = 1 AND sc.class_id = se.class_ref) OR 
+                 (sc.section_id = 2 AND sc.western_class_id = se.class_ref))
+            JOIN staff st ON sc.staff_id = st.id
+            WHERE st.id = ? AND sc.section_id = ? AND 
+                  ((sc.section_id = 1 AND sc.class_id = ?) OR 
+                   (sc.section_id = 2 AND sc.western_class_id = ?))
+            AND ssa.subject_id = ? AND ssa.term = ?
+        `;
+        db.query(deleteQuery, [staffId, section_id, class_id, class_id, subject_id, term], (err) => {
+            if (err) {
+                return db.rollback(() => {
+                    console.error('Error deleting old assessments:', err);
+                    res.status(500).json({ success: false, message: 'Database error.' });
+                });
+            }
+            const insertQuery = `
+                INSERT INTO Student_Subject_Assessments (enrollment_id, subject_id, term, ca1_score, ca2_score, ca3_score, exam_score, comments, date)
+                VALUES ?
+            `;
+            const values = assessments.map(record => [
+                record.enrollment_id,
+                subject_id,
+                term,
+                record.ca1_score,
+                record.ca2_score,
+                record.ca3_score,
+                record.exam_score,
+                record.comments,
+                record.date
+            ]);
+            db.query(insertQuery, [values], (err) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Error saving assessments:', err);
+                        res.status(500).json({ success: false, message: 'Database error.' });
+                    });
+                }
+                db.commit((err) => {
+                    if (err) {
+                        return db.rollback(() => {
+                            console.error('Commit error:', err);
+                            res.status(500).json({ success: false, message: 'Database error.' });
+                        });
+                    }
+                    res.status(200).json({ success: true, message: 'Assessments saved.' });
+                });
+            });
+        });
+    });
+});
+
+// Staff Memorization
+app.get('/api/staff-memorization/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id, scheme_id } = req.query;
+    const query = `
+        SELECT 
+            s.full_name AS student_name,
+            se.enrollment_id,
+            dms.week,
+            dms.day,
+            dms.from_surah_ayah,
+            dms.to_surah_ayah,
+            sma.daily_grade,
+            sma.exam_grade,
+            sma.comments
+        FROM staff st
+        JOIN staff_classes sc ON st.id = sc.staff_id
+        JOIN Student_Enrollments se ON sc.section_id = se.section_id AND 
+            sc.class_id = se.class_ref
+        JOIN Students s ON se.student_id = s.id
+        JOIN Daily_Memorization_Scheme dms ON sc.class_id = dms.class_id
+        LEFT JOIN Student_Memorization_Assessments sma ON se.enrollment_id = sma.enrollment_id 
+            AND sma.scheme_id = dms.id AND sma.date = CURDATE()
+        WHERE st.id = ? AND sc.section_id = 1 AND sc.class_id = ? AND dms.id = ?
+    `;
+    db.query(query, [staffId, class_id, scheme_id], (err, results) => {
+        if (err) {
+            console.error('Error fetching memorization:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+app.post('/api/staff-memorization/:staffId', (req, res) => {
+    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+    const { staffId } = req.params;
+    const { section_id, class_id, scheme_id, memorization } = req.body;
+    db.beginTransaction((err) => {
+        if (err) {
+            console.error('Transaction start error:', err);
+            return res.status(500).json({ success: false, message: 'Database error.' });
+        }
+        const deleteQuery = `
+            DELETE sma FROM Student_Memorization_Assessments sma
+            JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+            JOIN staff_classes sc ON se.section_id = sc.section_id AND sc.class_id = se.class_ref
+            JOIN staff st ON sc.staff_id = st.id
+            WHERE st.id = ? AND sc.section_id = 1 AND sc.class_id = ? 
+            AND sma.scheme_id = ? AND sma.date = CURDATE()
+        `;
+        db.query(deleteQuery, [staffId, class_id, scheme_id], (err) => {
+            if (err) {
+                return db.rollback(() => {
+                    console.error('Error deleting old memorization:', err);
+                    res.status(500).json({ success: false, message: 'Database error.' });
+                });
+            }
+            const insertQuery = `
+                INSERT INTO Student_Memorization_Assessments (enrollment_id, scheme_id, daily_grade, exam_grade, comments, date)
+                VALUES ?
+            `;
+            const values = memorization.map(record => [
+                record.enrollment_id,
+                scheme_id,
+                record.daily_grade,
+                record.exam_grade,
+                record.comments,
+                record.date
+            ]);
+            db.query(insertQuery, [values], (err) => {
+                if (err) {
+                    return db.rollback(() => {
+                        console.error('Error saving memorization:', err);
+                        res.status(500).json({ success: false, message: 'Database error.' });
+                    });
+                }
+                db.commit((err) => {
+                    if (err) {
+                        return db.rollback(() => {
+                            console.error('Commit error:', err);
+                            res.status(500).json({ success: false, message: 'Database error.' });
+                        });
+                    }
+                    res.status(200).json({ success: true, message: 'Memorization progress saved.' });
+                });
+            });
+        });
+    });
+});
+
 // Fetch all classes
 app.get('/api/classes', (req, res) => {
     if (!req.session.isAuthenticated) {
@@ -2127,7 +2599,7 @@ app.get('/api/memorization-progress/:studentId', (req, res) => {
     });
 });
 
-// Student Login
+// Student Login (from previous response)
 app.post('/api/student-login', async (req, res) => {
     const { studentId, password } = req.body;
     const trimmedStudentId = studentId ? studentId.trim() : null;
@@ -2171,6 +2643,7 @@ app.post('/api/student-login', async (req, res) => {
     });
 });
 
+// Student Details (from previous response)
 // Fetch student details (enriched with classes and subjects)
 app.get('/api/student-details', (req, res) => {
     if (!req.session.isAuthenticated || req.session.userType !== 'student') {
@@ -2264,4 +2737,3 @@ app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 
 });
-
