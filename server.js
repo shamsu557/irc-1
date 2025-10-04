@@ -2165,10 +2165,10 @@ app.post('/api/student-login', (req, res) => {
             success: true,
             message: 'Login successful',
             redirect: '/student_dashboard.html',
-            student: {
+            Students: {
                 id: results[0].id,
                 student_id: results[0].student_id,
-                full_name: results[0].full_name,
+                full_name: results[0].name,
                 email: results[0].email,
                 profile_picture: results[0].profile_picture
             }
