@@ -2142,7 +2142,7 @@ app.post('/api/student-login', (req, res) => {
     }
 
     // Since password = studentId, we only check if the student exists
-    const query = 'SELECT * FROM student WHERE student_id = ? LIMIT 1';
+    const query = 'SELECT * FROM Students WHERE student_id = ? LIMIT 1';
 
     db.query(query, [studentId], (err, results) => {
         if (err) {
@@ -2181,4 +2181,3 @@ app.listen(port, () => {
     console.log(`Server running on port ${port}`);
 
 });
-
