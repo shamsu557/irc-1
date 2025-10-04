@@ -3,20 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff Login - Halqatu Ibadurrahman Litahfizil Qur'an</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title data-translate="staffLogin">Staff Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <style>
+        /* CSS STYLES */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Amiri:wght@400;700&display=swap');
         :root {
-            --primary-color: #004d40;
-            --secondary-color: #2f4f4f;
+            --primary-color: #004d40; /* Dark Green */
+            --secondary-color: #2f4f4f; /* Dark Slate Gray */
             --light-color: #f0f8f0;
             --white-color: #ffffff;
             --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--light-color);
             display: flex;
             justify-content: center;
@@ -25,17 +29,18 @@
             color: var(--secondary-color);
             flex-direction: column;
         }
-        
+        .text-arabic {
+            font-family: 'Amiri', serif;
+        }
         .login-container {
             width: 90%;
             max-width: 1200px;
-            background-color: var(--white-color);
+            background-color: var(--white-color); /* Login column background is white */
             border-radius: 1rem;
             box-shadow: var(--card-shadow);
             overflow: hidden;
             margin-top: 2rem;
         }
-
         .branding-panel {
             background-color: var(--secondary-color);
             color: var(--white-color);
@@ -45,32 +50,54 @@
             justify-content: center;
             align-items: center;
         }
-        
-        .login-form-panel {
-            padding: 3rem;
-        }
-
-        .form-control:focus {
-            box-shadow: 0 0 0 0.25rem rgba(0, 77, 64, 0.25);
-            border-color: var(--primary-color);
-        }
-        
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
             transition: background-color 0.3s ease, transform 0.2s ease;
         }
-        
-        .btn-primary:hover {
+          .btn-primary:hover {
             background-color: #00695c;
             border-color: #00695c;
             transform: translateY(-2px);
         }
 
-        .input-group-text {
-            background-color: var(--light-color);
+        .login-form-panel {
+            /* Login panel remains white and standard padding */
+            background-color: var(--white-color);
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
         }
-        
+        .form-control:focus {
+            box-shadow: 0 0 0 0.25rem rgba(0, 77, 64, 0.25);
+            border-color: var(--primary-color);
+        }
+        .btn-primary-custom {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .btn-primary-custom:hover {
+            background-color: #00695c;
+            border-color: #00695c;
+            transform: translateY(-2px);
+        }
+        .password-input-group {
+            position: relative;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding-right: 0.75rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
         .alert-container {
             position: fixed;
             top: 20px;
@@ -78,12 +105,6 @@
             transform: translateX(-50%);
             z-index: 1050;
         }
-
-        .alert-custom {
-            border-radius: 0.5rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-        
         .navbar-custom {
             background-color: var(--white-color);
             padding: 1rem 0;
@@ -93,639 +114,221 @@
             width: 100%;
             box-shadow: var(--card-shadow);
         }
-
         .navbar-custom .navbar-brand,
         .navbar-custom .btn {
             color: var(--secondary-color);
         }
-        
         .brand-text {
             color: var(--secondary-color) !important;
             font-size: 0.8rem;
         }
+        .modal-header {
+            border-bottom: none;
+        }
+        .d-none { display: none !important; } 
     </style>
 </head>
 <body>
-    <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-custom">
         <div class="container">
-            <a class="navbar-brand fw-bold brand-text" href="/">
-                <i class="fas fa-graduation-cap me-2"></i> HIR
+            <a class="navbar-brand fw-bold brand-text mx-auto" href="/">
+                <i class="fas fa-graduation-cap me-2"></i> IRC
             </a>
-            <div class="ms-auto">
+              <div class="ms-auto">
                 <button class="btn btn-primary text-white" onclick="window.location.href='/'" data-translate="backToHome">
                     Back to Home
                 </button>
             </div>
         </div>
     </nav>
+    <br>
+    
     <div class="alert-container"></div>
-    <div class="login-container">
+    
+    <div id="loginFormSection" class="login-container">
         <div class="row g-0">
-            <!-- Left Side - Branding -->
             <div class="col-lg-6 branding-panel text-center">
                 <div>
-                    <p class="lead mb-4" data-translate="secureAccess">Secure access to the Halqatu Ibadurrahman Litahfizil Qur'an staff system.</p>
+                     <h1 class="fw-bold mb-3" data-translate="collegeName">Ibadurrahman College</h1>
+                    <p class="lead mb-4" data-translate="secureAccess">Secure access to the Ibadurrahman College Staff system.</p>
                     <div class="row text-center mt-5">
-                        <div class="col-4">
-                            <i class="fas fa-shield-alt fa-3x mb-3"></i>
-                            <h5 data-translate="secure">Secure</h5>
-                        </div>
-                        <div class="col-4">
-                            <i class="fas fa-cogs fa-3x mb-3"></i>
-                            <h5 data-translate="control">Control</h5>
-                        </div>
-                        <div class="col-4">
-                            <i class="fas fa-chart-line fa-3x mb-3"></i>
-                            <h5 data-translate="analytics">Analytics</h5>
-                        </div>
+                        <div class="col-4"><i class="fas fa-shield-alt fa-3x mb-3"></i><h5 data-translate="secure">Secure</h5></div>
+                        <div class="col-4"><i class="fas fa-cogs fa-3x mb-3"></i><h5 data-translate="control">Control</h5></div>
+                        <div class="col-4"><i class="fas fa-chart-line fa-3x mb-3"></i><h5 data-translate="analytics">Analytics</h5></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right Side - Login/Update Form -->
-            <div class="col-lg-6 login-form-panel d-flex align-items-center">
+            <div class="col-lg-6 login-form-panel">
                 <div class="w-100 mt-4 mt-lg-0">
-                    <!-- Login Form -->
-                    <div id="loginFormSection">
-                        <div class="text-center mb-5">
-                            <h2 class="fw-bold text-dark" data-translate="staffLogin">Staff Login</h2>
-                            <p class="text-muted" data-translate="signInDesc">Sign in to access the staff dashboard. Default password is 'default' for first login.</p>
-                        </div>
-
-                        <form id="staffLoginForm">
-                            <div class="mb-3">
-                                <label for="staffId" class="form-label" data-translate="staffIdLabel">Staff ID</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-user"></i></span>
-                                    <input type="text" class="form-control rounded-end-pill" id="staffId" placeholder="Enter your staff ID (e.g., staff001)" required>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="password" class="form-label" data-translate="passwordLabel">Password</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-lock"></i></span>
-                                    <input type="password" class="form-control rounded-end-pill" id="password" placeholder="Enter your password" required>
-                                    <button class="btn btn-outline-secondary" type="button" id="togglePassword">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-6">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="rememberMe">
-                                        <label class="form-check-label" for="rememberMe" data-translate="rememberMe">Remember me</label>
-                                    </div>
-                                </div>
-                                <div class="col-6 text-end">
-                                    <a href="#" class="text-primary" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal" data-translate="forgotPassword">Forgot Password?</a>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary w-100 py-2 mb-3 rounded-pill" data-translate="signIn">
-                                <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                            </button>
-                        </form>
-
-                        <div class="text-center">
-                            <p class="mb-0 text-muted" data-translate="authorizedOnly">Authorized personnel only</p>
-                        </div>
+                    <div class="text-center mb-5">
+                        <h2 class="fw-bold text-dark" data-translate="staffLogin">Staff Login</h2>
+                        <p class="text-muted" data-translate="signInDesc">Sign in to access the staff dashboard.</p>
                     </div>
 
-                    <!-- Update Credentials Form -->
-                    <div id="updateCredentialsSection" style="display: none;">
-                        <div class="text-center mb-5">
-                            <h2 class="fw-bold text-dark" data-translate="updateCredentials">Update Your Credentials</h2>
-                            <p class="text-muted" data-translate="updateCredentialsDesc">Please update your credentials to continue.</p>
+                    <form id="staffLoginForm" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="staffId" class="form-label" data-translate="staffIdLabel">Staff ID</label>
+                            <div class="input-group">
+                                <span class="input-group-text rounded-start-pill"><i class="fas fa-user"></i></span>
+                                <input type="text" id="staffId" name="staffId" class="form-control rounded-end-pill" placeholder="Enter your staff ID" required>
+                            </div>
+                            <div class="invalid-feedback" data-translate="allFieldsRequired">Staff ID is required.</div>
                         </div>
 
-                        <form id="updateCredentialsForm">
-                            <input type="hidden" id="originalStaffId">
-                            <div class="mb-3">
-                                <label for="newStaffId" class="form-label" data-translate="newStaffIdLabel">New Staff ID</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-user"></i></span>
-                                    <input type="text" class="form-control rounded-end-pill" id="newStaffId" placeholder="Enter new staff ID (e.g., staff001)" required>
+                        <div class="mb-3 password-input-group">
+                            <label for="password" class="form-label" data-translate="passwordLabel">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text rounded-start-pill"><i class="fas fa-lock"></i></span>
+                                <input type="password" id="password" name="password" class="form-control rounded-end-pill" placeholder="Enter your password" required minlength="6">
+                                <span id="togglePassword" class="password-toggle"><i class="fas fa-eye"></i></span>
+                            </div>
+                            <div class="invalid-feedback" data-translate="allFieldsRequired">Password is required and must be at least 6 characters.</div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <div class="form-check">
+                                    <input id="rememberMe" name="rememberMe" type="checkbox" class="form-check-input">
+                                    <label for="rememberMe" class="form-check-label" data-translate="rememberMe">Remember me</label>
                                 </div>
                             </div>
-
-                            <div class="mb-3">
-                                <label for="newName" class="form-label" data-translate="nameLabel">Full Name</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-user-circle"></i></span>
-                                    <input type="text" class="form-control rounded-end-pill" id="newName" placeholder="Enter your full name" required>
-                                </div>
+                            <div class="col-6 text-end">
+                                <a href="#" class="text-primary" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal" data-translate="forgotPassword">Forgot Password?</a>
                             </div>
+                        </div>
 
-                            <div class="mb-3">
-                                <label for="newPassword" class="form-label" data-translate="newPasswordLabel">New Password</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-lock"></i></span>
-                                    <input type="password" class="form-control rounded-end-pill" id="newPassword" placeholder="Enter new password" required>
-                                    <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="newPhone" class="form-label" data-translate="phoneLabel">Phone Number</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-phone"></i></span>
-                                    <input type="tel" class="form-control rounded-end-pill" id="newPhone" placeholder="Enter your phone number" required>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="newEmail" class="form-label" data-translate="emailLabel">Email (Optional)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-envelope"></i></span>
-                                    <input type="email" class="form-control rounded-end-pill" id="newEmail" placeholder="Enter your email">
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="newSecurityQuestion" class="form-label" data-translate="newSecurityQuestion">Security Question</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-question-circle"></i></span>
-                                    <select class="form-control rounded-end-pill" id="newSecurityQuestion" required>
-                                        <option value="" disabled selected data-translate="selectQuestion">Select a security question</option>
-                                        <option value="What is your pet's name?" data-translate="securityQuestion1">What is your pet's name?</option>
-                                        <option value="What is your mother's maiden name?" data-translate="securityQuestion2">What is your mother's maiden name?</option>
-                                        <option value="What is the name of your first school?" data-translate="securityQuestion3">What is the name of your first school?</option>
-                                        <option value="What is your favorite book?" data-translate="securityQuestion4">What is your favorite book?</option>
-                                        <option value="What is the name of your hometown?" data-translate="securityQuestion5">What is the name of your hometown?</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="newSecurityAnswer" class="form-label" data-translate="newSecurityAnswer">Security Answer</label>
-                                <div class="input-group">
-                                    <span class="input-group-text rounded-start-pill"><i class="fas fa-key"></i></span>
-                                    <input type="text" class="form-control rounded-end-pill" id="newSecurityAnswer" placeholder="Enter security answer" required>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="btn btn-primary w-100 py-2 mb-3 rounded-pill" data-translate="updateCredentialsBtn">
-                                <i class="fas fa-save me-2"></i>Update Credentials
-                            </button>
-                        </form>
+                        <button type="submit" class="btn btn-primary-custom w-100 py-2 mb-3 rounded-pill text-white" data-translate="signIn">
+                            <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                        </button>
+                        
+                        <div class="text-center"><p class="mb-0 text-muted" data-translate="authorizedOnly">Authorized personnel only</p></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="updateCredentialsSection" class="d-none login-container">
+        <div class="row g-0">
+            <div class="col-lg-6 branding-panel text-center">
+                <div>
+                    <h1 class="fw-bold mb-3">Ibadurrahman College</h1>
+                    <p class="lead mb-4" data-translate="secureAccess">Secure access to the Ibadurrahman College Staff system.</p>
+                    <div class="row text-center mt-5">
+                        <div class="col-4"><i class="fas fa-shield-alt fa-3x mb-3"></i><h5 data-translate="secure">Secure</h5></div>
+                        <div class="col-4"><i class="fas fa-cogs fa-3x mb-3"></i><h5 data-translate="control">Control</h5></div>
+                        <div class="col-4"><i class="fas fa-chart-line fa-3x mb-3"></i><h5 data-translate="analytics">Analytics</h5></div>
                     </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 login-form-panel">
+                <div class="w-100 mt-4 mt-lg-0">
+                    <div class="text-center mb-5">
+                        <h2 class="fw-bold text-dark" data-translate="updateCredentials">Update Your Credentials</h2>
+                        <p class="text-muted" data-translate="updateCredentialsDesc">Please update your credentials to continue.</p>
+                    </div>
+                    <form id="updateCredentialsForm" class="needs-validation" novalidate>
+                        <input type="hidden" id="originalStaffId"> 
+                        
+                        <div class="mb-3">
+                            <label for="newStaffId" class="form-label" data-translate="newStaffIdLabel">New Staff ID</label>
+                            <input type="text" id="newStaffId" name="newStaffId" class="form-control rounded-pill" required>
+                            <div class="invalid-feedback">New Staff ID is required.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newName" class="form-label" data-translate="nameLabel">Full Name</label>
+                            <input type="text" id="newName" name="newName" class="form-control rounded-pill" required>
+                            <div class="invalid-feedback">Full Name is required.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPhone" class="form-label" data-translate="phoneLabel">Phone Number</label>
+                            <input type="tel" id="newPhone" name="newPhone" class="form-control rounded-pill" required>
+                            <div class="invalid-feedback">Phone Number is required.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newEmail" class="form-label" data-translate="emailLabel">Email (Optional)</label>
+                            <input type="email" id="newEmail" name="newEmail" class="form-control rounded-pill">
+                        </div>
+                        <div class="mb-3 password-input-group">
+                            <label for="newPasswordInput" class="form-label" data-translate="newPasswordLabel">New Password</label>
+                            <input type="password" id="newPasswordInput" name="newPassword" class="form-control rounded-pill" required minlength="6">
+                            <span id="toggleNewPassword" class="password-toggle"><i class="fas fa-eye"></i></span>
+                            <div class="invalid-feedback">Password must be at least 6 characters.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newSecurityQuestion" class="form-label" data-translate="newSecurityQuestion">Security Question</label>
+                            <select id="newSecurityQuestion" name="newSecurityQuestion" class="form-control rounded-pill" required>
+                                <option value="" disabled selected data-translate="selectQuestion">Select a security question</option>
+                                <option value="What is your pet's name?" data-translate="securityQuestion1">What is your pet's name?</option>
+                                <option value="What is your mother's maiden name?" data-translate="securityQuestion2">What is your mother's maiden name?</option>
+                                <option value="What is the name of your first school?" data-translate="securityQuestion3">What is the name of your first school?</option>
+                                <option value="What is your favorite book?" data-translate="securityQuestion4">What is your favorite book?</option>
+                                <option value="What is the name of your hometown?" data-translate="securityQuestion5">What is the name of your hometown?</option>
+                            </select>
+                            <div class="invalid-feedback">Security Question is required.</div>
+                        </div>
+                        <div class="mb-4">
+                            <label for="newSecurityAnswerInput" class="form-label" data-translate="newSecurityAnswer">Security Answer</label>
+                            <input type="text" id="newSecurityAnswerInput" name="newSecurityAnswer" class="form-control rounded-pill" required>
+                            <div class="invalid-feedback">Security Answer is required.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary-custom text-white w-100 py-2 rounded-pill" data-translate="updateCredentialsBtn">Update Credentials</button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Message Modal -->
-    <div class="modal fade message-modal" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="messageModalLabel"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p id="messageText"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="close">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Forgot Password Modal -->
     <div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+            <div class="modal-content rounded-xl shadow-2xl">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="forgotPasswordModalLabel" data-translate="forgotPassword">Forgot Password?</h5>
+                    <h5 class="modal-title font-bold text-gray-800" id="forgotPasswordModalLabel" data-translate="forgotPassword">Forgot Password?</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <div id="forgotStep1">
-                        <div class="mb-3">
+                <div class="modal-body p-6">
+                    <div id="forgotStep1" class="transition duration-300">
+                        <p class="text-sm text-gray-600 mb-4">Enter your Staff ID to begin the password reset process.</p>
+                        <div class="mb-4">
                             <label for="forgotStaffId" class="form-label" data-translate="staffIdLabel">Staff ID</label>
-                            <input type="text" class="form-control" id="forgotStaffId" placeholder="Enter your staff ID (e.g., staff001)" required>
+                            <input type="text" id="forgotStaffId" class="form-control" required>
                         </div>
-                        <button id="forgotNextBtn" class="btn btn-primary w-100" data-translate="next">Next</button>
+                        <button id="forgotNextBtn" type="button" class="btn btn-primary-custom w-100 py-2 rounded-pill text-white" data-translate="next">Next</button>
                     </div>
 
-                    <div id="forgotStep2" style="display: none;">
-                        <div class="mb-3">
-                            <label for="securityQuestionDisplay" class="form-label" data-translate="securityQuestion">Security Question</label>
-                            <p id="securityQuestionDisplay" class="fw-bold"></p>
+                    <div id="forgotStep2" class="d-none transition duration-300">
                         </div>
-                        <div class="mb-3">
-                            <label for="forgotSecurityAnswer" class="form-label" data-translate="securityAnswer">Security Answer</label>
-                            <input type="text" class="form-control" id="forgotSecurityAnswer" required>
-                        </div>
-                        <button id="forgotVerifyBtn" class="btn btn-success w-100" data-translate="verify">Verify</button>
-                    </div>
-
-                    <div id="forgotStep3" style="display: none;">
-                        <div class="mb-3">
-                            <label for="newForgotPassword" class="form-label" data-translate="newPasswordLabel">New Password</label>
-                            <input type="password" class="form-control" id="newForgotPassword" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="confirmForgotPassword" class="form-label" data-translate="confirmPasswordLabel">Confirm Password</label>
-                            <input type="password" class="form-control" id="confirmForgotPassword" required>
-                        </div>
-                        <button id="forgotResetBtn" class="btn btn-warning w-100" data-translate="resetPassword">Reset Password</button>
-                    </div>
+                    <form id="forgotStep3" class="d-none transition duration-300 needs-validation" novalidate>
+                        </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Language Toggle -->
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-xl shadow-2xl">
+                <div class="modal-header">
+                    <h5 class="modal-title font-bold text-gray-800" id="messageModalLabel">Message</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-6">
+                    <p id="messageText" class="text-gray-700"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal" data-translate="close">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <div class="text-center mt-4">
         <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        const translations = {
-            en: {
-                backToHome: "Back to Home",
-                secureAccess: "Secure access to the Halqatu Ibadurrahman Litahfizil Qur'an staff system.",
-                secure: "Secure",
-                control: "Control",
-                analytics: "Analytics",
-                staffLogin: "Staff Login",
-                signInDesc: "Sign in to access the staff dashboard. Default password is 'default' for first login.",
-                staffIdLabel: "Staff ID",
-                passwordLabel: "Password",
-                rememberMe: "Remember me",
-                forgotPassword: "Forgot Password?",
-                signIn: "Sign In",
-                authorizedOnly: "Authorized personnel only",
-                close: "Close",
-                toggleLanguage: "العربية",
-                next: "Next",
-                verify: "Verify",
-                resetPassword: "Reset Password",
-                securityQuestion: "Security Question",
-                securityAnswer: "Security Answer",
-                selectQuestion: "Select a security question",
-                securityQuestion1: "What is your pet's name?",
-                securityQuestion2: "What is your mother's maiden name?",
-                securityQuestion3: "What is the name of your first school?",
-                securityQuestion4: "What is your favorite book?",
-                securityQuestion5: "What is the name of your hometown?",
-                newSecurityQuestion: "Security Question",
-                newSecurityAnswer: "Security Answer",
-                newPasswordLabel: "New Password",
-                confirmPasswordLabel: "Confirm Password",
-                staffIdNotFound: "Staff ID not found.",
-                wrongAnswer: "Incorrect security answer.",
-                passwordMismatch: "Passwords do not match.",
-                passwordResetSuccess: "Password reset successfully. Please log in with your new password.",
-                invalidCredentials: "Invalid credentials.",
-                serverError: "Server error.",
-                updateCredentials: "Update Your Credentials",
-                updateCredentialsDesc: "Please update your credentials to continue.",
-                newStaffIdLabel: "New Staff ID",
-                nameLabel: "Full Name",
-                phoneLabel: "Phone Number",
-                emailLabel: "Email (Optional)",
-                updateCredentialsBtn: "Update Credentials",
-                credentialsUpdated: "Credentials updated successfully.",
-                allFieldsRequired: "All required fields must be provided.",
-                staffIdExists: "Staff ID already exists."
-            },
-            ar: {
-                backToHome: "العودة إلى الرئيسية",
-                secureAccess: "الوصول الآمن إلى نظام كلية عباد الرحمن لتحفيظ القرآن للموظفين.",
-                secure: "آمن",
-                control: "التحكم",
-                analytics: "التحليلات",
-                staffLogin: "تسجيل دخول الموظفين",
-                signInDesc: "قم بتسجيل الدخول للوصول إلى لوحة تحكم الموظفين. كلمة المرور الافتراضية هي 'default' لتسجيل الدخول الأول.",
-                staffIdLabel: "معرف الموظف",
-                passwordLabel: "كلمة المرور",
-                rememberMe: "تذكرني",
-                forgotPassword: "هل نسيت كلمة المرور؟",
-                signIn: "تسجيل الدخول",
-                authorizedOnly: "الأشخاص المخولون فقط",
-                close: "إغلاق",
-                toggleLanguage: "English",
-                next: "التالي",
-                verify: "تحقق",
-                resetPassword: "إعادة تعيين كلمة المرور",
-                securityQuestion: "سؤال الأمان",
-                securityAnswer: "إجابة الأمان",
-                selectQuestion: "اختر سؤال أمان",
-                securityQuestion1: "ما هو اسم حيوانك الأليف؟",
-                securityQuestion2: "ما هو اسم عائلة والدتك قبل الزواج؟",
-                securityQuestion3: "ما هو اسم مدرستك الأولى؟",
-                securityQuestion4: "ما هو كتابك المفضل؟",
-                securityQuestion5: "ما هو اسم مدينتك الأصلية؟",
-                newSecurityQuestion: "سؤال الأمان",
-                newSecurityAnswer: "إجابة الأمان",
-                newPasswordLabel: "كلمة المرور الجديدة",
-                confirmPasswordLabel: "تأكيد كلمة المرور",
-                staffIdNotFound: "معرف الموظف غير موجود.",
-                wrongAnswer: "إجابة الأمان غير صحيحة.",
-                passwordMismatch: "كلمتا المرور غير متطابقتين.",
-                passwordResetSuccess: "تم إعادة تعيين كلمة المرور بنجاح. يرجى تسجيل الدخول بكلمة المرور الجديدة.",
-                invalidCredentials: "بيانات الاعتماد غير صالحة.",
-                serverError: "خطأ في الخادم.",
-                updateCredentials: "تحديث بياناتك",
-                updateCredentialsDesc: "يرجى تحديث بياناتك للمتابعة.",
-                newStaffIdLabel: "معرف الموظف الجديد",
-                nameLabel: "الاسم الكامل",
-                phoneLabel: "رقم الهاتف",
-                emailLabel: "البريد الإلكتروني (اختياري)",
-                updateCredentialsBtn: "تحديث بيانات الاعتماد",
-                credentialsUpdated: "تم تحديث بيانات الاعتماد بنجاح.",
-                allFieldsRequired: "يجب تقديم جميع الحقول المطلوبة.",
-                staffIdExists: "معرف الموظف موجود بالفعل."
-            }
-        };
+    <script src="js/staff_login.js"></script>
 
-        let currentLang = localStorage.getItem('language') || 'en';
-
-        function translatePage(lang) {
-            document.querySelectorAll('[data-translate]').forEach(element => {
-                const key = element.getAttribute('data-translate');
-                element.textContent = translations[lang][key] || element.textContent;
-            });
-            // Update select options dynamically
-            const selectOptions = document.querySelectorAll('#newSecurityQuestion option');
-            selectOptions.forEach(option => {
-                const key = option.getAttribute('data-translate');
-                if (key) {
-                    option.textContent = translations[lang][key] || option.textContent;
-                }
-            });
-            document.documentElement.lang = lang;
-            localStorage.setItem('language', lang);
-            document.getElementById('langToggle').textContent = translations[lang]['toggleLanguage'];
-        }
-
-        document.getElementById('langToggle').addEventListener('click', () => {
-            currentLang = currentLang === 'en' ? 'ar' : 'en';
-            translatePage(currentLang);
-        });
-
-        translatePage(currentLang);
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const staffLoginForm = document.getElementById('staffLoginForm');
-            const updateCredentialsForm = document.getElementById('updateCredentialsForm');
-            const loginFormSection = document.getElementById('loginFormSection');
-            const updateCredentialsSection = document.getElementById('updateCredentialsSection');
-            const staffIdInput = document.getElementById('staffId');
-            const passwordInput = document.getElementById('password');
-            const togglePasswordButton = document.getElementById('togglePassword');
-            const newStaffIdInput = document.getElementById('newStaffId');
-            const newNameInput = document.getElementById('newName');
-            const newPasswordInput = document.getElementById('newPassword');
-            const newPhoneInput = document.getElementById('newPhone');
-            const newEmailInput = document.getElementById('newEmail');
-            const newSecurityQuestionInput = document.getElementById('newSecurityQuestion');
-            const newSecurityAnswerInput = document.getElementById('newSecurityAnswer');
-            const originalStaffIdInput = document.getElementById('originalStaffId');
-            const toggleNewPasswordButton = document.getElementById('toggleNewPassword');
-            
-            const messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
-            const messageModalLabel = document.getElementById('messageModalLabel');
-            const messageText = document.getElementById('messageText');
-
-            function showMessageModal(title, message) {
-                messageModalLabel.textContent = title;
-                messageText.textContent = message;
-                messageModal.show();
-            }
-
-            // Toggle password visibility for login form
-            togglePasswordButton.addEventListener('click', () => {
-                const type = passwordInput.type === 'password' ? 'text' : 'password';
-                passwordInput.type = type;
-                togglePasswordButton.querySelector('i').classList.toggle('fa-eye');
-                togglePasswordButton.querySelector('i').classList.toggle('fa-eye-slash');
-            });
-
-            // Toggle password visibility for update credentials form
-            toggleNewPasswordButton.addEventListener('click', () => {
-                const type = newPasswordInput.type === 'password' ? 'text' : 'password';
-                newPasswordInput.type = type;
-                toggleNewPasswordButton.querySelector('i').classList.toggle('fa-eye');
-                toggleNewPasswordButton.querySelector('i').classList.toggle('fa-eye-slash');
-            });
-
-            // Handle login form submission
-            staffLoginForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-
-                const staffId = staffIdInput.value.trim();
-                const password = passwordInput.value;
-                
-                try {
-                    const response = await fetch('/api/staff-login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ staffId, password })
-                    });
-
-                    const result = await response.json();
-
-                    if (result.success) {
-                        if (result.message.includes('First-time login')) {
-                            loginFormSection.style.display = 'none';
-                            updateCredentialsSection.style.display = 'block';
-                            originalStaffIdInput.value = staffId;
-                            newStaffIdInput.value = staffId;
-                            showMessageModal(translations[currentLang]['updateCredentials'], result.message);
-                        } else {
-                            showMessageModal(translations[currentLang]['signIn'], result.message);
-                            if (result.redirect) {
-                                setTimeout(() => {
-                                    window.location.href = result.redirect;
-                                }, 1000);
-                            }
-                        }
-                    } else {
-                        showMessageModal(translations[currentLang]['close'], result.message);
-                    }
-                } catch (error) {
-                    console.error('Login error:', error);
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['serverError']);
-                }
-            });
-
-            // Handle update credentials form submission
-            updateCredentialsForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-
-                const staffId = originalStaffIdInput.value.trim();
-                const newStaffId = newStaffIdInput.value.trim();
-                const newName = newNameInput.value.trim();
-                const newPassword = newPasswordInput.value;
-                const newPhone = newPhoneInput.value.trim();
-                const newEmail = newEmailInput.value.trim();
-                const newSecurityQuestion = newSecurityQuestionInput.value;
-                const newSecurityAnswer = newSecurityAnswerInput.value.trim();
-
-                if (!newStaffId || !newName || !newPassword || !newPhone || !newSecurityQuestion || !newSecurityAnswer) {
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['allFieldsRequired']);
-                    return;
-                }
-
-                try {
-                    const updateResponse = await fetch('/api/update-staff-credentials', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            staffId, 
-                            newStaffId, 
-                            newName, 
-                            newPassword, 
-                            newPhone, 
-                            newEmail, 
-                            securityQuestion: newSecurityQuestion, 
-                            securityAnswer: newSecurityAnswer 
-                        })
-                    });
-
-                    const updateResult = await updateResponse.json();
-
-                    if (updateResult.success) {
-                        showMessageModal(translations[currentLang]['updateCredentials'], translations[currentLang]['credentialsUpdated']);
-                        if (updateResult.redirect) {
-                            setTimeout(() => {
-                                window.location.href = updateResult.redirect;
-                            }, 1000);
-                        }
-                    } else {
-                        showMessageModal(translations[currentLang]['close'], updateResult.message);
-                    }
-                } catch (error) {
-                    console.error('Error updating credentials:', error);
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['serverError']);
-                }
-            });
-
-            // Forgot Password Logic
-            let forgotStaffId = '';
-            const forgotStep1 = document.getElementById('forgotStep1');
-            const forgotStep2 = document.getElementById('forgotStep2');
-            const forgotStep3 = document.getElementById('forgotStep3');
-            const forgotStaffIdInput = document.getElementById('forgotStaffId');
-            const securityQuestionDisplay = document.getElementById('securityQuestionDisplay');
-            const forgotSecurityAnswerInput = document.getElementById('forgotSecurityAnswer');
-            const newForgotPasswordInput = document.getElementById('newForgotPassword');
-            const confirmForgotPasswordInput = document.getElementById('confirmForgotPassword');
-            const forgotPasswordModal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
-
-            // Step 1: Verify Staff ID
-            document.getElementById('forgotNextBtn').addEventListener('click', async () => {
-                forgotStaffId = forgotStaffIdInput.value.trim();
-                if (!forgotStaffId) {
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['staffIdLabel'] + ' is required.');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/staff/forgot-password/verify-staff-id', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ staff_id: forgotStaffId })
-                    });
-
-                    const result = await response.json();
-                    if (result.success) {
-                        securityQuestionDisplay.textContent = result.securityQuestion;
-                        forgotStep1.style.display = 'none';
-                        forgotStep2.style.display = 'block';
-                        forgotSecurityAnswerInput.focus();
-                    } else {
-                        showMessageModal(translations[currentLang]['close'], translations[currentLang]['staffIdNotFound']);
-                    }
-                } catch (error) {
-                    console.error('Error verifying staff ID:', error);
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['serverError']);
-                }
-            });
-
-            // Step 2: Verify Security Answer
-            document.getElementById('forgotVerifyBtn').addEventListener('click', async () => {
-                const securityAnswer = forgotSecurityAnswerInput.value.trim();
-                if (!securityAnswer) {
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['securityAnswer'] + ' is required.');
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/staff/forgot-password/verify-answer', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ staff_id: forgotStaffId, securityAnswer })
-                    });
-
-                    const result = await response.json();
-                    if (result.success) {
-                        forgotStep2.style.display = 'none';
-                        forgotStep3.style.display = 'block';
-                        newForgotPasswordInput.focus();
-                    } else {
-                        showMessageModal(translations[currentLang]['close'], translations[currentLang]['wrongAnswer']);
-                    }
-                } catch (error) {
-                    console.error('Error verifying security answer:', error);
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['serverError']);
-                }
-            });
-
-            // Step 3: Reset Password
-            document.getElementById('forgotResetBtn').addEventListener('click', async () => {
-                const newPassword = newForgotPasswordInput.value;
-                const confirmPassword = confirmForgotPasswordInput.value;
-
-                if (newPassword !== confirmPassword) {
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['passwordMismatch']);
-                    return;
-                }
-
-                try {
-                    const response = await fetch('/api/staff/forgot-password/reset-password', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ staff_id: forgotStaffId, newPassword })
-                    });
-
-                    const result = await response.json();
-                    if (result.success) {
-                        showMessageModal(translations[currentLang]['close'], translations[currentLang]['passwordResetSuccess']);
-                        forgotPasswordModal.hide();
-                        setTimeout(() => window.location.href = '/staff-login', 2000);
-                    } else {
-                        showMessageModal(translations[currentLang]['close'], result.message);
-                    }
-                } catch (error) {
-                    console.error('Error resetting password:', error);
-                    showMessageModal(translations[currentLang]['close'], translations[currentLang]['serverError']);
-                }
-            });
-
-            // Reset modal state when it's hidden
-            document.getElementById('forgotPasswordModal').addEventListener('hidden.bs.modal', () => {
-                forgotStep1.style.display = 'block';
-                forgotStep2.style.display = 'none';
-                forgotStep3.style.display = 'none';
-                forgotStaffIdInput.value = '';
-                forgotSecurityAnswerInput.value = '';
-                newForgotPasswordInput.value = '';
-                confirmForgotPasswordInput.value = '';
-                forgotStaffId = '';
-            });
-        });
-    </script>
 </body>
 </html>
