@@ -1,3 +1,4 @@
+
 // Assume jsPDF and XLSX are loaded globally
 const { jsPDF } = window.jspdf;
 
@@ -299,7 +300,10 @@ const classMapping = {
 };
 
 let currentLang = localStorage.getItem('language') || 'en';
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:5000'
+  : `https://${window.location.hostname}`;
+
 
 // Modal instances
 const firstLoginModal = new bootstrap.Modal(document.getElementById('firstLoginModal'), { backdrop: 'static', keyboard: false });
@@ -1759,4 +1763,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         translatePage(currentLang);
     })();
+
 });

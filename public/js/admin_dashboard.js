@@ -751,8 +751,9 @@ async function populateSubjects(staff = null, student = null) {
 
         // 🔹 Preselect Staff Subjects
         if (staff?.subjects?.length) {
-            staff.subjects.forEach(subId => {
-                const opt = subjectsTaughtSelect.querySelector(`option[value$=":${subId}"]`);
+            staff.subjects.forEach(sub => {
+                const value = `${sub.section_id}:${sub.subject_id}`;
+                const opt = subjectsTaughtSelect.querySelector(`option[value="${value}"]`);
                 if (opt) opt.selected = true;
             });
         }
@@ -1441,6 +1442,10 @@ document.addEventListener('DOMContentLoaded', () => {
             classes_taught: Array.from(document.getElementById('classesTaught').selectedOptions).map(opt => opt.value).filter(val => val),
             subjects_taught: Array.from(document.getElementById('subjectsTaught').selectedOptions).map(opt => opt.value).filter(val => val)
         };
+        // Force null for form_master_class if role is not Form Teacher
+        if (staffData.role !== 'Form Teacher') {
+            staffData.form_master_class = null;
+        }
         staffData.password = document.getElementById('staffPassword').value;
         const fileInput = document.getElementById('staffProfilePicture');
         const file = fileInput.files[0];
@@ -1630,47 +1635,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Set classes_taught
                     const classesTaughtSelect = document.getElementById('classesTaught');
                     Array.from(classesTaughtSelect.options).forEach(opt => opt.selected = false);
-                    if (staff.classes_taught) {
-                        const classesArray = typeof staff.classes_taught === 'string' 
-                            ? staff.classes_taught.split(',').map(cls => cls.trim()) 
-                            : Array.isArray(staff.classes_taught) 
-                            ? staff.classes_taught 
-                            : [];
-                        classesArray.forEach(cls => {
-                            const option = Array.from(classesTaughtSelect.options).find(opt => opt.value === cls);
+                    if (staff.classes && Array.isArray(staff.classes)) {
+                        staff.classes.forEach(cls => {
+                            const value = `${cls.section_id}:${cls.class_id}`;
+                            const option = Array.from(classesTaughtSelect.options).find(opt => opt.value === value);
                             if (option) {
                                 option.selected = true;
                             } else {
-                                console.warn(`Class ${cls} not found in classesTaught options`);
+                                console.warn(`Class ${value} not found in classesTaught options`);
                             }
                         });
                     } else {
-                        console.warn('staff.classes_taught is empty:', staff.classes_taught);
+                        console.warn('staff.classes is empty or not an array:', staff.classes);
                     }
 
                     // Set subjects_taught
                     const subjectsTaughtSelect = document.getElementById('subjectsTaught');
                     Array.from(subjectsTaughtSelect.options).forEach(opt => opt.selected = false);
-                    if (staff.subjects_taught) {
-                        const subjectsArray = typeof staff.subjects_taught === 'string' 
-                            ? staff.subjects_taught.split(',').map(sub => sub.trim()) 
-                            : Array.isArray(staff.subjects_taught) 
-                            ? staff.subjects_taught 
-                            : [];
-                        subjectsArray.forEach(sub => {
-                            const option = Array.from(subjectsTaughtSelect.options).find(opt => opt.value === sub);
+                    if (staff.subjects && Array.isArray(staff.subjects)) {
+                        staff.subjects.forEach(sub => {
+                            const value = `${sub.section_id}:${sub.subject_id}`;
+                            const option = Array.from(subjectsTaughtSelect.options).find(opt => opt.value === value);
                             if (option) {
                                 option.selected = true;
                             } else {
-                                console.warn(`Subject ${sub} not found in subjectsTaught options`);
+                                console.warn(`Subject ${value} not found in subjectsTaught options`);
                             }
                         });
                     } else {
-                        console.warn('staff.subjects_taught is empty:', staff.subjects_taught);
+                        console.warn('staff.subjects is empty or not an array:', staff.subjects);
                     }
 
                     const formMasterSelect = document.getElementById('formMasterClass');
-                    formMasterSelect.value = staff.form_master_class || '';
+                    formMasterSelect.value = staff.formMaster ? `${staff.formMaster.section_id}:${staff.formMaster.class_id}` : '';
                     document.getElementById('staffPasswordGroup').style.display = 'none';
                     const passwordInput = document.getElementById('staffPassword');
                     passwordInput.value = '';
