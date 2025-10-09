@@ -397,36 +397,44 @@
             </div>
         </div>
 
-        <!-- Student Management View -->
-        <div id="student-management-view" style="display: none;">
-            <h2 class="text-2xl font-semibold mb-4" data-translate="studentManagement">Student Management</h2>
-            <button class="btn btn-primary mb-4" id="addStudentBtn"><i class="fas fa-plus-circle"></i> <span data-translate="addStudent">Add New Student</span></button>
-            <div class="mb-3">
-                <label for="studentClassFilter" class="form-label" data-translate="selectClass">Select Class to View</label>
-                <select class="form-select" id="studentClassFilter">
-                    <option value="">All Classes</option>
-                    <!-- Dynamically populated -->
-                </select>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow table-responsive">
-                <table class="table w-full">
-                    <thead>
-                        <tr>
-                            <th data-translate="studentId">Student ID</th>
-                            <th data-translate="profilePicture">Profile Picture</th>
-                            <th data-translate="name">Full Name</th>
-                            <th data-translate="gender">Gender</th>
-                            <th data-translate="dateOfBirth">Date of Birth</th>
-                            <th data-translate="classes">Class(es)</th>
-                            <th data-translate="guardianPhone">Guardian Phone</th>
-                            <th data-translate="address">Address</th>
-                            <th data-translate="actions">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="studentTableBody"></tbody>
-                </table>
-            </div>
-        </div>
+     <!-- Student Management View -->
+<div id="student-management-view" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="studentManagement">Student Management</h2>
+
+    <button class="btn btn-primary mb-4" id="addStudentBtn">
+        <i class="fas fa-plus-circle"></i> 
+        <span data-translate="addStudent">Add New Student</span>
+    </button>
+
+    <div class="mb-3">
+        <label for="studentClassFilter" class="form-label" data-translate="selectClass">Select Class to View</label>
+        <select class="form-select" id="studentClassFilter">
+            <option value="">All Classes</option>
+            <!-- Dynamically populated -->
+        </select>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow table-responsive">
+        <table class="table w-full">
+            <thead>
+                <tr>
+                    <th data-translate="studentId">Student ID</th>
+                    <th data-translate="profilePicture">Profile Picture</th>
+                    <th data-translate="name">Full Name</th>
+                    <th data-translate="gender">Gender</th>
+                    <th data-translate="dateOfBirth">Date of Birth</th>
+                    <th data-translate="subjects">Subjects</th>
+                    <th data-translate="classes">Class(es)</th> <!-- ✅ Added just after Subjects -->
+                    <th data-translate="guardianPhone">Guardian Phone</th>
+                    <th data-translate="address">Address</th>
+                    <th data-translate="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="studentTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
 
         <!-- Fees Management View -->
         <div id="fees-management-view" style="display: none;">
