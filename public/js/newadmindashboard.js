@@ -448,35 +448,47 @@ const renderStudents = async (students) => {
 
     students.forEach(student => {
         console.log('Rendering student:', student); // Debug: Log student data
-        const dob = student.date_of_birth 
-            ? formatDate(student.date_of_birth)
-            : 'N/A';
-        // Ensure unique class names and map section_id:class_id to names
-        const uniqueClasses = Array.isArray(student.classes) 
-            ? [...new Set(student.classes)].map(cls => classMap[cls] || cls).filter(name => name)
-            : [student.classes || 'N/A'];
-        const classesDisplay = uniqueClasses.join(', ');
+    const dob = student.date_of_birth 
+        ? formatDate(student.date_of_birth)
+        : 'N/A';
 
-        console.log('Student classes:', student.classes, 'Mapped classes:', uniqueClasses); // Debug
+    // ✅ Handle subjects
+    const uniqueSubjects = Array.isArray(student.subjects)
+        ? [...new Set(student.subjects)].filter(s => s)
+        : [student.subjects || 'N/A'];
+    const subjectsDisplay = uniqueSubjects.join(', ');
 
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${student.student_id || student.id}</td>
-            <td>
-                <img src="${student.profile_picture ? '/' + student.profile_picture : '/Uploads/default.jpg'}" 
-                     class="profile-picture" alt="Profile">
-            </td>
-            <td>${student.name || student.full_name || 'N/A'}</td>
-            <td>${student.gender || 'N/A'}</td>
-            <td>${dob}</td>
-            <td>${classesDisplay}</td>
-            <td>${student.guardian_phone || 'N/A'}</td>
-            <td>${student.address || 'N/A'}</td>
-            <td>
-                <button class="btn btn-sm btn-primary edit-button" data-id="${student.id}" data-type="student" data-translate="edit">Edit</button>
-                <button class="btn btn-sm btn-danger delete-button" data-id="${student.id}" data-type="student" data-translate="delete">Delete</button>
-            </td>
-        `;
+    // ✅ Ensure unique class names and map section_id:class_id to names
+    const uniqueClasses = Array.isArray(student.classes) 
+        ? [...new Set(student.classes)].map(cls => classMap[cls] || cls).filter(name => name)
+        : [student.classes || 'N/A'];
+    const classesDisplay = uniqueClasses.join(', ');
+
+    console.log('Student classes:', student.classes, 'Mapped classes:', uniqueClasses); // Debug
+
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${student.student_id || student.id}</td>
+        <td>
+            <img src="${student.profile_picture ? '/' + student.profile_picture : '/Uploads/default.jpg'}" 
+                 class="profile-picture" alt="Profile">
+        </td>
+        <td>${student.name || student.full_name || 'N/A'}</td>
+        <td>${student.gender || 'N/A'}</td>
+        <td>${dob}</td>
+        <td>${subjectsDisplay}</td> <!-- ✅ Added Subjects column -->
+        <td>${classesDisplay}</td>  <!-- ✅ Class(es) column -->
+        <td>${student.guardian_phone || 'N/A'}</td>
+        <td>${student.address || 'N/A'}</td>
+        <td class="flex gap-2">
+            <button class="btn btn-sm btn-primary edit-button" data-id="${student.id}" data-type="student" title="Edit">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-danger delete-button" data-id="${student.id}" data-type="student" title="Delete">
+                <i class="fas fa-trash"></i>
+            </button>
+        </td>
+    `;
         studentTableBody.appendChild(row);
     });
 
@@ -704,6 +716,7 @@ async function populateClasses(staff = null, student = null) {
     }
 }
 
+
 //populate subjects
 
 async function populateSubjects(staff = null, student = null) {
@@ -811,12 +824,59 @@ document.getElementById('studentClasses').addEventListener('change', async () =>
     }
 });
 
-// Export Functions
+// --- Search & Date Filter Logic ---
+document.getElementById('bookingsSearch').addEventListener('input', filterBookings);
+document.getElementById('bookingsDateFrom').addEventListener('change', filterBookings);
+document.getElementById('bookingsDateTo').addEventListener('change', filterBookings);
+
+function filterBookings() {
+    const searchValue = document.getElementById('bookingsSearch').value.toLowerCase();
+    const fromDate = document.getElementById('bookingsDateFrom').value;
+    const toDate = document.getElementById('bookingsDateTo').value;
+    const table = document.getElementById('bookingsTable');
+    const tbody = table.querySelector('tbody');
+    const rows = tbody.getElementsByTagName('tr');
+
+    for (let row of rows) {
+        const cells = row.getElementsByTagName('td');
+        const rowText = row.textContent.toLowerCase();
+
+        const dateCell = cells[cells.length - 1]?.textContent.trim(); // last column: Time Sent
+        let showRow = true;
+
+        // Search Filter
+        if (searchValue && !rowText.includes(searchValue)) {
+            showRow = false;
+        }
+
+        // Date Filter
+        if (fromDate || toDate) {
+            const rowDate = new Date(dateCell);
+            const from = fromDate ? new Date(fromDate) : null;
+            const to = toDate ? new Date(toDate) : null;
+
+            if (from && rowDate < from) showRow = false;
+            if (to && rowDate > to) showRow = false;
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    }
+}
+
+// --- Export Functions ---
 const exportToPDF = () => {
     const doc = new jsPDF();
-    doc.text(translations[currentLang].bookingsManagement, 10, 10);
+    doc.text("Bookings Management", 10, 10);
+
+    // Clone visible rows only
+    const table = document.getElementById('bookingsTable').cloneNode(true);
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display === 'none') row.remove();
+    });
+
     doc.autoTable({
-        html: '#bookingsTable',
+        html: table,
         startY: 20,
         styles: { fontSize: 8 },
         headStyles: { fillColor: [66, 133, 244] },
@@ -826,10 +886,179 @@ const exportToPDF = () => {
 };
 
 const exportToExcel = () => {
-    const table = document.getElementById('bookingsTable');
+    const table = document.getElementById('bookingsTable').cloneNode(true);
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (row.style.display === 'none') row.remove();
+    });
+
     const workbook = XLSX.utils.table_to_book(table, { sheet: "Bookings" });
     XLSX.writeFile(workbook, 'bookings.xlsx');
 };
+
+// --- Event Listeners for Buttons ---
+document.getElementById('exportBookingsPdfBtn').addEventListener('click', exportToPDF);
+document.getElementById('exportBookingsExcelBtn').addEventListener('click', exportToExcel);
+
+
+// ===================== Student Search, Filter & Export =====================
+
+// --- Search and Filter Logic ---
+document.getElementById('studentSearch').addEventListener('input', filterStudents);
+document.getElementById('studentClassFilter').addEventListener('change', filterStudents);
+
+function filterStudents() {
+    const searchValue = document.getElementById('studentSearch').value.toLowerCase();
+    const classValue = document.getElementById('studentClassFilter').value.toLowerCase();
+
+    const tableBody = document.getElementById('studentTableBody');
+    const rows = tableBody.getElementsByTagName('tr');
+
+    for (let row of rows) {
+        const cells = row.getElementsByTagName('td');
+
+        // Correct indices based on your table structure
+        const studentId = cells[1]?.textContent.toLowerCase() || '';
+        const fullName = cells[3]?.textContent.toLowerCase() || '';
+        const classes = cells[7]?.textContent.toLowerCase() || '';
+
+        let show = true;
+        if (searchValue && !studentId.includes(searchValue) && !fullName.includes(searchValue)) show = false;
+        if (classValue && !classes.includes(classValue)) show = false;
+
+        row.style.display = show ? '' : 'none';
+    }
+}
+
+// --- Helper: Prepare Table for Export ---
+function prepareStudentTableForExport() {
+    const table = document.querySelector('#student-management-view table').cloneNode(true);
+
+    // Remove hidden rows
+    table.querySelectorAll('tbody tr').forEach(row => {
+        if (window.getComputedStyle(row).display === 'none') row.remove();
+    });
+
+    // Identify columns to remove (Profile Picture + Actions)
+    const ths = Array.from(table.querySelectorAll('th'));
+    const removeIndices = [];
+    ths.forEach((th, i) => {
+        const text = th.textContent.toLowerCase();
+        if (text.includes('profile') || text.includes('action')) removeIndices.push(i);
+    });
+
+    // Remove columns from last to first, safely checking if cell exists
+    removeIndices.sort((a, b) => b - a).forEach(i => {
+        table.querySelectorAll('tr').forEach(tr => {
+            if (tr.cells[i]) tr.deleteCell(i);
+        });
+    });
+
+    return table;
+}
+
+// --- Export Students to PDF ---
+function exportStudentsToPDF() {
+    const doc = new jsPDF();
+    doc.text("Student Management", 10, 10);
+
+    const table = prepareStudentTableForExport();
+
+    doc.autoTable({
+        html: table,
+        startY: 20,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 133, 244] },
+        bodyStyles: { textColor: [0, 0, 0] }
+    });
+
+    doc.save('students.pdf');
+}
+
+// --- Export Students to Excel ---
+function exportStudentsToExcel() {
+    const table = prepareStudentTableForExport();
+    const workbook = XLSX.utils.table_to_book(table, { sheet: "Students" });
+    XLSX.writeFile(workbook, 'students.xlsx');
+}
+
+// --- Attach Export Buttons ---
+document.getElementById('exportStudentsPdfBtn').addEventListener('click', exportStudentsToPDF);
+document.getElementById('exportStudentsExcelBtn').addEventListener('click', exportStudentsToExcel);
+
+// ===================== Staff Search & Export =====================
+
+// --- Search by Staff ID, Name, Email, or Phone ---
+document.getElementById('staffSearch').addEventListener('input', filterStaff);
+
+function filterStaff() {
+    const searchValue = document.getElementById('staffSearch').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('#staffTableBody tr');
+
+    rows.forEach(row => {
+        // Use innerText to capture all visible text (ignores HTML tags)
+        const rowText = row.innerText.toLowerCase();
+
+        // Show row if search matches anywhere
+        const show = !searchValue || rowText.includes(searchValue);
+        row.style.display = show ? '' : 'none';
+    });
+}
+
+// --- Prepare Table for Export ---
+function prepareStaffTableForExport() {
+    const table = document.querySelector('#staff-management-view table').cloneNode(true);
+
+    // Remove hidden rows
+    table.querySelectorAll('tbody tr').forEach(row => {
+        if (window.getComputedStyle(row).display === 'none') row.remove();
+    });
+
+    // Remove Profile Picture + Actions columns safely
+    const ths = Array.from(table.querySelectorAll('th'));
+    const removeIndices = [];
+    ths.forEach((th, i) => {
+        const text = th.textContent.toLowerCase();
+        if (text.includes('profile') || text.includes('action')) removeIndices.push(i);
+    });
+
+    removeIndices.sort((a, b) => b - a).forEach(i => {
+        table.querySelectorAll('tr').forEach(tr => {
+            if (tr.cells[i]) tr.deleteCell(i);
+        });
+    });
+
+    return table;
+}
+
+// --- Export Staff to PDF ---
+function exportStaffToPDF() {
+    const doc = new jsPDF();
+    doc.text("Staff Management", 10, 10);
+
+    const table = prepareStaffTableForExport();
+    doc.autoTable({
+        html: table,
+        startY: 20,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 133, 244] },
+        bodyStyles: { textColor: [0, 0, 0] }
+    });
+
+    doc.save('staff.pdf');
+}
+
+// --- Export Staff to Excel ---
+function exportStaffToExcel() {
+    const table = prepareStaffTableForExport();
+    const workbook = XLSX.utils.table_to_book(table, { sheet: "Staff" });
+    XLSX.writeFile(workbook, 'staff.xlsx');
+}
+
+// --- Attach Export Buttons ---
+document.getElementById('exportStaffPdfBtn').addEventListener('click', exportStaffToPDF);
+document.getElementById('exportStaffExcelBtn').addEventListener('click', exportStaffToExcel);
+
 
 // Translation Function
 function translatePage(lang) {
