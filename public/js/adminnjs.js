@@ -946,28 +946,28 @@ document.getElementById('exportBookingsExcelBtn').addEventListener('click', expo
 // ===================== Student Search, Filter & Export =====================
 
 // --- Search and Filter Logic ---
-// --- Search and Filter Logic ---
 document.getElementById('studentSearch').addEventListener('input', filterStudents);
 document.getElementById('studentClassFilter').addEventListener('change', filterStudents);
 
 function filterStudents() {
-    const searchValue = document.getElementById('studentSearch').value.toLowerCase().trim();
-    const classValue = document.getElementById('studentClassFilter').value.toLowerCase().trim();
+    const searchValue = document.getElementById('studentSearch').value.toLowerCase();
+    const classValue = document.getElementById('studentClassFilter').value.toLowerCase();
 
-    const rows = document.querySelectorAll('#studentTableBody tr');
+    const tableBody = document.getElementById('studentTableBody');
+    const rows = tableBody.getElementsByTagName('tr');
 
-    rows.forEach(row => {
-        const rowText = row.innerText.toLowerCase(); // includes all text in the row
+    for (let row of rows) {
+        const cells = row.getElementsByTagName('td');
+        const studentId = cells[1]?.textContent.toLowerCase() || '';
+        const fullName = cells[3]?.textContent.toLowerCase() || '';
+        const classes = cells[7]?.textContent.toLowerCase() || '';
+
         let show = true;
-
-        // Match student name, id, or any field
-        if (searchValue && !rowText.includes(searchValue)) show = false;
-
-        // Match selected class
-        if (classValue && !rowText.includes(classValue)) show = false;
+        if (searchValue && !studentId.includes(searchValue) && !fullName.includes(searchValue)) show = false;
+        if (classValue && !classes.includes(classValue)) show = false;
 
         row.style.display = show ? '' : 'none';
-    });
+    }
 }
 
 // --- Helper: Prepare Table for Export ---
