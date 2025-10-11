@@ -877,16 +877,23 @@ function filterBookings() {
 }
 
 // --- Export Functions ---
-// --- Export Functions ---
+// ===================== Bookings Export =====================
+
+// --- Export Bookings to PDF ---
 const exportToPDF = async () => {
     const doc = new jsPDF();
     doc.text("Bookings Management", 10, 10);
+
+    // Correct IDs matching your HTML
+    const fromDate = document.getElementById('bookingsDateFrom')?.value;
+    const toDate = document.getElementById('bookingsDateTo')?.value;
 
     const data = await fetchData('/api/bookings');
     if (data.success) {
         const table = document.createElement('table');
         const thead = table.createTHead();
         const tbody = table.createTBody();
+
         const headers = ['Name', 'Email', 'Gender', 'Date of Birth', 'Phone', 'Address', 'Message', 'Time Sent'];
         const headerRow = thead.insertRow();
         headers.forEach(header => {
@@ -894,7 +901,14 @@ const exportToPDF = async () => {
             th.textContent = header;
             headerRow.appendChild(th);
         });
+
         data.data.forEach(booking => {
+            const bookingDate = new Date(booking.time_sent);
+
+            // Filter by date range if selected
+            if ((fromDate && bookingDate < new Date(fromDate)) ||
+                (toDate && bookingDate > new Date(toDate + 'T23:59:59'))) return;
+
             const row = tbody.insertRow();
             row.insertCell().textContent = booking.name || 'N/A';
             row.insertCell().textContent = booking.email || 'N/A';
@@ -903,7 +917,7 @@ const exportToPDF = async () => {
             row.insertCell().textContent = booking.phone || 'N/A';
             row.insertCell().textContent = booking.address || 'N/A';
             row.insertCell().textContent = booking.message || 'N/A';
-            row.insertCell().textContent = new Date(booking.time_sent).toLocaleString() || 'N/A';
+            row.insertCell().textContent = bookingDate.toLocaleString() || 'N/A';
         });
 
         doc.autoTable({
@@ -913,16 +927,28 @@ const exportToPDF = async () => {
             headStyles: { fillColor: [66, 133, 244] },
             bodyStyles: { textColor: [0, 0, 0] }
         });
+
         doc.save('bookings.pdf');
     }
 };
 
+// --- Export Bookings to Excel ---
 const exportToExcel = async () => {
+    const fromDate = document.getElementById('bookingsDateFrom')?.value;
+    const toDate = document.getElementById('bookingsDateTo')?.value;
+
     const data = await fetchData('/api/bookings');
     if (data.success) {
         const table = document.createElement('table');
         const tbody = table.createTBody();
+
         data.data.forEach(booking => {
+            const bookingDate = new Date(booking.time_sent);
+
+            // Filter by date range if selected
+            if ((fromDate && bookingDate < new Date(fromDate)) ||
+                (toDate && bookingDate > new Date(toDate + 'T23:59:59'))) return;
+
             const row = tbody.insertRow();
             row.insertCell().textContent = booking.name || 'N/A';
             row.insertCell().textContent = booking.email || 'N/A';
@@ -931,7 +957,7 @@ const exportToExcel = async () => {
             row.insertCell().textContent = booking.phone || 'N/A';
             row.insertCell().textContent = booking.address || 'N/A';
             row.insertCell().textContent = booking.message || 'N/A';
-            row.insertCell().textContent = new Date(booking.time_sent).toLocaleString() || 'N/A';
+            row.insertCell().textContent = bookingDate.toLocaleString() || 'N/A';
         });
 
         const workbook = XLSX.utils.table_to_book(table, { sheet: "Bookings" });
@@ -971,14 +997,21 @@ function filterStudents() {
 }
 
 // --- Helper: Prepare Table for Export ---
+// --- Helper: Prepare Table for Export ---
 const prepareStudentTableForExport = async () => {
-    const [studentData, classData] = await Promise.all([fetchData('/api/students'), fetchData('/api/classes')]);
+    const [studentData, classData] = await Promise.all([
+        fetchData('/api/students'),
+        fetchData('/api/classes')
+    ]);
+
     const classMap = {};
     if (classData.success) {
         classData.data.forEach(cls => {
             classMap[`${cls.section_id}:${cls.id}`] = cls.name;
         });
     }
+
+    const selectedClass = document.getElementById('studentClassFilter')?.value.toLowerCase().trim();
 
     if (studentData.success) {
         const table = document.createElement('table');
@@ -991,11 +1024,21 @@ const prepareStudentTableForExport = async () => {
             th.textContent = header;
             headerRow.appendChild(th);
         });
+
         studentData.data.forEach(student => {
             const uniqueSubjects = Array.isArray(student.subjects) ? [...new Set(student.subjects)].filter(s => s) : [student.subjects || 'N/A'];
             const subjectsDisplay = uniqueSubjects.join(', ');
-            const uniqueClasses = Array.isArray(student.classes) ? [...new Set(student.classes)].map(cls => classMap[cls] || cls).filter(name => name) : [student.classes || 'N/A'];
+
+            const uniqueClasses = Array.isArray(student.classes)
+                ? [...new Set(student.classes)].map(cls => classMap[cls] || cls).filter(name => name)
+                : [student.classes || 'N/A'];
             const classesDisplay = uniqueClasses.join(', ');
+
+            // Skip student if selectedClass is not "all" and student doesn't have it
+            if (selectedClass && selectedClass !== 'all' &&
+                !uniqueClasses.some(clsName => clsName.toLowerCase().includes(selectedClass))
+            ) return;
+
             const row = tbody.insertRow();
             row.insertCell().textContent = student.student_id || student.id || 'N/A';
             row.insertCell().textContent = student.name || student.full_name || 'N/A';
@@ -1006,9 +1049,11 @@ const prepareStudentTableForExport = async () => {
             row.insertCell().textContent = student.guardian_phone || 'N/A';
             row.insertCell().textContent = student.address || 'N/A';
         });
+
         return table;
     }
-    return document.createElement('table'); // Return empty table if fetch fails
+
+    return document.createElement('table'); // empty table if fetch fails
 };
 
 // --- Export Students to PDF ---
