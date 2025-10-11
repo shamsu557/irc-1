@@ -5,6 +5,7 @@ const session = require('express-session');
 const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
+const ExcelJS = require('exceljs');
 const multer = require('multer');
 const moment = require('moment'); // install with: npm install moment
 const app = express();
@@ -2762,6 +2763,7 @@ app.post('/api/student-logout', (req, res) => {
         res.status(200).json({ success: true, message: 'Logged out successfully.', redirect: '/student-login' });
     });
 });
+
 
 //server
 app.listen(port, () => {
