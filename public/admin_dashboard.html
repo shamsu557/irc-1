@@ -372,30 +372,45 @@
         </div>
 
         <!-- Staff Management View -->
-        <div id="staff-management-view" style="display: none;">
-            <h2 class="text-2xl font-semibold mb-4" data-translate="staffManagement">Staff Management</h2>
-            <button class="btn btn-primary mb-4" id="addStaffBtn"><i class="fas fa-plus-circle"></i> <span data-translate="addStaff">Add New Staff</span></button>
-            <div class="bg-white p-4 rounded-lg shadow table-responsive">
-                <table class="table w-full">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th data-translate="staffId">Staff ID</th>
-                            <th data-translate="profilePicture">Profile Picture</th>
-                            <th data-translate="name">Name</th>
-                            <th data-translate="email">Email</th>
-                            <th data-translate="phone">Phone</th>
-                            <th data-translate="role">Role</th>
-                            <th data-translate="classesTaught">Classes Taught</th>
-                            <th data-translate="subjectTaught">Subjects Taught</th>
-                            <th data-translate="formMasterInfo">Form Master Info</th>
-                            <th data-translate="actions">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="staffTableBody"></tbody>
-                </table>
-            </div>
-        </div>
+<div id="staff-management-view" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="staffManagement">Staff Management</h2>
+
+    <button class="btn btn-primary mb-4" id="addStaffBtn">
+        <i class="fas fa-plus-circle"></i> 
+        <span data-translate="addStaff">Add New Staff</span>
+    </button>
+
+    <div class="mb-3 flex flex-wrap gap-2">
+        <!-- Only search input remains -->
+        <input type="text" class="form-control w-full sm:w-auto" id="staffSearch" placeholder="Search by ID, Name, Email or Phone" data-translate="searchPlaceholder">
+    </div>
+
+    <div class="flex flex-col sm:flex-row justify-end mb-4 gap-2">
+        <button class="btn btn-primary" id="exportStaffPdfBtn" data-translate="exportPdf">Export as PDF</button>
+        <button class="btn btn-primary" id="exportStaffExcelBtn" data-translate="exportExcel">Export as Excel</button>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow table-responsive">
+        <table class="table w-full">
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAllStaff"></th>
+                    <th data-translate="staffId">Staff ID</th>
+                    <th data-translate="profilePicture">Profile Picture</th>
+                    <th data-translate="name">Name</th>
+                    <th data-translate="email">Email</th>
+                    <th data-translate="phone">Phone</th>
+                    <th data-translate="role">Role</th>
+                    <th data-translate="classesTaught">Classes Taught</th>
+                    <th data-translate="subjectTaught">Subjects Taught</th>
+                    <th data-translate="formMasterInfo">Form Master Info</th>
+                    <th data-translate="actions">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="staffTableBody"></tbody>
+        </table>
+    </div>
+</div>
 
      <!-- Student Management View -->
 <div id="student-management-view" style="display: none;">
@@ -406,12 +421,17 @@
         <span data-translate="addStudent">Add New Student</span>
     </button>
 
-    <div class="mb-3">
-        <label for="studentClassFilter" class="form-label" data-translate="selectClass">Select Class to View</label>
-        <select class="form-select" id="studentClassFilter">
+    <div class="mb-3 flex flex-wrap gap-2">
+        <input type="text" class="form-control w-full sm:w-auto" id="studentSearch" placeholder="Search by name or ID" data-translate="searchPlaceholder">
+        <select class="form-select w-full sm:w-auto" id="studentClassFilter">
             <option value="">All Classes</option>
             <!-- Dynamically populated -->
         </select>
+       
+    </div>
+    <div class="flex flex-col sm:flex-row justify-end mb-4 gap-2">
+        <button class="btn btn-primary" id="exportStudentsPdfBtn" data-translate="exportPdf">Export as PDF</button>
+        <button class="btn btn-primary" id="exportStudentsExcelBtn" data-translate="exportExcel">Export as Excel</button>
     </div>
 
     <div class="bg-white p-4 rounded-lg shadow table-responsive">
@@ -477,6 +497,13 @@
         <div id="bookings-management-view" style="display: none;">
             <h2 class="text-2xl font-semibold mb-4" data-translate="bookingsManagement">Bookings Management</h2>
             <div class="bg-white p-4 rounded-lg shadow">
+                <div class="mb-3 flex flex-wrap gap-2">
+                    <input type="text" class="form-control w-full sm:w-auto" id="bookingsSearch" placeholder="Search bookings" data-translate="searchPlaceholder">
+                    <label for="bookingsDateFrom" class="form-label">From:</label>
+                    <input type="date" class="form-control w-full sm:w-auto" id="bookingsDateFrom">
+                    <label for="bookingsDateTo" class="form-label">To:</label>
+                    <input type="date" class="form-control w-full sm:w-auto" id="bookingsDateTo">
+                </div>
                 <div class="flex flex-col sm:flex-row justify-end mb-4 gap-2">
                     <button class="btn btn-primary" id="exportBookingsPdfBtn" data-translate="exportPdf">Export as PDF</button>
                     <button class="btn btn-primary" id="exportBookingsExcelBtn" data-translate="exportExcel">Export as Excel</button>
