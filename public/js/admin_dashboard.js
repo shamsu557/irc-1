@@ -1080,7 +1080,7 @@ const prepareStaffTableForExport = async () => {
             row.insertCell().textContent = staff.role || 'N/A';
             row.insertCell().textContent = staff.classes_taught || 'N/A';
             row.insertCell().textContent = staff.subjects_taught || 'N/A';
-            row.insertCell().textContent = staff.form_master_info ? 'Yes' : 'No';
+            row.insertCell().textContent = staff.form_master_info || 'None';
         });
         return table;
     }
