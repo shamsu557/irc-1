@@ -5,6 +5,8 @@ const session = require('express-session');
 const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
+const ExcelJS = require('exceljs');
+const feesRoutes = require('./fees_routes');
 const multer = require('multer');
 const moment = require('moment'); // install with: npm install moment
 const app = express();
@@ -584,22 +586,24 @@ app.get('/api/staff-dashboard-stats/:staffId', (req, res) => {
     });
 });
 
-// Fetch all classes
 app.get('/api/classes', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
+
     const query = `
         SELECT class_id AS id, class_name AS name, 1 AS section_id FROM Classes
         UNION
         SELECT western_class_id AS id, class_name AS name, 2 AS section_id FROM Western_Classes
         ORDER BY name
     `;
+
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching classes:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
         }
+        console.log('Classes fetched:', results); // Debug
         res.status(200).json({ success: true, data: results });
     });
 });
@@ -2200,161 +2204,161 @@ app.post('/api/students', upload.single('profile_picture'), (req, res) => {
 // PUT UPDATE STUDENT (Partial Update)
 // ==========================
 app.put('/api/students/:id', upload.single('profile_picture'), (req, res) => {
-    const studentDbId = req.params.id;
-    
-    // Helper function to safely get and standardize array input from form data
-    const getFormDataArray = (key) => {
-        // Checks for 'key' (e.g., 'classes') or 'key[]' (e.g., 'classes[]')
-        let values = req.body[key] || req.body[`${key}[]`];
-        
-        if (!values) return [];
-        
-        // Ensure values is an array (converts string to array if only one item selected)
-        if (!Array.isArray(values)) {
-            values = [values];
-        }
-        return values;
-    };
+    const studentDbId = req.params.id;
+    
+    // Helper function to safely get and standardize array input from form data
+    const getFormDataArray = (key) => {
+        // Checks for 'key' (e.g., 'classes') or 'key[]' (e.g., 'classes[]')
+        let values = req.body[key] || req.body[`${key}[]`];
+        
+        if (!values) return [];
+        
+        // Ensure values is an array (converts string to array if only one item selected)
+        if (!Array.isArray(values)) {
+            values = [values];
+        }
+        return values;
+    };
 
-    // 1. Safely parse classes and subjects (FIX: Ensures they are arrays)
-    const classes = getFormDataArray('classes');
-    
-    // Subjects array should contain simple IDs, as determined by client-side logic
-    const subjects = getFormDataArray('subjects');
-    const simpleSubjectIds = subjects.map(s => {
-        const strS = String(s);
-        // We use the simple ID here since the client-side form submit handler sends the simple ID.
-        return strS.includes(':') ? strS.split(':')[1] : strS;
-    });
+    // 1. Safely parse classes and subjects (FIX: Ensures they are arrays)
+    const classes = getFormDataArray('classes');
+    
+    // Subjects array should contain simple IDs, as determined by client-side logic
+    const subjects = getFormDataArray('subjects');
+    const simpleSubjectIds = subjects.map(s => {
+        const strS = String(s);
+        // We use the simple ID here since the client-side form submit handler sends the simple ID.
+        return strS.includes(':') ? strS.split(':')[1] : strS;
+    });
 
-    const {
-        student_id, full_name, guardian_phone, email, address, gender,
-        date_of_birth, level = 1, term = 1
-    } = req.body;
-    
-    // Helper to check if a field exists in the body (needed for partial update of core fields)
-    const hasField = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
+    const {
+        student_id, full_name, guardian_phone, email, address, gender,
+        date_of_birth, level = 1, term = 1
+    } = req.body;
+    
+    // Helper to check if a field exists in the body (needed for partial update of core fields)
+    const hasField = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
 
-    // Build UPDATE dynamically only with provided fields
-    const updateFields = [];
-    const params = [];
+    // Build UPDATE dynamically only with provided fields
+    const updateFields = [];
+    const params = [];
 
-    // Use the `hasField` check to ensure we process fields even if they are empty strings or zero
-    if (hasField('student_id')) { updateFields.push("student_id = ?"); params.push(student_id); }
-    if (hasField('full_name')) { updateFields.push("full_name = ?"); params.push(full_name); }
-    if (hasField('guardian_phone')) { updateFields.push("guardian_phone = ?"); params.push(guardian_phone); }
-    if (hasField('email')) { updateFields.push("email = ?"); params.push(email); } 
-    if (hasField('address')) { updateFields.push("address = ?"); params.push(address); }
-    if (hasField('gender')) { updateFields.push("gender = ?"); params.push(gender); }
-    if (hasField('date_of_birth')) { updateFields.push("date_of_birth = ?"); params.push(date_of_birth); }
+    // Use the `hasField` check to ensure we process fields even if they are empty strings or zero
+    if (hasField('student_id')) { updateFields.push("student_id = ?"); params.push(student_id); }
+    if (hasField('full_name')) { updateFields.push("full_name = ?"); params.push(full_name); }
+    if (hasField('guardian_phone')) { updateFields.push("guardian_phone = ?"); params.push(guardian_phone); }
+    if (hasField('email')) { updateFields.push("email = ?"); params.push(email); } 
+    if (hasField('address')) { updateFields.push("address = ?"); params.push(address); }
+    if (hasField('gender')) { updateFields.push("gender = ?"); params.push(gender); }
+    if (hasField('date_of_birth')) { updateFields.push("date_of_birth = ?"); params.push(date_of_birth); }
 
-    if (req.file) { // only if profile picture uploaded
-        updateFields.push("profile_picture = ?");
-        params.push(req.file.filename);
-    }
+    if (req.file) { // only if profile picture uploaded
+        updateFields.push("profile_picture = ?");
+        params.push(req.file.filename);
+    }
 
-    params.push(studentDbId);
+    params.push(studentDbId);
 
-    // If we have fields to update, run UPDATE first
-    const updateSql = updateFields.length > 0
-        ? `UPDATE Students SET ${updateFields.join(", ")} WHERE id = ?`
-        : null;
+    // If we have fields to update, run UPDATE first
+    const updateSql = updateFields.length > 0
+        ? `UPDATE Students SET ${updateFields.join(", ")} WHERE id = ?`
+        : null;
 
-    function proceed() {
-        // Now using the reliably parsed 'classes' and 'simpleSubjectIds' arrays
-        updateClasses(() => updateSubjects(() => {
-            return res.json({ success: true, message: "Student updated successfully" });
-        }));
-    }
+    function proceed() {
+        // Now using the reliably parsed 'classes' and 'simpleSubjectIds' arrays
+        updateClasses(() => updateSubjects(() => {
+            return res.json({ success: true, message: "Student updated successfully" });
+        }));
+    }
 
-    if (updateSql) {
-        db.query(updateSql, params, (err) => {
-            if (err) {
-                console.error("Error updating student:", err);
-                return res.status(500).json({ success: false, message: "Failed to update student." });
-            }
-            proceed();
-        });
-    } else {
-        proceed(); // nothing to update in Students table, go to relations
-    }
+    if (updateSql) {
+        db.query(updateSql, params, (err) => {
+            if (err) {
+                console.error("Error updating student:", err);
+                return res.status(500).json({ success: false, message: "Failed to update student." });
+            }
+            proceed();
+        });
+    } else {
+        proceed(); // nothing to update in Students table, go to relations
+    }
 
-    // ====================
-    // Update Classes only if provided (uses the parsed 'classes' array)
-    // FIX: Added deletion of Student_Subjects before Student_Enrollments
-    // ====================
-    function updateClasses(next) {
-        // The client-side logic ensures classes are sent if anything related to relations changes
-        if (classes.length > 0) {
-            
-            // 1. IMPORTANT FIX: Delete dependent Student_Subjects first to satisfy Foreign Key constraints
-            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (errSub) => {
-                if (errSub) {
-                    console.error("Error clearing associated subjects before enrollments:", errSub);
-                    return res.status(500).json({ success: false, message: "Failed to clear associated subjects before updating classes." });
-                }
+    // ====================
+    // Update Classes only if provided (uses the parsed 'classes' array)
+    // FIX: Added deletion of Student_Subjects before Student_Enrollments
+    // ====================
+    function updateClasses(next) {
+        // The client-side logic ensures classes are sent if anything related to relations changes
+        if (classes.length > 0) {
+            
+            // 1. IMPORTANT FIX: Delete dependent Student_Subjects first to satisfy Foreign Key constraints
+            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (errSub) => {
+                if (errSub) {
+                    console.error("Error clearing associated subjects before enrollments:", errSub);
+                    return res.status(500).json({ success: false, message: "Failed to clear associated subjects before updating classes." });
+                }
 
-                // 2. Now safely delete the Student_Enrollments (Classes)
-                db.query("DELETE FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (errEnroll) => {
-                    if (errEnroll) {
-                        console.error("Error clearing old classes/enrollments:", errEnroll);
-                        return res.status(500).json({ success: false, message: "Failed to clear old classes." }); 
-                    }
+                // 2. Now safely delete the Student_Enrollments (Classes)
+                db.query("DELETE FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (errEnroll) => {
+                    if (errEnroll) {
+                        console.error("Error clearing old classes/enrollments:", errEnroll);
+                        return res.status(500).json({ success: false, message: "Failed to clear old classes." }); 
+                    }
 
-                    // 3. Insert new enrollments
-                    const enrollValues = classes.map(cls => {
-                        const [section_id, class_ref] = String(cls).split(":").map(Number);
-                        return [studentDbId, section_id, class_ref, level, term];
-                    });
+                    // 3. Insert new enrollments
+                    const enrollValues = classes.map(cls => {
+                        const [section_id, class_ref] = String(cls).split(":").map(Number);
+                        return [studentDbId, section_id, class_ref, level, term];
+                    });
 
-                    db.query("INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term) VALUES ?", [enrollValues], (err2) => {
-                        if (err2) {
-                            console.error("Error inserting new classes:", err2);
-                            return res.status(500).json({ success: false, message: "Failed to insert classes." });
-                        }
-                        next();
-                    });
-                });
-            });
-        } else {
-            next(); // skip classes if not provided
-        }
-    }
+                    db.query("INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term) VALUES ?", [enrollValues], (err2) => {
+                        if (err2) {
+                            console.error("Error inserting new classes:", err2);
+                            return res.status(500).json({ success: false, message: "Failed to insert classes." });
+                        }
+                        next();
+                    });
+                });
+            });
+        } else {
+            next(); // skip classes if not provided
+        }
+    }
 
-    // ====================
-    // Update Subjects only if provided (uses the parsed 'simpleSubjectIds' array)
-    // NOTE: The delete logic here is mostly redundant if updateClasses ran, but kept for safety.
-    // ====================
-    function updateSubjects(next) {
-        // The client-side logic ensures subjects are sent if anything related to relations changes
-        if (simpleSubjectIds.length > 0) {
-            // Delete old subjects based on enrollments related to this student
-            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (err) => {
-                if (err) return res.status(500).json({ success: false, message: "Failed to clear old subjects." });
+    // ====================
+    // Update Subjects only if provided (uses the parsed 'simpleSubjectIds' array)
+    // NOTE: The delete logic here is mostly redundant if updateClasses ran, but kept for safety.
+    // ====================
+    function updateSubjects(next) {
+        // The client-side logic ensures subjects are sent if anything related to relations changes
+        if (simpleSubjectIds.length > 0) {
+            // Delete old subjects based on enrollments related to this student
+            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (err) => {
+                if (err) return res.status(500).json({ success: false, message: "Failed to clear old subjects." });
 
-                // Fetch current enrollment IDs (these are the newly inserted ones from updateClasses)
-                db.query("SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (err2, enrollments) => {
-                    if (err2) return res.status(500).json({ success: false, message: "Failed to fetch enrollments." });
+                // Fetch current enrollment IDs (these are the newly inserted ones from updateClasses)
+                db.query("SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (err2, enrollments) => {
+                    if (err2) return res.status(500).json({ success: false, message: "Failed to fetch enrollments." });
 
-                    const subjValues = [];
-                    enrollments.forEach(enr => {
-                        simpleSubjectIds.forEach(subId => subjValues.push([enr.enrollment_id, Number(subId), term]));
-                    });
+                    const subjValues = [];
+                    enrollments.forEach(enr => {
+                        simpleSubjectIds.forEach(subId => subjValues.push([enr.enrollment_id, Number(subId), term]));
+                    });
 
-                    if (subjValues.length > 0) {
-                        db.query("INSERT INTO Student_Subjects (enrollment_id, subject_id, term) VALUES ?", [subjValues], (err3) => {
-                            if (err3) return res.status(500).json({ success: false, message: "Failed to insert subjects." });
-                            next();
-                        });
-                    } else {
-                        next();
-                    }
-                });
-            });
-        } else {
-            next(); // skip subjects if not provided
-        }
-    }
+                    if (subjValues.length > 0) {
+                        db.query("INSERT INTO Student_Subjects (enrollment_id, subject_id, term) VALUES ?", [subjValues], (err3) => {
+                            if (err3) return res.status(500).json({ success: false, message: "Failed to insert subjects." });
+                            next();
+                        });
+                    } else {
+                        next();
+                    }
+                });
+            });
+        } else {
+            next(); // skip subjects if not provided
+        }
+    }
 });
 
 // ==========================
@@ -2763,6 +2767,461 @@ app.post('/api/student-logout', (req, res) => {
     });
 });
 
+
+// GET sessions
+app.get('/api/sessions', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const query = `
+        SELECT session_year, is_current
+        FROM Sessions
+        ORDER BY start_date DESC
+    `;
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching sessions:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// GET fee structures
+app.get('/api/fees/structures', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { class: classValue, session, term } = req.query;
+    let query = '';
+    let params = [];
+
+    if (!session) {
+        return res.status(400).json({ success: false, message: 'Session year is required.' });
+    }
+
+    if (classValue) {
+        const [section_id, class_ref] = classValue.split(':').map(Number);
+        const table = section_id === 1 ? 'Islamic_Fee_Structures' : 'Western_Fee_Structures';
+        const idField = section_id === 1 ? 'class_id' : 'western_class_id';
+        query = `
+            SELECT 
+                structure_id, 
+                ${idField} AS class_ref, 
+                ${section_id} AS section_id,
+                total_fee, 
+                term, 
+                description, 
+                created_date,
+                session_year
+            FROM ${table}
+            WHERE ${idField} = ? AND session_year = ?
+        `;
+        params = [class_ref, session];
+        if (term) {
+            query += ` AND term = ?`;
+            params.push(parseInt(term));
+        }
+    } else {
+        query = `
+            SELECT 
+                structure_id, 
+                class_id AS class_ref, 
+                1 AS section_id, 
+                total_fee, 
+                term, 
+                description, 
+                created_date,
+                session_year
+            FROM Islamic_Fee_Structures
+            WHERE session_year = ?
+            UNION
+            SELECT 
+                structure_id, 
+                western_class_id AS class_ref, 
+                2 AS section_id, 
+                total_fee, 
+                term, 
+                description, 
+                created_date,
+                session_year
+            FROM Western_Fee_Structures
+            WHERE session_year = ?
+        `;
+        params = [session, session];
+        if (term) {
+            query += ` AND term = ?`;
+            params.push(parseInt(term), parseInt(term));
+        }
+    }
+
+    db.query(query, params, (err, results) => {
+        if (err) {
+            console.error('Error fetching fee structures:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// POST set fee structure and create Student_Fees for enrolled students
+app.post('/api/fees/set', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { section_id, class_ref, total_fee, term, description, session_year } = req.body;
+
+    if (!section_id || !class_ref || !total_fee || !term || !session_year) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+
+    // Verify session_year exists
+    db.query(
+        `SELECT session_year FROM Sessions WHERE session_year = ?`,
+        [session_year],
+        (err, sessionResults) => {
+            if (err || sessionResults.length === 0) {
+                console.error('Invalid session_year:', err);
+                return res.status(400).json({ success: false, message: 'Invalid session year.' });
+            }
+
+            const feeTable = section_id === 1 ? 'Islamic_Fee_Structures' : 'Western_Fee_Structures';
+            const classColumn = section_id === 1 ? 'class_id' : 'western_class_id';
+
+            // Insert or update the fee structure
+            const query = `
+                INSERT INTO ${feeTable} (${classColumn}, term, total_fee, description, session_year)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    total_fee = VALUES(total_fee),
+                    description = VALUES(description)
+            `;
+            const queryParams = [class_ref, term, total_fee, description || null, session_year];
+
+            db.query(query, queryParams, (err) => {
+                if (err) {
+                    console.error('Error saving fee structure:', err);
+                    return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+                }
+
+                // Fetch the inserted/updated structure_id
+                const selectQuery = `
+                    SELECT structure_id 
+                    FROM ${feeTable} 
+                    WHERE ${classColumn} = ? AND term = ? AND session_year = ?
+                `;
+                db.query(selectQuery, [class_ref, term, session_year], (err, results) => {
+                    if (err || !results.length) {
+                        console.error('Error fetching structure_id:', err);
+                        return res.status(500).json({ success: false, message: 'Failed to fetch fee structure.' });
+                    }
+
+                    const structure_id = results[0].structure_id;
+
+                    // Update Student_Fees for all enrolled students
+                    const updateFeesQuery = `
+                        INSERT INTO Student_Fees (enrollment_id, structure_id, section_id, total_fee, session_year)
+                        SELECT se.enrollment_id, ?, ?, ?, ?
+                        FROM Student_Enrollments se
+                        WHERE se.section_id = ? 
+                          AND se.class_ref = ? 
+                          AND se.term = ?
+                        ON DUPLICATE KEY UPDATE 
+                            total_fee = VALUES(total_fee),
+                            updated_date = CURRENT_TIMESTAMP
+                    `;
+                    const updateParams = [
+                        structure_id,
+                        section_id,
+                        total_fee,
+                        session_year,
+                        section_id,
+                        class_ref,
+                        term
+                    ];
+
+                    db.query(updateFeesQuery, updateParams, (err2) => {
+                        if (err2) {
+                            console.error('Error updating student fees:', err2);
+                            return res.status(500).json({ success: false, message: 'Failed to update student fees.', error: err2.message });
+                        }
+
+                        console.log(`Fee structure applied for class ${class_ref}, section ${section_id}, term ${term}`);
+                        res.status(200).json({ success: true, message: 'Fee structure saved and student fees updated successfully.' });
+                    });
+                });
+            });
+        }
+    );
+});
+
+// GET payment tracking data
+app.get('/api/fees/payments', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { term, class: classValue, session, student_fee_id } = req.query;
+    let query = `
+        SELECT 
+            sf.student_fee_id,
+            sf.enrollment_id,
+            s.id AS student_id,
+            s.full_name AS student_name,
+            s.guardian_phone,
+            se.section_id,
+            se.class_ref,
+            sf.total_fee,
+            sf.amount_paid,
+            sf.remaining_amount,
+            sf.status
+        FROM Student_Fees sf
+        JOIN Student_Enrollments se ON sf.enrollment_id = se.enrollment_id
+        JOIN Students s ON se.student_id = s.id
+        WHERE 1=1
+    `;
+    const queryParams = [];
+
+    if (term) {
+        query += ` AND se.term = ?`;
+        queryParams.push(parseInt(term));
+    } else {
+        queryParams.push(1); // Default to term 1 if not specified
+    }
+
+    if (session) {
+        query += ` AND sf.session_year = ?`;
+        queryParams.push(session);
+    } else {
+        return res.status(400).json({ success: false, message: 'Session year is required.' });
+    }
+
+    if (classValue) {
+        const [section_id, class_ref] = classValue.split(':').map(Number);
+        query += ` AND se.section_id = ? AND se.class_ref = ?`;
+        queryParams.push(section_id, class_ref);
+    }
+
+    if (student_fee_id) {
+        query += ` AND sf.student_fee_id = ?`;
+        queryParams.push(parseInt(student_fee_id));
+    }
+
+    db.query(query, queryParams, (err, results) => {
+        if (err) {
+            console.error('Error fetching payment data:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        console.log('Payment data fetched:', results);
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// Fetch students for specific class (for payments)
+app.get('/api/students/by-class', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { class: classValue } = req.query;
+    if (!classValue) {
+        return res.status(400).json({ success: false, message: 'Class parameter is required.' });
+    }
+
+    const [section_id, class_ref] = classValue.split(':').map(Number);
+
+    const query = `
+        SELECT 
+            s.id AS student_id,
+            s.full_name AS name,
+            s.student_id AS admission_no,
+            s.gender,
+            s.guardian_phone,
+            sf.student_fee_id
+        FROM Students s
+        JOIN Student_Enrollments se ON s.id = se.student_id
+        JOIN Student_Fees sf ON se.enrollment_id = sf.enrollment_id
+        WHERE se.section_id = ? AND se.class_ref = ?
+        ORDER BY s.full_name;
+    `;
+
+    db.query(query, [section_id, class_ref], (err, results) => {
+        if (err) {
+            console.error('Error fetching students by class:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// POST add payment
+app.post('/api/fees/payments', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { student_fee_id, payment_amount, payment_method, notes, term, session_year, class_ref, section_id } = req.body;
+
+    if (!student_fee_id || !payment_amount || payment_amount <= 0 || !term || !session_year || !class_ref || !section_id) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+
+    // Verify session_year
+    db.query(
+        `SELECT session_year FROM Sessions WHERE session_year = ?`,
+        [session_year],
+        (err, sessionResults) => {
+            if (err || sessionResults.length === 0) {
+                console.error('Invalid session_year:', err);
+                return res.status(400).json({ success: false, message: 'Invalid session year.' });
+            }
+
+            // Validate student_fee_id
+            db.query(
+                `SELECT student_fee_id, total_fee, amount_paid, session_year 
+                 FROM Student_Fees 
+                 WHERE student_fee_id = ? AND session_year = ?`,
+                [student_fee_id, session_year],
+                (err, results) => {
+                    if (err || results.length === 0) {
+                        console.error('Error validating student_fee_id:', err);
+                        return res.status(400).json({ success: false, message: 'Invalid student fee ID or session year.' });
+                    }
+
+                    const fee = results[0];
+                    if (fee.amount_paid + payment_amount > fee.total_fee) {
+                        return res.status(400).json({ success: false, message: 'Payment amount exceeds remaining balance.' });
+                    }
+
+                    // Insert payment
+                    db.query(
+                        `INSERT INTO Student_Fee_Payments (student_fee_id, payment_amount, payment_method, notes, payment_date, term, session_year, class_ref, section_id) 
+                         VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)`,
+                        [student_fee_id, payment_amount, payment_method || null, notes || null, term, session_year, class_ref, section_id],
+                        (err2) => {
+                            if (err2) {
+                                console.error('Error inserting payment:', err2);
+                                return res.status(500).json({ success: false, message: 'Failed to add payment.', error: err2.message });
+                            }
+
+                            // Update Student_Fees amount_paid and status
+                            const newAmountPaid = fee.amount_paid + payment_amount;
+                            const newRemaining = fee.total_fee - newAmountPaid;
+                            const newStatus = newRemaining <= 0 ? 'Completed' : 'Pending';
+
+                            db.query(
+                                `UPDATE Student_Fees 
+                                 SET amount_paid = ?, remaining_amount = ?, status = ? 
+                                 WHERE student_fee_id = ?`,
+                                [newAmountPaid, newRemaining, newStatus, student_fee_id],
+                                (err3) => {
+                                    if (err3) {
+                                        console.error('Error updating student fees:', err3);
+                                        return res.status(500).json({ success: false, message: 'Failed to update student fees.', error: err3.message });
+                                    }
+                                    res.status(200).json({ success: true, message: 'Payment added successfully.' });
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
+
+// GET payment history for a specific student_fee_id
+app.get('/api/fees/payments/history/:student_fee_id', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const studentFeeId = req.params.student_fee_id;
+
+    const query = `
+        SELECT 
+            payment_id,
+            student_fee_id,
+            payment_amount,
+            payment_method,
+            notes,
+            DATE_FORMAT(payment_date, '%Y-%m-%d') AS payment_date,
+            receipt_number,
+            term,
+            session_year,
+            class_ref,
+            section_id
+        FROM Student_Fee_Payments
+        WHERE student_fee_id = ?
+        ORDER BY payment_date DESC
+    `;
+
+    db.query(query, [studentFeeId], (err, results) => {
+        if (err) {
+            console.error('Error fetching payment history:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// DELETE fee structure
+app.delete('/api/fees/structures/:structure_id', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const structureId = req.params.structure_id;
+
+    // Determine if the fee structure is Islamic or Western
+    db.query(
+        `SELECT structure_id, 'Islamic' AS type FROM Islamic_Fee_Structures WHERE structure_id = ?
+         UNION
+         SELECT structure_id, 'Western' AS type FROM Western_Fee_Structures WHERE structure_id = ?`,
+        [structureId, structureId],
+        (err, results) => {
+            if (err || results.length === 0) {
+                console.error('Error finding fee structure:', err);
+                return res.status(400).json({ success: false, message: 'Invalid fee structure ID.' });
+            }
+
+            const table = results[0].type === 'Islamic' ? 'Islamic_Fee_Structures' : 'Western_Fee_Structures';
+
+            // Check for dependent Student_Fees records
+            db.query(
+                `SELECT student_fee_id FROM Student_Fees WHERE structure_id = ?`,
+                [structureId],
+                (err2, studentFees) => {
+                    if (err2) {
+                        console.error('Error checking dependent student fees:', err2);
+                        return res.status(500).json({ success: false, message: 'Database error.', error: err2.message });
+                    }
+
+                    if (studentFees.length > 0) {
+                        return res.status(400).json({ success: false, message: 'Cannot delete fee structure with associated student fees.' });
+                    }
+
+                    // Delete the fee structure
+                    db.query(
+                        `DELETE FROM ${table} WHERE structure_id = ?`,
+                        [structureId],
+                        (err3) => {
+                            if (err3) {
+                                console.error('Error deleting fee structure:', err3);
+                                return res.status(500).json({ success: false, message: 'Failed to delete fee structure.', error: err3.message });
+                            }
+                            res.status(200).json({ success: true, message: 'Fee structure deleted successfully.' });
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
 //server
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
