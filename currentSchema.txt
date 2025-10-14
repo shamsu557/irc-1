@@ -161,22 +161,26 @@ CREATE TABLE Islamic_Fee_Structures (
     structure_id INT AUTO_INCREMENT PRIMARY KEY,
     class_id INT NOT NULL,
     term INT NOT NULL CHECK (term >= 1),
+    session_year VARCHAR(20) NOT NULL,
     total_fee DECIMAL(10,2) NOT NULL CHECK (total_fee >= 0),
     description TEXT DEFAULT NULL,
     created_date DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (class_id) REFERENCES Classes(class_id),
-    UNIQUE KEY unique_fee_structure (class_id, term)
+    FOREIGN KEY (session_year) REFERENCES Sessions(session_year),
+    UNIQUE KEY unique_fee_structure (class_id, term, session_year)
 );
 
 CREATE TABLE Western_Fee_Structures (
     structure_id INT AUTO_INCREMENT PRIMARY KEY,
     western_class_id INT NOT NULL,
     term INT NOT NULL CHECK (term >= 1),
+    session_year VARCHAR(20) NOT NULL,
     total_fee DECIMAL(10,2) NOT NULL CHECK (total_fee >= 0),
     description TEXT DEFAULT NULL,
     created_date DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (western_class_id) REFERENCES Western_Classes(western_class_id),
-    UNIQUE KEY unique_fee_structure (western_class_id, term)
+    FOREIGN KEY (session_year) REFERENCES Sessions(session_year),
+    UNIQUE KEY unique_fee_structure (western_class_id, term, session_year)
 );
 
 -- =========================
@@ -217,6 +221,7 @@ CREATE TABLE Student_Fees (
     enrollment_id INT NOT NULL,
     structure_id INT NOT NULL,
     section_id INT NOT NULL,
+    session_year VARCHAR(20) NOT NULL,
     total_fee DECIMAL(10,2) NOT NULL CHECK (total_fee >= 0),
     amount_paid DECIMAL(10,2) DEFAULT 0.00 CHECK (amount_paid >= 0),
     status ENUM('Pending', 'Completed') DEFAULT 'Pending',
@@ -225,8 +230,30 @@ CREATE TABLE Student_Fees (
     updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (enrollment_id) REFERENCES Student_Enrollments(enrollment_id),
     FOREIGN KEY (section_id) REFERENCES Sections(section_id),
-    UNIQUE KEY unique_student_fee (enrollment_id, structure_id)
+    FOREIGN KEY (session_year) REFERENCES Sessions(session_year),
+    UNIQUE KEY unique_student_fee (enrollment_id, structure_id, session_year)
 );
+
+-- =========================
+-- Student Fee Payments
+-- =========================
+CREATE TABLE Student_Fee_Payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+    student_fee_id INT NOT NULL,
+    session_year VARCHAR(20) NOT NULL,
+    class_ref INT NOT NULL,
+    section_id INT NOT NULL DEFAULT 1,
+    payment_amount DECIMAL(10,2) NOT NULL CHECK (payment_amount > 0),
+    payment_date DATE DEFAULT CURRENT_DATE,
+    term INT NOT NULL DEFAULT 1,
+    payment_method VARCHAR(50) DEFAULT NULL,
+    receipt_number VARCHAR(100) DEFAULT NULL,
+    notes TEXT DEFAULT NULL,
+    FOREIGN KEY (student_fee_id) REFERENCES Student_Fees(student_fee_id),
+    FOREIGN KEY (session_year) REFERENCES Sessions(session_year)
+);
+
+
 -- =========================
 -- Staff Table
 -- =========================
@@ -314,19 +341,8 @@ CREATE TABLE staff_form_master (
 
 
 -- =========================
--- Student Fee Payments
+-- Trigger to Update Student Fee Status
 -- =========================
-CREATE TABLE Student_Fee_Payments (
-    payment_id INT AUTO_INCREMENT PRIMARY KEY,
-    student_fee_id INT NOT NULL,
-    payment_amount DECIMAL(10,2) NOT NULL CHECK (payment_amount > 0),
-    payment_date DATE DEFAULT CURRENT_DATE,
-    payment_method VARCHAR(50) DEFAULT NULL,
-    receipt_number VARCHAR(100) DEFAULT NULL,
-    notes TEXT DEFAULT NULL,
-    FOREIGN KEY (student_fee_id) REFERENCES Student_Fees(student_fee_id)
-);
-
 DELIMITER //
 CREATE TRIGGER update_student_fee_status_after_payment
 AFTER INSERT ON Student_Fee_Payments
@@ -927,7 +943,9 @@ ALTER TABLE staff_form_master ADD COLUMN academic_year VARCHAR(9) NOT NULL DEFAU
 
 -- Add session support to database
 
--- Create Sessions table
+-- =========================
+-- Sessions Table (already provided, included for reference)
+-- =========================
 CREATE TABLE IF NOT EXISTS Sessions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     session_year VARCHAR(20) UNIQUE NOT NULL,
@@ -937,7 +955,7 @@ CREATE TABLE IF NOT EXISTS Sessions (
     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Insert sample sessions
+-- Insert sample sessions (already provided, included for reference)
 INSERT INTO Sessions (session_year, start_date, end_date, is_current) VALUES
 ('2023/2024', '2023-09-01', '2024-08-31', FALSE),
 ('2024/2025', '2024-09-01', '2025-08-31', TRUE),
@@ -962,3 +980,4 @@ ADD FOREIGN KEY (session_year) REFERENCES Sessions(session_year);
 ALTER TABLE Student_Enrollments 
 ADD COLUMN session_year VARCHAR(20) DEFAULT '2024/2025' AFTER term,
 ADD FOREIGN KEY (session_year) REFERENCES Sessions(session_year);
+
