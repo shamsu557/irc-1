@@ -894,7 +894,6 @@ document.getElementById("paymentStudentId")?.addEventListener("blur", async func
       document.getElementById("paymentClass").value = classDisplay;
       document.getElementById("paymentClassSection").value = d.section_id;
       document.getElementById("paymentClassRef").value = d.class_ref;
-      // DO NOT SET paymentStudentFeeId — backend creates it
       document.getElementById("paymentStudentFeeId").value = "";
 
       await updateFeeData();
@@ -931,7 +930,6 @@ async function updateFeeData() {
   const sectionId = document.getElementById("paymentClassSection")?.value;
   const classRef = document.getElementById("paymentClassRef")?.value;
 
-  // Reset
   document.getElementById("paymentTotalFee").value = "0.00";
   document.getElementById("paymentRemaining").value = "0.00";
   document.getElementById("paymentStudentFeeId").value = "";
@@ -948,7 +946,6 @@ async function updateFeeData() {
       document.getElementById("paymentRemaining").value = fmt(fee.remaining_amount);
       document.getElementById("paymentStudentFeeId").value = fee.student_fee_id;
     }
-    // No record → backend will create on submit
   } catch (err) {
     console.error("Error fetching fee:", err);
   }
@@ -970,16 +967,20 @@ document.getElementById("topAddPaymentBtn")?.addEventListener("click", async () 
   await populateSessions("payment");
   await populateTerms("payment");
 
-  const paymentSession = document.getElementById("paymentSession");
-  const paymentTerm = document.getElementById("paymentTerm");
+  const sessSel = document.getElementById("paymentSession");
+  const termSel = document.getElementById("paymentTerm");
 
-  if (paymentSession) {
-    const current = Array.from(paymentSession.options).find(opt => opt.selected);
-    if (current) paymentSession.value = current.value;
+  if (sessSel) {
+    const currentOpt = sessSel.querySelector("option[selected]");
+    sessSel.value = currentOpt ? currentOpt.value : sessSel.options[0].value;
+    sessSel.dispatchEvent(new Event('change'));
+    document.getElementById('paymentSessionDisplay').value = sessSel.value;
   }
-  if (paymentTerm) {
-    const first = paymentTerm.options[1]; // Term 1
-    if (first) paymentTerm.value = first.value;
+
+  if (termSel && termSel.options.length > 1) {
+    termSel.value = termSel.options[1].value;
+    termSel.dispatchEvent(new Event('change'));
+    document.getElementById('paymentTermDisplay').value = `Term ${termSel.value}`;
   }
 
   resetPaymentFields();
@@ -998,40 +999,22 @@ document.getElementById("addPaymentForm")?.addEventListener("submit", async (e) 
   submitBtn.innerHTML = "Saving...";
 
   try {
-    await updateFeeData(); // Refresh fee
-
-    const studentAdmission = document.getElementById("paymentStudentId").value.trim();
-    const studentFeeId = document.getElementById("paymentStudentFeeId").value;
-    const paymentAmount = parseFloat(document.getElementById("paymentAmount").value);
-    const paymentMethod = document.getElementById("paymentMethod").value;
-    const notes = document.getElementById("paymentNotes").value;
-    const term = document.getElementById("paymentTerm").value;
-    const session = document.getElementById("paymentSession").value;
-    const section_id = document.getElementById("paymentClassSection").value;
-    const class_ref = document.getElementById("paymentClassRef").value;
-    const student_name = document.getElementById("paymentStudentName").value;
-    const total_fee = parseFloat(document.getElementById("paymentTotalFee").value) || 0;
-    const remaining = parseFloat(document.getElementById("paymentRemaining").value) || 0;
-
-    if (!studentAdmission || !paymentAmount || paymentAmount <= 0 || !term || !session || !section_id || !class_ref) {
-      showMessageModal("error", "All required fields must be filled.");
-      return;
-    }
+    await updateFeeData();
 
     const dataToSend = {
-      // Only send student_fee_id if we have it
-      ...(studentFeeId ? { student_fee_id: parseInt(studentFeeId) } : {}),
-      payment_amount: paymentAmount,
-      payment_method: paymentMethod || null,
-      notes: notes || null,
-      term: parseInt(term),
-      session_year: session,
-      class_ref: parseInt(class_ref),
-      section_id: parseInt(section_id),
-      student_admission: studentAdmission,
-      student_name,
-      total_fee,
-      remaining_amount: remaining,
+      ...(document.getElementById("paymentStudentFeeId").value ? { student_fee_id: parseInt(document.getElementById("paymentStudentFeeId").value) } : {}),
+      payment_amount: parseFloat(document.getElementById("paymentAmount").value),
+      payment_method: document.getElementById("paymentMethod").value || null,
+      notes: document.getElementById("paymentNotes").value || null,
+      term: parseInt(document.getElementById("paymentTerm").value),
+      session_year: document.getElementById("paymentSession").value,
+      class_ref: parseInt(document.getElementById("paymentClassRef").value),
+      section_id: parseInt(document.getElementById("paymentClassSection").value),
+      student_admission: document.getElementById("paymentStudentId").value.trim(),
+      student_name: document.getElementById("paymentStudentName").value,
+      total_fee: parseFloat(document.getElementById("paymentTotalFee").value) || 0,
+      remaining_amount: parseFloat(document.getElementById("paymentRemaining").value) || 0,
+      class_display: document.getElementById("paymentClass").value
     };
 
     console.log("Sending to backend:", dataToSend);
@@ -1092,13 +1075,14 @@ async function fetchPaymentData() {
    RENDER PAYMENT TABLE
    ================================================================ */
 async function renderPaymentTable(feeData, searchQuery = "") {
-  const tableBody = document.getElementById("paymentTableBody");
-  if (!tableBody) return;
+  const oldBody = document.getElementById("paymentTableBody");
+  if (!oldBody) return;
 
-  tableBody.innerHTML = "";
+  const newBody = oldBody.cloneNode(false);
+  oldBody.parentNode.replaceChild(newBody, oldBody);
 
   if (!feeData || feeData.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="11" class="text-center">${translations[currentLang].noRecordsFound}</td></tr>`;
+    newBody.innerHTML = `<tr><td colspan="11" class="text-center">${translations[currentLang].noRecordsFound}</td></tr>`;
     return;
   }
 
@@ -1107,7 +1091,7 @@ async function renderPaymentTable(feeData, searchQuery = "") {
   );
 
   const curSession = document.getElementById("feesSessionFilter")?.value || "";
-  const curTerm = document.getElementById("feesTermFilter")?.value || "";
+  const curTerm    = document.getElementById("feesTermFilter")?.value || "";
 
   const fragment = document.createDocumentFragment();
 
@@ -1123,14 +1107,10 @@ async function renderPaymentTable(feeData, searchQuery = "") {
     row.dataset.remaining   = fee.remaining_amount;
     row.dataset.feeId       = fee.student_fee_id || "";
     row.dataset.className   = classDisplay;
-
-    const rowSession = fee.session_year || curSession;
-    const rowTerm    = fee.term || curTerm;
-
-    row.dataset.session     = rowSession;
-    row.dataset.term        = rowTerm;
-    row.dataset.sessionDisp = rowSession;
-    row.dataset.termDisp    = `Term ${rowTerm}`;
+    row.dataset.session     = fee.session_year || curSession;
+    row.dataset.term        = fee.term || curTerm;
+    row.dataset.sessionDisp = row.dataset.session;
+    row.dataset.termDisp    = `Term ${row.dataset.term}`;
 
     const totalFmt = fmt(fee.total_fee);
     const paidFmt  = fmt(fee.amount_paid);
@@ -1153,10 +1133,13 @@ async function renderPaymentTable(feeData, searchQuery = "") {
     fragment.appendChild(row);
   });
 
-  tableBody.appendChild(fragment);
+  newBody.appendChild(fragment);
   translatePage(currentLang);
 
-  tableBody.addEventListener('click', async function (e) {
+  /* --------------------------------------------------------------
+     ONE‑TIME click handler (fresh tbody → no duplicates)
+     -------------------------------------------------------------- */
+  newBody.addEventListener('click', async function (e) {
     const btn = e.target.closest('.add-payment-btn');
     if (!btn) return;
     const r = btn.closest('tr');
@@ -1166,26 +1149,40 @@ async function renderPaymentTable(feeData, searchQuery = "") {
       await populateSessions("payment");
       await populateTerms("payment");
 
-      const setValue = (id, value) => { const el = document.getElementById(id); if (el) el.value = value || ''; };
-      const setHTML  = (id, html)  => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
 
-      setValue('paymentStudentId',   r.dataset.admission);
-      setValue('paymentStudentName', r.dataset.name);
-      setValue('paymentClass',       r.dataset.className);
-      setValue('paymentTotalFee',    parseFloat(r.dataset.total || 0).toFixed(2));
-      setValue('paymentRemaining',   parseFloat(r.dataset.remaining || 0).toFixed(2));
-      setValue('paymentStudentFeeId', r.dataset.feeId);
-      setValue('paymentClassSection', r.dataset.sectionId);
-      setValue('paymentClassRef',    r.dataset.classRef);
-      setValue('paymentSession',     r.dataset.session);
-      setValue('paymentTerm',        r.dataset.term);
+      set('paymentStudentId',   r.dataset.admission);
+      set('paymentStudentName', r.dataset.name);
+      set('paymentClass',       r.dataset.className);
+      set('paymentTotalFee',    parseFloat(r.dataset.total || 0).toFixed(2));
+      set('paymentRemaining',   parseFloat(r.dataset.remaining || 0).toFixed(2));
+      set('paymentStudentFeeId',r.dataset.feeId);
+      set('paymentClassSection',r.dataset.sectionId);
+      set('paymentClassRef',    r.dataset.classRef);
 
-      setHTML('studentInfo', `<small class="text-success">${r.dataset.name} - ${r.dataset.className}</small>`);
-      setValue('paymentAmount', '');
-      setValue('paymentNotes', '');
-      setValue('paymentMethod', 'Cash');
+      const sessionSelect = document.getElementById('paymentSession');
+      const termSelect = document.getElementById('paymentTerm');
+      const sessionDisplay = document.getElementById('paymentSessionDisplay');
+      const termDisplay = document.getElementById('paymentTermDisplay');
 
-      await updateFeeData();
+      if (sessionSelect && r.dataset.session) {
+        sessionSelect.value = r.dataset.session;
+        sessionSelect.dispatchEvent(new Event('change'));
+      }
+      if (termSelect && r.dataset.term) {
+        termSelect.value = r.dataset.term;
+        termSelect.dispatchEvent(new Event('change'));
+      }
+
+      if (sessionDisplay) sessionDisplay.value = r.dataset.session || '';
+      if (termDisplay) termDisplay.value = `Term ${r.dataset.term}` || '';
+
+      document.getElementById('studentInfo').innerHTML =
+        `<small class="text-success">${r.dataset.name} - ${r.dataset.className}</small>`;
+
+      set('paymentAmount', '');
+      set('paymentNotes', '');
+      set('paymentMethod', 'Cash');
 
       const modalEl = document.getElementById('addPaymentModal');
       const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
@@ -1197,7 +1194,7 @@ async function renderPaymentTable(feeData, searchQuery = "") {
 
     } catch (err) {
       console.error("Add Payment error:", err);
-      showMessageModal("error", "Failed to load form: " + err.message);
+      showMessageModal("error", "Failed to load form: " + (err.message || "unknown"));
     }
   });
 }
@@ -1595,7 +1592,6 @@ document.querySelectorAll("#feesTab .nav-link").forEach((tab) => {
     else if (e.target.id === "feeStructureOverviewTab") fetchFeeStructureOverview();
   });
 });
-
 
 /* ---------------------------------------------------------------- */
 // Preselect student subjects (unchanged)
