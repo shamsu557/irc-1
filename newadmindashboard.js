@@ -651,7 +651,6 @@ const fetchDataAndRender = async (url, renderFunc) => {
         renderFunc(data.data);
     }
 };
-
 // Modal instance for Payment
 const paymentModal = new bootstrap.Modal(document.getElementById("addPaymentModal"));
 
@@ -1071,8 +1070,9 @@ async function fetchPaymentData() {
   }
 }
 
+
 /* ================================================================
-   RENDER PAYMENT TABLE
+   RENDER PAYMENT TABLE (updated)
    ================================================================ */
 async function renderPaymentTable(feeData, searchQuery = "") {
   const oldBody = document.getElementById("paymentTableBody");
@@ -1104,7 +1104,7 @@ async function renderPaymentTable(feeData, searchQuery = "") {
     row.dataset.sectionId   = fee.section_id;
     row.dataset.classRef    = fee.class_ref;
     row.dataset.total       = fee.total_fee;
-    row.dataset.remaining   = fee.remaining_amount;
+    row.dataset.remaining   = fee.remaining_amount;      // current remaining (before payment)
     row.dataset.feeId       = fee.student_fee_id || "";
     row.dataset.className   = classDisplay;
     row.dataset.session     = fee.session_year || curSession;
@@ -1137,7 +1137,7 @@ async function renderPaymentTable(feeData, searchQuery = "") {
   translatePage(currentLang);
 
   /* --------------------------------------------------------------
-     ONE‑TIME click handler (fresh tbody → no duplicates)
+     ONE-TIME click handler (fresh tbody → no duplicates)
      -------------------------------------------------------------- */
   newBody.addEventListener('click', async function (e) {
     const btn = e.target.closest('.add-payment-btn');
@@ -1161,9 +1161,9 @@ async function renderPaymentTable(feeData, searchQuery = "") {
       set('paymentClassRef',    r.dataset.classRef);
 
       const sessionSelect = document.getElementById('paymentSession');
-      const termSelect = document.getElementById('paymentTerm');
+      const termSelect    = document.getElementById('paymentTerm');
       const sessionDisplay = document.getElementById('paymentSessionDisplay');
-      const termDisplay = document.getElementById('paymentTermDisplay');
+      const termDisplay    = document.getElementById('paymentTermDisplay');
 
       if (sessionSelect && r.dataset.session) {
         sessionSelect.value = r.dataset.session;
@@ -1190,6 +1190,40 @@ async function renderPaymentTable(feeData, searchQuery = "") {
 
       modalEl.addEventListener('shown.bs.modal', () => {
         document.getElementById('paymentAmount')?.focus();
+
+        /* -----------------------------------------------------------
+           AUTO-FILL NOTES ON EVERY INPUT CHANGE
+           ----------------------------------------------------------- */
+        const amountInput   = document.getElementById('paymentAmount');
+        const notesInput    = document.getElementById('paymentNotes');
+        const totalFee      = parseFloat(r.dataset.total) || 0;
+        const curRemaining  = parseFloat(r.dataset.remaining) || 0;
+
+        const updateNotes = () => {
+          const paying = parseFloat(amountInput.value) || 0;
+
+          // 1. Total amount paid = total_fee - curRemaining + paying
+          const totalPaid = totalFee - curRemaining + paying;
+
+          // 2. New remaining balance
+          const newRemaining = curRemaining - paying;
+
+          notesInput.value = `Total Paid: ${fmt(totalPaid)}\nRemaining Balance: ${fmt(newRemaining)}`;
+        };
+
+        // Run once immediately (in case amount is pre-filled)
+        updateNotes();
+
+        // Re-calculate on every keystroke / change
+        amountInput.addEventListener('input', updateNotes);
+        amountInput.addEventListener('change', updateNotes);
+
+        // Clean up listeners when modal closes (avoid memory leak)
+        modalEl.addEventListener('hidden.bs.modal', () => {
+          amountInput.removeEventListener('input', updateNotes);
+          amountInput.removeEventListener('change', updateNotes);
+        }, { once: true });
+
       }, { once: true });
 
     } catch (err) {
@@ -1449,9 +1483,8 @@ async function loadImageAsDataURL(url) {
     img.src = url + (url.includes("?") ? "&" : "?") + new Date().getTime();
   });
 }
-
 /* ================================================================
-   GENERATE RECEIPT
+   GENERATE RECEIPT (FIXED BALANCE CALCULATION + THANK-YOU BELOW)
    ================================================================ */
 async function generatePaymentReceipt(paymentResponseData, fallbackFormData = null) {
   try {
@@ -1460,57 +1493,116 @@ async function generatePaymentReceipt(paymentResponseData, fallbackFormData = nu
     const margin = 15;
     let y = 20;
 
+    // --- School logo -------------------------------------------------
     if (schoolInfo.logoSrc) {
       try {
         const img = await loadImageAsDataURL(schoolInfo.logoSrc);
         doc.addImage(img, "JPEG", margin, y, 28, 28);
-      } catch (e) {}
+      } catch (e) {
+        console.warn("Logo load error:", e);
+      }
     }
 
+    // --- School Info ------------------------------------------------
     doc.setFontSize(16);
-    doc.text(schoolInfo.name, margin + 35, y + 10);
-    doc.setFontSize(9);
-    doc.text(schoolInfo.address, margin + 35, y + 16);
-    doc.text(`${schoolInfo.phone} | ${schoolInfo.email}`, margin + 35, y + 21);
+    doc.text(schoolInfo.name || "School Name", margin + 35, y + 10);
+    doc.setFontSize(7);
+    doc.text(schoolInfo.address || "", margin + 35, y + 16);
+    doc.text(`${schoolInfo.phone || ""} | ${schoolInfo.email || ""}`, margin + 35, y + 21);
 
+    // --- Title ------------------------------------------------------
     doc.setFontSize(14);
     doc.text("PAYMENT RECEIPT", 105, y + 38, null, null, "center");
-    y += 45;
 
+    // Admission number under the title
     const pd = { ...(fallbackFormData || {}), ...(paymentResponseData || {}) };
-    const safe = (v) => (v == null ? "N/A" : String(v));
+    const admissionNo = pd.student_admission || "N/A";
+    doc.setFontSize(12);
+    doc.text(`${admissionNo}`, 105, y + 46, null, null, "center");
 
+    y += 52;
+    const safe = (v) => (v == null || v === "" ? "N/A" : String(v));
+
+    // --- Fee calculations -------------------------------------------
+    const totalFee      = parseFloat(pd.total_fee || 0);
+    const justPaid      = parseFloat(pd.payment_amount || 0);
+    const prevRemaining = parseFloat(pd.remaining_amount || 0);
+    const prevPaid      = totalFee - prevRemaining;
+    const newPaidTotal  = prevPaid + justPaid;
+    const newBalance    = Math.max(totalFee - newPaidTotal, 0);
+
+    // --- Left Details -----------------------------------------------
     const leftX = margin;
-    let lineY = y;
+    let lineY   = y;
     const lineH = 7;
-
     doc.setFontSize(10);
+
     doc.text(`Date: ${new Date().toLocaleString()}`, leftX, lineY); lineY += lineH;
-    doc.text(`Student: ${safe(pd.student_name)}`, leftX, lineY); lineY += lineH;
-    doc.text(`Session: ${safe(pd.session_year)}`, leftX, lineY); lineY += lineH;
-    doc.text(`Term: ${safe(pd.term)}`, leftX, lineY); lineY += lineH;
-    doc.text(`Class: ${pd.class_display || "N/A"}`, leftX, lineY);
+    doc.text(`Student: ${safe(pd.student_name)}`,   leftX, lineY); lineY += lineH;
+    doc.text(`Session: ${safe(pd.session_year)}`,  leftX, lineY); lineY += lineH;
+    doc.text(`Term: ${safe(pd.term)}`,             leftX, lineY); lineY += lineH;
+    doc.text(`Class: ${safe(pd.class_display)}`,   leftX, lineY);
 
+    // --- Right Details ----------------------------------------------
     const rightX = 120;
-    lineY = y;
-    doc.text(`Total: ₦${fmt(pd.total_fee)}`, rightX, lineY); lineY += lineH;
-    doc.text(`Paid: ₦${fmt(pd.payment_amount)}`, rightX, lineY); lineY += lineH;
-    doc.text(`Balance: ₦${fmt(pd.remaining_amount)}`, rightX, lineY); lineY += lineH;
-    doc.text(`Method: ${safe(pd.payment_method)}`, rightX, lineY); lineY += lineH;
-    doc.text(`Notes: ${safe(pd.notes)}`, rightX, lineY);
+    lineY = y;                     // reset Y for the right column
 
-    const sigY = lineY + 15;
-    doc.line(leftX, sigY, leftX + 70, sigY);
+    doc.text(`Total Fee: ₦${fmt(totalFee)}`,          rightX, lineY); lineY += lineH;
+    doc.text(`Amount Paid: ₦${fmt(justPaid)}`,        rightX, lineY); lineY += lineH;
+    doc.text(`Method: ${safe(pd.payment_method)}`,    rightX, lineY); lineY += lineH;
+
+    // ----- Multi-line NOTES -----------------------------------------
+    doc.text(`Notes:`, rightX, lineY); lineY += lineH;
+    const notesLines = (pd.notes || '').split('\n').filter(l => l.trim() !== '');
+    if (notesLines.length === 0) {
+      doc.text(`—`, rightX, lineY); lineY += lineH;
+    } else {
+      notesLines.forEach(line => {
+        doc.text(`${safe(line)}`, rightX, lineY);
+        lineY += lineH;
+      });
+    }
+
+    // ----- SIGNATURE ------------------------------------------------
+    const sigY = lineY + 15;                     // space before signature
+    doc.setLineWidth(0.5);
+    doc.line(leftX, sigY, leftX + 70, sigY);    // underline
     doc.setFontSize(9);
     doc.text("Authorized Signature", leftX, sigY + 6);
 
-    doc.save(`Receipt_${pd.student_admission || "temp"}_${Date.now()}.pdf`);
+    // ----- HORIZONTAL SEPARATOR (full width) ------------------------
+    const sepY = sigY + 20;                     // space after signature
+    doc.setLineWidth(0.3);
+    doc.line(margin, sepY, 210 - margin, sepY); // A4 width = 210 mm
+
+    // ----- THANK-YOU MESSAGE (centered, far below) ------------------
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const thankYouText1 = "Thank you for paying your school fees on time!";
+    const thankYouText2 = "We appreciate your commitment to your child's education.";
+
+    let thankY = sepY + 12;                     // start a bit after the line
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);               // soft gray
+
+    doc.text(thankYouText1, pageWidth / 2, thankY, { align: 'center' });
+    thankY += lineH;
+    doc.text(thankYouText2, pageWidth / 2, thankY, { align: 'center' });
+
+    // Reset font for any later content
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+
+    // ----- SAVE ------------------------------------------------------
+    const filename = `Receipt_${admissionNo}_${Date.now()}.pdf`;
+    doc.save(filename);
+
   } catch (err) {
     console.error("Receipt error:", err);
     showMessageModal("error", "Failed to generate receipt");
   }
 }
-
 /* ================================================================
    SET FEE FORM
    ================================================================ */

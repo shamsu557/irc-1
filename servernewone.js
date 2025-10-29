@@ -3095,6 +3095,7 @@ app.get('/api/fees/student-balance', (req, res) => {
 });
 //end of payment codes
 
+
 app.get("/api/sessions", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized." })
