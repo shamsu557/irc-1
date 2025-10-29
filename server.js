@@ -6,7 +6,6 @@ const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
 const ExcelJS = require('exceljs');
-const feesRoutes = require('./fees_routes');
 const multer = require('multer');
 const moment = require('moment'); // install with: npm install moment
 const app = express();
