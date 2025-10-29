@@ -10,6 +10,7 @@ const translations = {
         fees: "Fees",
         bookings: "Bookings",
         admin: "Admin",
+        allClasses: "All Classes",
         signOut: "Sign out",
         dashboardOverview: "Dashboard Overview",
         totalStaff: "Total Staff",
@@ -38,6 +39,20 @@ const translations = {
         staffSaved: "Staff record saved successfully.",
         studentSaved: "Student record saved successfully.",
         feesSaved: "Fees updated successfully.",
+        addPayment: "Add Payment",
+        studentName: "Student Name",
+        paymentAmount: "Payment Amount",
+        paymentMethod: "Payment Method",
+        paymentNotes: "Notes",
+        submitPayment: "Submit Payment",
+        cash: "Cash",
+        bankTransfer: "Bank Transfer",
+        mobileMoney: "Mobile Money",
+        pos: "POS",
+        cheque: "Cheque",
+        requiredFieldsError: "Please fill all required fields.",
+        invalidAmountError: "Please enter a valid payment amount.",
+        paymentSaved: "Payment added successfully.",
         bookingsFetched: "Bookings fetched successfully.",
         generateIdCard: "Generate ID Card",
         generateReportSheet: "Generate Report Sheet",
@@ -46,25 +61,27 @@ const translations = {
         studentId: "Student ID",
         reportType: "Report Type",
         session: "Session",
+        selectSession: "Select Session",
+        sessionRequired: "Session is required.",
+        allSessions: "All Sessions",
         term: "Term",
+        selectTerm: "Select Term",
         terminalReport: "Terminal",
         sessionalReport: "Sessional",
         firstTerm: "1st Term",
         secondTerm: "2nd Term",
         thirdTerm: "3rd Term",
-        session2024_2025: "2024/2025 Session",
-        session2023_2024: "2023/2024 Session",
+        allTerms: "All Terms",
         idCardGenerated: "ID Card Generated",
         reportSheetGenerated: "Report Sheet Generated",
         exportPdf: "Export as PDF",
         exportExcel: "Export as Excel",
-        setFees: "Set Fees per Level",
+        setFees: "Set Fees per Class",
         basicFees: "Basic Level Fees",
         mediumFees: "Medium Level Fees",
         highFees: "High Level Fees",
         saveFees: "Save Fees",
         paymentTracking: "Payment Tracking",
-        studentName: "Student Name",
         levelClass: "Level/Class",
         status: "Status",
         actions: "Actions",
@@ -119,7 +136,6 @@ const translations = {
         petNameQuestion: "What is your pet's name?",
         maidenNameQuestion: "What is your mother's maiden name?",
         carMakeQuestion: "What was your first car's make?",
-        requiredFieldsError: "Please fill all required fields.",
         passwordLength: "Password must be at least 8 characters long.",
         passwordMatch: "Passwords must match.",
         nameRequired: "Name is required.",
@@ -141,10 +157,16 @@ const translations = {
         profilePictureInvalid: "Please upload a valid JPEG or PNG image (≤ 200KB).",
         profilePictureSaved: "Profile picture uploaded successfully.",
         selectClass: "Select Class",
+        selectStudent: "Select Student",
+        studentRequired: "Student is required.",
+        termRequired: "Term is required.",
+        amountRequired: "Amount is required and must be positive.",
+        methodRequired: "Payment method is required.",
         guardianPhone: "Guardian Phone",
         duplicateStudent: "Duplicate student registration detected.",
         confirmDelete: "Are you sure you want to delete this record?",
-        recordDeleted: "Record deleted successfully."
+        recordDeleted: "Record deleted successfully.",
+        noRecordsFound: "No records found."
     },
     ar: {
         adminPanel: "لوحة التحكم الإدارية",
@@ -154,6 +176,7 @@ const translations = {
         fees: "الرسوم",
         bookings: "الحجوزات",
         admin: "المشرف",
+        allClasses: "جميع الفصول",
         signOut: "تسجيل الخروج",
         dashboardOverview: "نظرة عامة على لوحة القيادة",
         totalStaff: "إجمالي العاملين",
@@ -182,6 +205,20 @@ const translations = {
         staffSaved: "تم حفظ سجل الموظف بنجاح.",
         studentSaved: "تم حفظ سجل الطالب بنجاح.",
         feesSaved: "تم تحديث الرسوم بنجاح.",
+        addPayment: "إضافة دفعة",
+        studentName: "اسم الطالب",
+        paymentAmount: "مبلغ الدفعة",
+        paymentMethod: "طريقة الدفع",
+        paymentNotes: "ملاحظات",
+        submitPayment: "إرسال الدفعة",
+        cash: "نقدي",
+        bankTransfer: "تحويل بنكي",
+        mobileMoney: "الدفع عبر الهاتف",
+        pos: "نقطة بيع",
+        cheque: "شيك",
+        requiredFieldsError: "يرجى ملء جميع الحقول المطلوبة.",
+        invalidAmountError: "يرجى إدخال مبلغ دفعة صحيح.",
+        paymentSaved: "تمت إضافة الدفعة بنجاح.",
         bookingsFetched: "تم جلب الحجوزات بنجاح.",
         generateIdCard: "إنشاء بطاقة هوية",
         generateReportSheet: "إنشاء ورقة تقرير",
@@ -190,25 +227,27 @@ const translations = {
         studentId: "معرف الطالب",
         reportType: "نوع التقرير",
         session: "الدورة",
+        selectSession: "اختر الجلسة",
+        sessionRequired: "الجلسة مطلوبة.",
+        allSessions: "جميع الجلسات",
         term: "الفصل",
+        selectTerm: "اختر الفصل",
         terminalReport: "تقرير فصلي",
         sessionalReport: "تقرير دوري",
         firstTerm: "الفصل الأول",
         secondTerm: "الفصل الثاني",
         thirdTerm: "الفصل الثالث",
-        session2024_2025: "دورة 2024/2025",
-        session2023_2024: "دورة 2023/2024",
+        allTerms: "جميع الفصول",
         idCardGenerated: "تم إنشاء بطاقة الهوية",
         reportSheetGenerated: "تم إنشاء ورقة التقرير",
         exportPdf: "تصدير كـ PDF",
         exportExcel: "تصدير كـ Excel",
-        setFees: "تحديد الرسوم لكل مستوى",
+        setFees: "تحديد الرسوم لكل فصل",
         basicFees: "رسوم المستوى الأساسي",
         mediumFees: "رسوم المستوى المتوسط",
         highFees: "رسوم المستوى العالي",
         saveFees: "حفظ الرسوم",
-        paymentTracking: "تتبع الدفع",
-        studentName: "اسم الطالب",
+        paymentTracking: "تتبع الدفعات",
         levelClass: "المستوى/الفصل",
         status: "الحالة",
         actions: "الإجراءات",
@@ -263,7 +302,6 @@ const translations = {
         petNameQuestion: "ما هو اسم حيوانك الأليف؟",
         maidenNameQuestion: "ما هو اسم عائلة والدتك قبل الزواج؟",
         carMakeQuestion: "ما هي ماركة سيارتك الأولى؟",
-        requiredFieldsError: "يرجى ملء جميع الحقول المطلوبة.",
         passwordLength: "كلمة المرور يجب أن تكون 8 أحرف على الأقل.",
         passwordMatch: "كلمات المرور يجب أن تتطابق.",
         nameRequired: "الاسم مطلوب.",
@@ -285,13 +323,18 @@ const translations = {
         profilePictureInvalid: "يرجى رفع صورة JPEG أو PNG صالحة (≤ 200 كيلوبايت).",
         profilePictureSaved: "تم رفع الصورة الشخصية بنجاح.",
         selectClass: "اختر الفصل",
+        selectStudent: "اختر الطالب",
+        studentRequired: "الطالب مطلوب.",
+        termRequired: "الفصل مطلوب.",
+        amountRequired: "المبلغ مطلوب ويجب أن يكون موجباً.",
+        methodRequired: "طريقة الدفع مطلوبة.",
         guardianPhone: "هاتف الوصي",
         duplicateStudent: "تم اكتشاف تسجيل طالب مكرر.",
         confirmDelete: "هل أنت متأكد من أنك تريد حذف هذا السجل؟",
-        recordDeleted: "تم حذف السجل بنجاح."
+        recordDeleted: "تم حذف السجل بنجاح.",
+        noRecordsFound: "لم يتم العثور على سجلات."
     }
 };
-
 const classMapping = {
     'Basic': ['Basic 1', 'Basic 2', 'Basic 3', 'Basic 4', 'Basic 5', 'Basic 6'],
     'Medium': ['JSS 1', 'JSS 2', 'JSS 3'],
@@ -374,7 +417,7 @@ const deleteData = async (url) => {
 
 // UI Rendering Functions
 const formatCurrency = (amount) => {
-    return `₦${parseFloat(amount || 0).toFixed(2)}`;
+    return `â‚¦${parseFloat(amount || 0).toFixed(2)}`;
 };
 
 const formatDate = (dateString) => {
@@ -452,13 +495,13 @@ const renderStudents = async (students) => {
         ? formatDate(student.date_of_birth)
         : 'N/A';
 
-    // ✅ Handle subjects
+    // âœ… Handle subjects
     const uniqueSubjects = Array.isArray(student.subjects)
         ? [...new Set(student.subjects)].filter(s => s)
         : [student.subjects || 'N/A'];
     const subjectsDisplay = uniqueSubjects.join(', ');
 
-    // ✅ Ensure unique class names and map section_id:class_id to names
+    // âœ… Ensure unique class names and map section_id:class_id to names
     const uniqueClasses = Array.isArray(student.classes) 
         ? [...new Set(student.classes)].map(cls => classMap[cls] || cls).filter(name => name)
         : [student.classes || 'N/A'];
@@ -476,8 +519,8 @@ const renderStudents = async (students) => {
         <td>${student.name || student.full_name || 'N/A'}</td>
         <td>${student.gender || 'N/A'}</td>
         <td>${dob}</td>
-        <td>${subjectsDisplay}</td> <!-- ✅ Added Subjects column -->
-        <td>${classesDisplay}</td>  <!-- ✅ Class(es) column -->
+        <td>${subjectsDisplay}</td> <!-- âœ… Added Subjects column -->
+        <td>${classesDisplay}</td>  <!-- âœ… Class(es) column -->
         <td>${student.guardian_phone || 'N/A'}</td>
         <td>${student.address || 'N/A'}</td>
         <td class="flex gap-2">
@@ -538,23 +581,7 @@ const renderAdmins = (admins) => {
     translatePage(currentLang);
 };
 
-const renderPayments = (payments) => {
-    const paymentTableBody = document.getElementById('paymentTableBody');
-    paymentTableBody.innerHTML = '';
-    payments.forEach(payment => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${payment.name}</td>
-            <td>${payment.level || 'N/A'}/${payment.class_name || 'N/A'}</td>
-            <td><span class="${payment.status === 'completed' ? 'text-success' : 'text-warning'}">${payment.status}</span></td>
-            <td>
-                <button class="btn btn-sm btn-primary edit-payment-button" data-id="${payment.id}" data-translate="edit">Edit</button>
-            </td>
-        `;
-        paymentTableBody.appendChild(row);
-    });
-    translatePage(currentLang);
-};
+
 
 const renderBookings = (bookings) => {
     const bookingsTableBody = document.getElementById('bookingsTableBody');
@@ -596,7 +623,6 @@ const renderDashboardOverview = async () => {
             bookingsData.success && Array.isArray(bookingsData.data) ? bookingsData.data.length : 0;
 
         // Pending fees (currently static)
-        document.getElementById('pendingFeesCount').textContent = '0';
     } catch (error) {
         console.error('Error rendering dashboard overview:', error);
         document.getElementById('totalStudentsCount').textContent = 0;
@@ -625,23 +651,1052 @@ const fetchDataAndRender = async (url, renderFunc) => {
         renderFunc(data.data);
     }
 };
+// Modal instance for Payment
+const paymentModal = new bootstrap.Modal(document.getElementById("addPaymentModal"));
 
-/**
- * Safely preselects student subjects after dynamic filtering has completed.
- * This is called with a delay from editStudent.
- */
+// Global cache for classMap
+let classMap = {};
+
+// --- Utility: safe number format
+function fmt(num) {
+  if (num === null || num === undefined || Number.isNaN(Number(num))) return "0.00";
+  return Number(num).toFixed(2);
+}
+
+// --- School Info ---
+const schoolInfo = {
+  name: "Ibadurrahman College",
+  address: "No. 1968 A, Gwammaja Housing Estate, Audu Wawu Street, opp. Ihya'ussunnah Juma'a Mosque, Dala L.G.A, Kano State, Nigeria.",
+  phone: "08033459721, 09062171496",
+  email: "info@irc.com.ng",
+  logoSrc: "assets/images/logo.jpeg",
+};
+
+/* ================================================================
+   POPULATE TERMS (1,2,3)
+   ================================================================ */
+async function populateTerms(target = "all") {
+  console.log("Populating terms for target:", target);
+  try {
+    const feesTermFilter = document.getElementById("feesTermFilter");
+    const paymentTerm = document.getElementById("paymentTerm");
+    const feeOverviewTermFilter = document.getElementById("feeOverviewTermFilter");
+
+    if (target === "all" || target === "fees") {
+      if (feesTermFilter)
+        feesTermFilter.innerHTML = `<option value="" data-translate="allTerms">${translations[currentLang].allTerms || "All Terms"}</option>`;
+      if (feeOverviewTermFilter)
+        feeOverviewTermFilter.innerHTML = `<option value="" data-translate="allTerms">${translations[currentLang].allTerms || "All Terms"}</option>`;
+    }
+    if (target === "all" || target === "payment") {
+      const el = document.getElementById("paymentTerm");
+      if (el) el.innerHTML = `<option value="" data-translate="selectTerm">${translations[currentLang].selectTerm || "Select Term"}</option>`;
+    }
+
+    const terms = [1, 2, 3];
+    terms.forEach((term) => {
+      const option = document.createElement("option");
+      option.value = term;
+      option.textContent = `Term ${term}`;
+
+      if (target === "all" || target === "fees") {
+        if (feesTermFilter) feesTermFilter.appendChild(option.cloneNode(true));
+        if (feeOverviewTermFilter) feeOverviewTermFilter.appendChild(option.cloneNode(true));
+      }
+      if (target === "all" || target === "payment") {
+        const el = document.getElementById("paymentTerm");
+        if (el) el.appendChild(option.cloneNode(true));
+      }
+    });
+
+    translatePage(currentLang);
+  } catch (err) {
+    console.error("Error populating terms:", err);
+  }
+}
+
+/* ================================================================
+   POPULATE SESSIONS FROM DB
+   ================================================================ */
+async function populateSessions(target = "all") {
+  console.log("Populating sessions for target:", target);
+  try {
+    const response = await fetchData("/api/sessions");
+    if (!response.success) {
+      console.error("Failed to fetch sessions:", response.message);
+      showMessageModal("error", translations[currentLang].sessionRequired || "Session required");
+      return;
+    }
+
+    const sessionSelect = document.getElementById("sessionSelect");
+    const feesSessionFilter = document.getElementById("feesSessionFilter");
+    const paymentSession = document.getElementById("paymentSession");
+    const feeOverviewSessionFilter = document.getElementById("feeOverviewSessionFilter");
+
+    if (target === "all" || target === "fees") {
+      if (sessionSelect) {
+        sessionSelect.innerHTML = `<option value="" data-translate="selectSession">${translations[currentLang].selectSession || "Select Session"}</option>`;
+      }
+      if (feesSessionFilter) feesSessionFilter.innerHTML = "";
+      if (feeOverviewSessionFilter) feeOverviewSessionFilter.innerHTML = "";
+    }
+
+    if (target === "all" || target === "payment") {
+      if (paymentSession) {
+        paymentSession.innerHTML = `<option value="" data-translate="selectSession">${translations[currentLang].selectSession || "Select Session"}</option>`;
+      }
+    }
+
+    response.data.forEach((session) => {
+      const option = document.createElement("option");
+      option.value = session.session_year;
+      option.textContent = session.session_year;
+      if (session.is_current) option.selected = true;
+
+      if (target === "all" || target === "fees") {
+        sessionSelect?.appendChild(option.cloneNode(true));
+        feesSessionFilter?.appendChild(option.cloneNode(true));
+        feeOverviewSessionFilter?.appendChild(option.cloneNode(true));
+      }
+
+      if (target === "all" || target === "payment") {
+        paymentSession?.appendChild(option.cloneNode(true));
+      }
+    });
+
+    translatePage(currentLang);
+  } catch (err) {
+    console.error("Error fetching sessions:", err);
+    showMessageModal("error", translations[currentLang].sessionRequired || "Failed to load sessions");
+  }
+}
+
+/* ================================================================
+   POPULATE CLASSES (global classMap)
+   ================================================================ */
+async function populateClasses(staff = null, student = null, target = "all") {
+  console.log("Populating classes for target:", target);
+  const data = await fetchData("/api/classes");
+  if (!data.success) {
+    console.error("Failed to fetch classes:", data.message);
+    showMessageModal("error", translations[currentLang].classRequired);
+    return;
+  }
+
+  classMap = {};
+  data.data.forEach((cls) => {
+    classMap[`${cls.section_id}:${cls.id}`] = cls.name;
+  });
+
+  const formMasterSelect = document.getElementById("formMasterClass");
+  const classesTaughtSelect = document.getElementById("classesTaught");
+  const studentClassesSelect = document.getElementById("studentClasses");
+  const studentClassFilter = document.getElementById("studentClassFilter");
+  const feesClassSelect = document.getElementById("classSelect");
+  const trackClassSelect = document.getElementById("trackClassSelect");
+
+  if (target === "all" || target === "staff-student") {
+    if (formMasterSelect)
+      formMasterSelect.innerHTML = `<option value="" data-translate="selectClass">${translations[currentLang].selectClass}</option>`;
+    if (classesTaughtSelect) classesTaughtSelect.innerHTML = "";
+    if (studentClassesSelect) studentClassesSelect.innerHTML = "";
+    if (studentClassFilter)
+      studentClassFilter.innerHTML = `<option value="" data-translate="allClasses">${translations[currentLang].allClasses}</option>`;
+  }
+  if (target === "all" || target === "fees") {
+    if (feesClassSelect)
+      feesClassSelect.innerHTML = `<option value="" data-translate="selectClass">${translations[currentLang].selectClass}</option>`;
+    if (trackClassSelect)
+      trackClassSelect.innerHTML = `<option value="" data-translate="allClasses">${translations[currentLang].allClasses}</option>`;
+  }
+
+  const islamicGroup = document.createElement("optgroup");
+  islamicGroup.label = translations[currentLang].basicClass || "Islamic Classes";
+  const westernGroup = document.createElement("optgroup");
+  westernGroup.label = translations[currentLang].mediumClass || "Western Classes";
+
+  data.data.forEach((cls) => {
+    const value = `${cls.section_id}:${cls.id}`;
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = cls.name;
+
+    if (target === "all" || target === "staff-student") {
+      if (formMasterSelect) formMasterSelect.appendChild(option.cloneNode(true));
+      if (classesTaughtSelect) classesTaughtSelect.appendChild(option.cloneNode(true));
+      if (studentClassFilter) studentClassFilter.appendChild(option.cloneNode(true));
+      if (cls.section_id === 1) {
+        islamicGroup.appendChild(option.cloneNode(true));
+      } else {
+        westernGroup.appendChild(option.cloneNode(true));
+      }
+    }
+    if (target === "all" || target === "fees") {
+      if (feesClassSelect) feesClassSelect.appendChild(option.cloneNode(true));
+      if (trackClassSelect) trackClassSelect.appendChild(option.cloneNode(true));
+    }
+  });
+
+  if (target === "all" || target === "staff-student") {
+    if (studentClassesSelect) {
+      studentClassesSelect.appendChild(islamicGroup);
+      studentClassesSelect.appendChild(westernGroup);
+    }
+  }
+
+  if (staff?.classes?.length && (target === "all" || target === "staff-student")) {
+    staff.classes.forEach((cls) => {
+      const value = `${cls.section_id}:${cls.class_id}`;
+      const opt = classesTaughtSelect?.querySelector(`option[value="${value}"]`);
+      if (opt) opt.selected = true;
+    });
+  }
+
+  if (staff?.formMaster && (target === "all" || target === "staff-student")) {
+    const value = `${staff.formMaster.section_id}:${staff.formMaster.class_id}`;
+    const opt = formMasterSelect?.querySelector(`option[value="${value}"]`);
+    if (opt) opt.selected = true;
+  }
+
+  if (student?.classes?.length && (target === "all" || target === "staff-student")) {
+    student.classes.forEach((clsValue) => {
+      const opt = studentClassesSelect?.querySelector(`option[value="${clsValue}"]`);
+      if (opt) opt.selected = true;
+    });
+    studentClassesSelect?.dispatchEvent(new Event("change"));
+  }
+
+  translatePage(currentLang);
+}
+
+/* ================================================================
+   FETCH STUDENT BY ADMISSION NO
+   ================================================================ */
+document.getElementById("paymentStudentId")?.addEventListener("blur", async function () {
+  const admission = this.value.trim();
+  const infoDiv = document.getElementById("studentInfo");
+  if (!admission) {
+    infoDiv.textContent = "";
+    resetPaymentFields();
+    return;
+  }
+
+  try {
+    const resp = await fetchData(`/api/students/by-admission/${admission}`);
+    if (resp.success && resp.data) {
+      const d = resp.data;
+      const classDisplay = classMap[`${d.section_id}:${d.class_ref}`] || "N/A";
+      infoDiv.textContent = `${d.full_name} - ${classDisplay}`;
+      infoDiv.style.color = "green";
+
+      document.getElementById("paymentStudentName").value = d.full_name;
+      document.getElementById("paymentClass").value = classDisplay;
+      document.getElementById("paymentClassSection").value = d.section_id;
+      document.getElementById("paymentClassRef").value = d.class_ref;
+      document.getElementById("paymentStudentFeeId").value = "";
+
+      await updateFeeData();
+    } else {
+      infoDiv.textContent = "Student not found";
+      infoDiv.style.color = "red";
+      resetPaymentFields();
+    }
+  } catch (err) {
+    console.error("Error fetching student:", err);
+    infoDiv.textContent = "Error fetching student";
+    infoDiv.style.color = "red";
+    resetPaymentFields();
+  }
+});
+
+function resetPaymentFields() {
+  document.getElementById("paymentTotalFee").value = "0.00";
+  document.getElementById("paymentRemaining").value = "0.00";
+  document.getElementById("paymentStudentFeeId").value = "";
+  document.getElementById("paymentStudentName").value = "";
+  document.getElementById("paymentClass").value = "";
+  document.getElementById("paymentClassSection").value = "";
+  document.getElementById("paymentClassRef").value = "";
+}
+
+/* ================================================================
+   UPDATE FEE DATA — USE ADMISSION NO, NOT student_fee_id
+   ================================================================ */
+async function updateFeeData() {
+  const session = document.getElementById("paymentSession")?.value;
+  const term = document.getElementById("paymentTerm")?.value;
+  const studentAdmission = document.getElementById("paymentStudentId")?.value.trim();
+  const sectionId = document.getElementById("paymentClassSection")?.value;
+  const classRef = document.getElementById("paymentClassRef")?.value;
+
+  document.getElementById("paymentTotalFee").value = "0.00";
+  document.getElementById("paymentRemaining").value = "0.00";
+  document.getElementById("paymentStudentFeeId").value = "";
+
+  if (!session || !term || !studentAdmission || !sectionId || !classRef) return;
+
+  try {
+    const url = `/api/fees/payments?session=${session}&term=${term}&student_admission=${studentAdmission}&class=${sectionId}:${classRef}`;
+    const resp = await fetchData(url);
+
+    if (resp.success && resp.data && resp.data.length > 0) {
+      const fee = resp.data[0];
+      document.getElementById("paymentTotalFee").value = fmt(fee.total_fee);
+      document.getElementById("paymentRemaining").value = fmt(fee.remaining_amount);
+      document.getElementById("paymentStudentFeeId").value = fee.student_fee_id;
+    }
+  } catch (err) {
+    console.error("Error fetching fee:", err);
+  }
+}
+document.getElementById("paymentSession")?.addEventListener("change", updateFeeData);
+document.getElementById("paymentTerm")?.addEventListener("change", updateFeeData);
+
+/* ================================================================
+   TOP "ADD PAYMENT" BUTTON (opens empty modal)
+   ================================================================ */
+document.getElementById("topAddPaymentBtn")?.addEventListener("click", async () => {
+  const form = document.getElementById("addPaymentForm");
+  if (!form) return;
+
+  form.reset();
+  document.getElementById("studentInfo").textContent = "";
+  document.getElementById("addPaymentModalLabel").textContent = translations[currentLang].addPayment;
+
+  await populateSessions("payment");
+  await populateTerms("payment");
+
+  const sessSel = document.getElementById("paymentSession");
+  const termSel = document.getElementById("paymentTerm");
+
+  if (sessSel) {
+    const currentOpt = sessSel.querySelector("option[selected]");
+    sessSel.value = currentOpt ? currentOpt.value : sessSel.options[0].value;
+    sessSel.dispatchEvent(new Event('change'));
+    document.getElementById('paymentSessionDisplay').value = sessSel.value;
+  }
+
+  if (termSel && termSel.options.length > 1) {
+    termSel.value = termSel.options[1].value;
+    termSel.dispatchEvent(new Event('change'));
+    document.getElementById('paymentTermDisplay').value = `Term ${termSel.value}`;
+  }
+
+  resetPaymentFields();
+  translatePage(currentLang);
+  paymentModal.show();
+});
+
+/* ================================================================
+   PAYMENT FORM SUBMIT — MATCHES BACKEND 100%
+   ================================================================ */
+document.getElementById("addPaymentForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const submitBtn = e.submitter || document.querySelector("#addPaymentForm button[type='submit']");
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = "Saving...";
+
+  try {
+    await updateFeeData();
+
+    const dataToSend = {
+      ...(document.getElementById("paymentStudentFeeId").value ? { student_fee_id: parseInt(document.getElementById("paymentStudentFeeId").value) } : {}),
+      payment_amount: parseFloat(document.getElementById("paymentAmount").value),
+      payment_method: document.getElementById("paymentMethod").value || null,
+      notes: document.getElementById("paymentNotes").value || null,
+      term: parseInt(document.getElementById("paymentTerm").value),
+      session_year: document.getElementById("paymentSession").value,
+      class_ref: parseInt(document.getElementById("paymentClassRef").value),
+      section_id: parseInt(document.getElementById("paymentClassSection").value),
+      student_admission: document.getElementById("paymentStudentId").value.trim(),
+      student_name: document.getElementById("paymentStudentName").value,
+      total_fee: parseFloat(document.getElementById("paymentTotalFee").value) || 0,
+      remaining_amount: parseFloat(document.getElementById("paymentRemaining").value) || 0,
+      class_display: document.getElementById("paymentClass").value
+    };
+
+    console.log("Sending to backend:", dataToSend);
+
+    const response = await fetchData("/api/fees/payments", {
+      method: "POST",
+      body: JSON.stringify(dataToSend),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (response.success) {
+      showMessageModal("success", "Payment saved successfully!");
+      paymentModal.hide();
+      document.getElementById("addPaymentForm").reset();
+      document.getElementById("studentInfo").textContent = "";
+      await generatePaymentReceipt(response.data, dataToSend);
+      await fetchPaymentData();
+    } else {
+      showMessageModal("error", response.message || "Failed to save payment");
+    }
+  } catch (err) {
+    console.error("Payment error:", err);
+    showMessageModal("error", "Network error: " + err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = "Submit Payment";
+  }
+});
+
+/* ================================================================
+   FETCH PAYMENT DATA (with filters)
+   ================================================================ */
+async function fetchPaymentData() {
+  const classValue = document.getElementById("trackClassSelect")?.value;
+  const termValue = document.getElementById("feesTermFilter")?.value || "";
+  const sessionValue = document.getElementById("feesSessionFilter")?.value || "";
+  const searchQuery = document.getElementById("paymentSearch")?.value || "";
+
+  let queryParams = "";
+  if (termValue) queryParams += `term=${termValue}`;
+  if (sessionValue) queryParams += `${queryParams ? "&" : ""}session=${encodeURIComponent(sessionValue)}`;
+  if (classValue) queryParams += `${queryParams ? "&" : ""}class=${encodeURIComponent(classValue)}`;
+  if (queryParams) queryParams = `?${queryParams}`;
+
+  try {
+    const response = await fetchData(`/api/fees/payments${queryParams}`);
+    if (response.success) {
+      await renderPaymentTable(response.data, searchQuery);
+    } else {
+      document.getElementById("paymentTableBody").innerHTML = `<tr><td colspan="11" class="text-center">${translations[currentLang].noRecordsFound}</td></tr>`;
+    }
+  } catch (err) {
+    console.error("Error:", err);
+  }
+}
+
+
+/* ================================================================
+   RENDER PAYMENT TABLE (updated)
+   ================================================================ */
+async function renderPaymentTable(feeData, searchQuery = "") {
+  const oldBody = document.getElementById("paymentTableBody");
+  if (!oldBody) return;
+
+  const newBody = oldBody.cloneNode(false);
+  oldBody.parentNode.replaceChild(newBody, oldBody);
+
+  if (!feeData || feeData.length === 0) {
+    newBody.innerHTML = `<tr><td colspan="11" class="text-center">${translations[currentLang].noRecordsFound}</td></tr>`;
+    return;
+  }
+
+  const filtered = feeData.filter(f =>
+    `${f.student_name} ${f.admission_no}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const curSession = document.getElementById("feesSessionFilter")?.value || "";
+  const curTerm    = document.getElementById("feesTermFilter")?.value || "";
+
+  const fragment = document.createDocumentFragment();
+
+  filtered.forEach(fee => {
+    const classDisplay = classMap[`${fee.section_id}:${fee.class_ref}`] || `Class ${fee.class_ref}`;
+    const row = document.createElement("tr");
+
+    row.dataset.admission   = fee.admission_no || "";
+    row.dataset.name        = fee.student_name || "";
+    row.dataset.sectionId   = fee.section_id;
+    row.dataset.classRef    = fee.class_ref;
+    row.dataset.total       = fee.total_fee;
+    row.dataset.remaining   = fee.remaining_amount;      // current remaining (before payment)
+    row.dataset.feeId       = fee.student_fee_id || "";
+    row.dataset.className   = classDisplay;
+    row.dataset.session     = fee.session_year || curSession;
+    row.dataset.term        = fee.term || curTerm;
+    row.dataset.sessionDisp = row.dataset.session;
+    row.dataset.termDisp    = `Term ${row.dataset.term}`;
+
+    const totalFmt = fmt(fee.total_fee);
+    const paidFmt  = fmt(fee.amount_paid);
+    const remFmt   = fmt(fee.remaining_amount);
+
+    row.innerHTML = `
+      <td>${row.dataset.admission}</td>
+      <td>${row.dataset.name}</td>
+      <td>${classDisplay}</td>
+      <td>${row.dataset.sessionDisp}</td>
+      <td>${row.dataset.termDisp}</td>
+      <td>${fee.guardian_phone || "—"}</td>
+      <td>${totalFmt}</td>
+      <td>${paidFmt}</td>
+      <td>${remFmt}</td>
+      <td><span class="badge ${fee.status === "Completed" ? "bg-success" : "bg-warning"}">${fee.status}</span></td>
+      <td><button class="btn btn-sm btn-success add-payment-btn" title="Add Payment">Add Payment</button></td>
+    `;
+
+    fragment.appendChild(row);
+  });
+
+  newBody.appendChild(fragment);
+  translatePage(currentLang);
+
+  /* --------------------------------------------------------------
+     ONE-TIME click handler (fresh tbody → no duplicates)
+     -------------------------------------------------------------- */
+  newBody.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.add-payment-btn');
+    if (!btn) return;
+    const r = btn.closest('tr');
+    if (!r) return;
+
+    try {
+      await populateSessions("payment");
+      await populateTerms("payment");
+
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+
+      set('paymentStudentId',   r.dataset.admission);
+      set('paymentStudentName', r.dataset.name);
+      set('paymentClass',       r.dataset.className);
+      set('paymentTotalFee',    parseFloat(r.dataset.total || 0).toFixed(2));
+      set('paymentRemaining',   parseFloat(r.dataset.remaining || 0).toFixed(2));
+      set('paymentStudentFeeId',r.dataset.feeId);
+      set('paymentClassSection',r.dataset.sectionId);
+      set('paymentClassRef',    r.dataset.classRef);
+
+      const sessionSelect = document.getElementById('paymentSession');
+      const termSelect    = document.getElementById('paymentTerm');
+      const sessionDisplay = document.getElementById('paymentSessionDisplay');
+      const termDisplay    = document.getElementById('paymentTermDisplay');
+
+      if (sessionSelect && r.dataset.session) {
+        sessionSelect.value = r.dataset.session;
+        sessionSelect.dispatchEvent(new Event('change'));
+      }
+      if (termSelect && r.dataset.term) {
+        termSelect.value = r.dataset.term;
+        termSelect.dispatchEvent(new Event('change'));
+      }
+
+      if (sessionDisplay) sessionDisplay.value = r.dataset.session || '';
+      if (termDisplay) termDisplay.value = `Term ${r.dataset.term}` || '';
+
+      document.getElementById('studentInfo').innerHTML =
+        `<small class="text-success">${r.dataset.name} - ${r.dataset.className}</small>`;
+
+      set('paymentAmount', '');
+      set('paymentNotes', '');
+      set('paymentMethod', 'Cash');
+
+      const modalEl = document.getElementById('addPaymentModal');
+      const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+      modal.show();
+
+      modalEl.addEventListener('shown.bs.modal', () => {
+        document.getElementById('paymentAmount')?.focus();
+
+        /* -----------------------------------------------------------
+           AUTO-FILL NOTES ON EVERY INPUT CHANGE
+           ----------------------------------------------------------- */
+        const amountInput   = document.getElementById('paymentAmount');
+        const notesInput    = document.getElementById('paymentNotes');
+        const totalFee      = parseFloat(r.dataset.total) || 0;
+        const curRemaining  = parseFloat(r.dataset.remaining) || 0;
+
+        const updateNotes = () => {
+          const paying = parseFloat(amountInput.value) || 0;
+
+          // 1. Total amount paid = total_fee - curRemaining + paying
+          const totalPaid = totalFee - curRemaining + paying;
+
+          // 2. New remaining balance
+          const newRemaining = curRemaining - paying;
+
+          notesInput.value = `Total Paid: ${fmt(totalPaid)}\nRemaining Balance: ${fmt(newRemaining)}`;
+        };
+
+        // Run once immediately (in case amount is pre-filled)
+        updateNotes();
+
+        // Re-calculate on every keystroke / change
+        amountInput.addEventListener('input', updateNotes);
+        amountInput.addEventListener('change', updateNotes);
+
+        // Clean up listeners when modal closes (avoid memory leak)
+        modalEl.addEventListener('hidden.bs.modal', () => {
+          amountInput.removeEventListener('input', updateNotes);
+          amountInput.removeEventListener('change', updateNotes);
+        }, { once: true });
+
+      }, { once: true });
+
+    } catch (err) {
+      console.error("Add Payment error:", err);
+      showMessageModal("error", "Failed to load form: " + (err.message || "unknown"));
+    }
+  });
+}
+
+/* ================================================================
+   FEE STRUCTURE OVERVIEW
+   ================================================================ */
+async function fetchFeeStructureOverview() {
+  const term = document.getElementById("feeOverviewTermFilter")?.value || "";
+  const session = document.getElementById("feeOverviewSessionFilter")?.value;
+  if (!session) return showMessageModal("error", "Session required");
+
+  let url = `/api/fees/structures?session=${session}`;
+  if (term) url += `&term=${term}`;
+
+  const resp = await fetchData(url);
+  if (resp.success) renderFeeStructureTable(resp.data);
+}
+
+async function renderFeeStructureTable(data) {
+  const tbody = document.getElementById("feeStructureTableBody");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center">${translations[currentLang].noRecordsFound}</td></tr>`;
+    return;
+  }
+
+  data.forEach((f) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${classMap[`${f.section_id}:${f.class_ref}`] || "N/A"}</td>
+      <td>${f.section_id === 1 ? "Islamic" : "Western"}</td>
+      <td>${f.term}</td>
+      <td>₦${fmt(f.total_fee)}</td>
+      <td>${f.description || "N/A"}</td>
+    `;
+    tbody.appendChild(row);
+  });
+}
+
+/* ================================================================
+   EXPORT PAYMENT TABLE (PDF / Excel)
+   ================================================================ */
+async function preparePaymentTableForExport() {
+  const classValue = document.getElementById("trackClassSelect")?.value;
+  const termValue = document.getElementById("feesTermFilter")?.value || "";
+  const sessionValue = document.getElementById("feesSessionFilter")?.value || "";
+  const searchQuery = document.getElementById("paymentSearch")?.value || "";
+
+  let queryParams = "";
+  if (termValue) queryParams += `term=${termValue}`;
+  if (sessionValue) queryParams += `${queryParams ? "&" : ""}session=${encodeURIComponent(sessionValue)}`;
+  if (classValue) queryParams += `${queryParams ? "&" : ""}class=${encodeURIComponent(classValue)}`;
+  if (queryParams) queryParams = `?${queryParams}`;
+
+  const feeResp = await fetchData(`/api/fees/payments${queryParams}`);
+  const table = document.createElement("table");
+  table.setAttribute("id", "paymentsExportTable");
+  table.classList.add("table", "table-sm", "table-bordered");
+
+  const thead = table.createTHead();
+  const tbody = table.createTBody();
+
+  const headers = [
+    "Admission No.", "Student Name", "Class", "Guardian Phone", "Total Fee", "Amount Paid", "Remaining", "Status"
+  ];
+  const headerRow = thead.insertRow();
+  headers.forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    th.style.backgroundColor = "#4285f4";
+    th.style.color = "white";
+    headerRow.appendChild(th);
+  });
+
+  if (feeResp.success && Array.isArray(feeResp.data)) {
+    const filtered = feeResp.data.filter(f =>
+      `${f.student_name} ${f.admission_no}`.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    filtered.forEach(fee => {
+      const classDisplay = classMap[`${fee.section_id}:${fee.class_ref}`] || "N/A";
+      const row = tbody.insertRow();
+      row.insertCell().textContent = fee.admission_no || "—";
+      row.insertCell().textContent = fee.student_name || "—";
+      row.insertCell().textContent = classDisplay;
+      row.insertCell().textContent = fee.guardian_phone || "—";
+      row.insertCell().textContent = fmt(fee.total_fee);
+      row.insertCell().textContent = fmt(fee.amount_paid);
+      row.insertCell().textContent = fmt(fee.remaining_amount);
+      row.insertCell().textContent = fee.status || "—";
+    });
+  }
+
+  return table;
+}
+
+async function exportPaymentsToPDF() {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+    const margin = 10;
+    let y = 15;
+
+    if (schoolInfo.logoSrc) {
+      try {
+        const img = await loadImageAsDataURL(schoolInfo.logoSrc);
+        doc.addImage(img, "JPEG", margin, y, 25, 25);
+      } catch (e) { console.warn("Logo failed"); }
+    }
+
+    doc.setFontSize(14);
+    doc.text(schoolInfo.name, margin + 30, y + 8);
+    doc.setFontSize(8);
+    doc.text(schoolInfo.address, margin + 30, y + 14);
+    doc.text(`${schoolInfo.phone} | ${schoolInfo.email}`, margin + 30, y + 19);
+
+    y += 30;
+    doc.setFontSize(12);
+    doc.text("PAYMENT TRACKING REPORT", 105, y, null, null, "center");
+    y += 10;
+
+    const table = await preparePaymentTableForExport();
+    doc.autoTable({ html: table, startY: y, styles: { fontSize: 8 }, headStyles: { fillColor: [66, 133, 244] } });
+    doc.save(`payments_${new Date().toISOString().slice(0,10)}.pdf`);
+  } catch (err) {
+    console.error(err);
+    showMessageModal("error", "Export failed. Check console.");
+  }
+}
+
+async function exportPaymentsToExcel() {
+  try {
+    const table = await preparePaymentTableForExport();
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Payments" });
+    XLSX.writeFile(wb, `payments_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (err) {
+    console.error(err);
+    showMessageModal("error", "Export failed.");
+  }
+}
+
+/* ================================================================
+   EXPORT FEE STRUCTURE
+   ================================================================ */
+async function prepareFeeStructureTableForExport() {
+  const term = document.getElementById("feeOverviewTermFilter")?.value || "";
+  const session = document.getElementById("feeOverviewSessionFilter")?.value;
+  if (!session) return null;
+
+  let url = `/api/fees/structures?session=${session}`;
+  if (term) url += `&term=${term}`;
+
+  const resp = await fetchData(url);
+  if (!resp.success || !resp.data) return null;
+
+  const table = document.createElement("table");
+  table.setAttribute("id", "feeStructureExportTable");
+  table.classList.add("table", "table-sm", "table-bordered");
+
+  const thead = table.createTHead();
+  const tbody = table.createTBody();
+
+  const headers = ["Class", "Section", "Term", "Total Fee", "Description"];
+  const headerRow = thead.insertRow();
+  headers.forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    th.style.backgroundColor = "#4285f4";
+    th.style.color = "white";
+    headerRow.appendChild(th);
+  });
+
+  resp.data.forEach(f => {
+    const classDisplay = classMap[`${f.section_id}:${f.class_ref}`] || "N/A";
+    const row = tbody.insertRow();
+    row.insertCell().textContent = classDisplay;
+    row.insertCell().textContent = f.section_id === 1 ? "Islamic" : "Western";
+    row.insertCell().textContent = f.term;
+    row.insertCell().textContent = `₦${fmt(f.total_fee)}`;
+    row.insertCell().textContent = f.description || "—";
+  });
+
+  return table;
+}
+
+async function exportFeeStructureToPDF() {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+    const margin = 10;
+    let y = 15;
+
+    if (schoolInfo.logoSrc) {
+      try {
+        const img = await loadImageAsDataURL(schoolInfo.logoSrc);
+        doc.addImage(img, "JPEG", margin, y, 25, 25);
+      } catch (e) {}
+    }
+
+    doc.setFontSize(14);
+    doc.text(schoolInfo.name, margin + 30, y + 8);
+    doc.setFontSize(8);
+    doc.text(schoolInfo.address, margin + 30, y + 14);
+    doc.text(`${schoolInfo.phone} | ${schoolInfo.email}`, margin + 30, y + 19);
+
+    y += 30;
+    doc.setFontSize(12);
+    doc.text("FEE STRUCTURE OVERVIEW", 105, y, null, null, "center");
+    y += 10;
+
+    const table = await prepareFeeStructureTableForExport();
+    if (!table) throw new Error("No data");
+    doc.autoTable({ html: table, startY: y, styles: { fontSize: 8 }, headStyles: { fillColor: [66, 133, 244] } });
+    doc.save(`fee_structure_${new Date().toISOString().slice(0,10)}.pdf`);
+  } catch (err) {
+    console.error(err);
+    showMessageModal("error", "Export failed.");
+  }
+}
+
+async function exportFeeStructureToExcel() {
+  try {
+    const table = await prepareFeeStructureTableForExport();
+    if (!table) throw new Error("No data");
+    const wb = XLSX.utils.table_to_book(table, { sheet: "Fee Structure" });
+    XLSX.writeFile(wb, `fee_structure_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (err) {
+    console.error(err);
+    showMessageModal("error", "Export failed.");
+  }
+}
+
+/* ================================================================
+   IMAGE LOADER
+   ================================================================ */
+async function loadImageAsDataURL(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL("image/jpeg"));
+    };
+    img.onerror = reject;
+    img.src = url + (url.includes("?") ? "&" : "?") + new Date().getTime();
+  });
+}
+/* ================================================================
+   GENERATE RECEIPT (FIXED BALANCE CALCULATION + THANK-YOU BELOW)
+   ================================================================ */
+async function generatePaymentReceipt(paymentResponseData, fallbackFormData = null) {
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF("p", "mm", "a4");
+    const margin = 15;
+    let y = 20;
+
+    // --- School logo -------------------------------------------------
+    if (schoolInfo.logoSrc) {
+      try {
+        const img = await loadImageAsDataURL(schoolInfo.logoSrc);
+        doc.addImage(img, "JPEG", margin, y, 28, 28);
+      } catch (e) {
+        console.warn("Logo load error:", e);
+      }
+    }
+
+    // --- School Info ------------------------------------------------
+    doc.setFontSize(16);
+    doc.text(schoolInfo.name || "School Name", margin + 35, y + 10);
+    doc.setFontSize(7);
+    doc.text(schoolInfo.address || "", margin + 35, y + 16);
+    doc.text(`${schoolInfo.phone || ""} | ${schoolInfo.email || ""}`, margin + 35, y + 21);
+
+    // --- Title ------------------------------------------------------
+    doc.setFontSize(14);
+    doc.text("PAYMENT RECEIPT", 105, y + 38, null, null, "center");
+
+    // Admission number under the title
+    const pd = { ...(fallbackFormData || {}), ...(paymentResponseData || {}) };
+    const admissionNo = pd.student_admission || "N/A";
+    doc.setFontSize(12);
+    doc.text(`${admissionNo}`, 105, y + 46, null, null, "center");
+
+    y += 52;
+    const safe = (v) => (v == null || v === "" ? "N/A" : String(v));
+
+    // --- Fee calculations -------------------------------------------
+    const totalFee      = parseFloat(pd.total_fee || 0);
+    const justPaid      = parseFloat(pd.payment_amount || 0);
+    const prevRemaining = parseFloat(pd.remaining_amount || 0);
+    const prevPaid      = totalFee - prevRemaining;
+    const newPaidTotal  = prevPaid + justPaid;
+    const newBalance    = Math.max(totalFee - newPaidTotal, 0);
+
+    // --- Left Details -----------------------------------------------
+    const leftX = margin;
+    let lineY   = y;
+    const lineH = 7;
+    doc.setFontSize(10);
+
+    doc.text(`Date: ${new Date().toLocaleString()}`, leftX, lineY); lineY += lineH;
+    doc.text(`Student: ${safe(pd.student_name)}`,   leftX, lineY); lineY += lineH;
+    doc.text(`Session: ${safe(pd.session_year)}`,  leftX, lineY); lineY += lineH;
+    doc.text(`Term: ${safe(pd.term)}`,             leftX, lineY); lineY += lineH;
+    doc.text(`Class: ${safe(pd.class_display)}`,   leftX, lineY);
+
+    // --- Right Details ----------------------------------------------
+    const rightX = 120;
+    lineY = y;                     // reset Y for the right column
+
+    doc.text(`Total Fee: ₦${fmt(totalFee)}`,          rightX, lineY); lineY += lineH;
+    doc.text(`Amount Paid: ₦${fmt(justPaid)}`,        rightX, lineY); lineY += lineH;
+    doc.text(`Method: ${safe(pd.payment_method)}`,    rightX, lineY); lineY += lineH;
+
+    // ----- Multi-line NOTES -----------------------------------------
+    doc.text(`Notes:`, rightX, lineY); lineY += lineH;
+    const notesLines = (pd.notes || '').split('\n').filter(l => l.trim() !== '');
+    if (notesLines.length === 0) {
+      doc.text(`—`, rightX, lineY); lineY += lineH;
+    } else {
+      notesLines.forEach(line => {
+        doc.text(`${safe(line)}`, rightX, lineY);
+        lineY += lineH;
+      });
+    }
+
+    // ----- SIGNATURE ------------------------------------------------
+    const sigY = lineY + 15;                     // space before signature
+    doc.setLineWidth(0.5);
+    doc.line(leftX, sigY, leftX + 70, sigY);    // underline
+    doc.setFontSize(9);
+    doc.text("Authorized Signature", leftX, sigY + 6);
+
+    // ----- HORIZONTAL SEPARATOR (full width) ------------------------
+    const sepY = sigY + 20;                     // space after signature
+    doc.setLineWidth(0.3);
+    doc.line(margin, sepY, 210 - margin, sepY); // A4 width = 210 mm
+
+    // ----- THANK-YOU MESSAGE (centered, far below) ------------------
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const thankYouText1 = "Thank you for paying your school fees on time!";
+    const thankYouText2 = "We appreciate your commitment to your child's education.";
+
+    let thankY = sepY + 12;                     // start a bit after the line
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);               // soft gray
+
+    doc.text(thankYouText1, pageWidth / 2, thankY, { align: 'center' });
+    thankY += lineH;
+    doc.text(thankYouText2, pageWidth / 2, thankY, { align: 'center' });
+
+    // Reset font for any later content
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+
+    // ----- SAVE ------------------------------------------------------
+    const filename = `Receipt_${admissionNo}_${Date.now()}.pdf`;
+    doc.save(filename);
+
+  } catch (err) {
+    console.error("Receipt error:", err);
+    showMessageModal("error", "Failed to generate receipt");
+  }
+}
+/* ================================================================
+   SET FEE FORM
+   ================================================================ */
+document.getElementById("setFeesForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const classValue = document.getElementById("classSelect")?.value;
+  const feeAmount = document.getElementById("feeAmount")?.value;
+  const term = document.getElementById("termSelect")?.value;
+  const session = document.getElementById("sessionSelect")?.value;
+  const description = document.getElementById("feeDescription")?.value;
+
+  if (!classValue || !feeAmount || !term || !session) {
+    showMessageModal("error", "All fields required");
+    return;
+  }
+
+  const [section_id, class_ref] = classValue.split(":").map(Number);
+  const data = { section_id, class_ref, total_fee: parseFloat(feeAmount), term: parseInt(term), session_year: session, description };
+
+  const resp = await fetchData("/api/fees/set", {
+    method: "POST",
+    body: JSON.stringify(data),
+    headers: { "Content-Type": "application/json" }
+  });
+  if (resp.success) {
+    showMessageModal("success", "Fee saved");
+    document.getElementById("setFeesForm").reset();
+    if (document.getElementById("feeStructureOverviewTab")?.classList.contains("active")) fetchFeeStructureOverview();
+  } else {
+    showMessageModal("error", resp.message);
+  }
+});
+
+/* ================================================================
+   EXPORT BUTTONS
+   ================================================================ */
+document.getElementById("exportPaymentsPdfBtn")?.addEventListener("click", exportPaymentsToPDF);
+document.getElementById("exportPaymentsExcelBtn")?.addEventListener("click", exportPaymentsToExcel);
+document.getElementById("exportFeeStructurePdfBtn")?.addEventListener("click", exportFeeStructureToPDF);
+document.getElementById("exportFeeStructureExcelBtn")?.addEventListener("click", exportFeeStructureToExcel);
+
+/* ================================================================
+   FILTERS & INIT
+   ================================================================ */
+document.getElementById("paymentSearch")?.addEventListener("input", fetchPaymentData);
+document.getElementById("trackClassSelect")?.addEventListener("change", fetchPaymentData);
+document.getElementById("feesSessionFilter")?.addEventListener("change", fetchPaymentData);
+document.getElementById("feesTermFilter")?.addEventListener("change", fetchPaymentData);
+document.getElementById("feeOverviewSessionFilter")?.addEventListener("change", fetchFeeStructureOverview);
+document.getElementById("feeOverviewTermFilter")?.addEventListener("change", fetchFeeStructureOverview);
+
+/* ================================================================
+   INITIALIZATION
+   ================================================================ */
+async function initFeesManagement() {
+  await populateClasses(null, null, "fees");
+  await populateSessions("fees");
+  await populateTerms("fees");
+
+  if (document.getElementById("trackFeesTab")?.classList.contains("active")) {
+    await fetchPaymentData();
+  } else if (document.getElementById("feeStructureOverviewTab")?.classList.contains("active")) {
+    await fetchFeeStructureOverview();
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (document.getElementById("fees-management-view")) {
+    initFeesManagement();
+  }
+});
+
+/* ================================================================
+   TAB SWITCHING
+   ================================================================ */
+document.querySelectorAll("#feesTab .nav-link").forEach((tab) => {
+  tab.addEventListener("shown.bs.tab", (e) => {
+    if (e.target.id === "trackFeesTab") fetchPaymentData();
+    else if (e.target.id === "feeStructureOverviewTab") fetchFeeStructureOverview();
+  });
+});
+
+/* ---------------------------------------------------------------- */
+// Preselect student subjects (unchanged)
 function preselectStudentSubjects(student) {
     if (!student?.subjects?.length) return;
     
     const subjectSelect = document.getElementById('studentSubjects');
     
-    // Clear existing selections before applying new ones
     Array.from(subjectSelect.options).forEach(opt => opt.selected = false);
 
     student.subjects.forEach(sub => {
-        // Handle data format: strip section_id if present (e.g., '1:5' -> '5')
-        const subject_id = sub.includes(':') ? sub.split(':')[1] : sub; 
-        const subject_id_str = String(subject_id); // Ensure comparison is string-to-string
+        const subject_id = sub.includes(':') ? sub.split(':')[1] : sub;
+        const subject_id_str = String(subject_id);
 
         const option = Array.from(subjectSelect.options).find(opt => opt.value === subject_id_str);
         
@@ -652,84 +1707,6 @@ function preselectStudentSubjects(student) {
         }
     });
 }
-
-//populate classess
-async function populateClasses(staff = null, student = null) {
-    const data = await fetchData('/api/classes');
-    console.log('Classes data:', data); // Debug
-
-    if (data.success) {
-        const formMasterSelect = document.getElementById('formMasterClass');
-        const classesTaughtSelect = document.getElementById('classesTaught');
-        const studentClassesSelect = document.getElementById('studentClasses');
-        const studentClassFilter = document.getElementById('studentClassFilter');
-
-        formMasterSelect.innerHTML = '<option value="" selected>Select Class</option>';
-        classesTaughtSelect.innerHTML = '';
-        studentClassesSelect.innerHTML = '';
-        studentClassFilter.innerHTML = '<option value="">All Classes</option>';
-
-        const islamicGroup = document.createElement('optgroup');
-        islamicGroup.label = translations[currentLang].basicClass;
-        const westernGroup = document.createElement('optgroup');
-        westernGroup.label = translations[currentLang].mediumClass;
-
-        data.data.forEach(cls => {
-            const value = `${cls.section_id}:${cls.id}`;
-            const option = document.createElement('option');
-            option.value = value;
-            option.textContent = cls.name;
-
-            // Staff selects
-            formMasterSelect.appendChild(option.cloneNode(true));
-            classesTaughtSelect.appendChild(option.cloneNode(true));
-
-            // Student filter
-            studentClassFilter.appendChild(option.cloneNode(true));
-
-            // Student grouped
-            if (cls.section_id === 1) {
-                islamicGroup.appendChild(option.cloneNode(true));
-            } else {
-                westernGroup.appendChild(option.cloneNode(true));
-            }
-        });
-
-        studentClassesSelect.appendChild(islamicGroup);
-        studentClassesSelect.appendChild(westernGroup);
-
-        // 🔹 Preselect Staff Classes
-        if (staff?.classes?.length) {
-            staff.classes.forEach(cls => {
-                const value = `${cls.section_id}:${cls.class_id}`;
-                const opt = classesTaughtSelect.querySelector(`option[value="${value}"]`);
-                if (opt) opt.selected = true;
-            });
-        }
-
-        // 🔹 Preselect Staff Form Master
-        if (staff?.formMaster) {
-            const value = `${staff.formMaster.section_id}:${staff.formMaster.class_id}`;
-            const opt = formMasterSelect.querySelector(`option[value="${value}"]`);
-            if (opt) opt.selected = true;
-        }
-
-        // 🔹 Preselect Student Classes
-        if (student?.classes?.length) {
-            student.classes.forEach(clsValue => {
-                const opt = studentClassesSelect.querySelector(`option[value="${clsValue}"]`);
-                if (opt) opt.selected = true;
-            });
-            studentClassesSelect.dispatchEvent(new Event('change'));
-        }
-
-    } else {
-        console.error('Failed to fetch classes:', data.message);
-        showMessageModal('error', translations[currentLang].classRequired);
-    }
-}
-
-
 //populate subjects
 
 async function populateSubjects(staff = null, student = null) {
@@ -775,7 +1752,7 @@ async function populateSubjects(staff = null, student = null) {
 
         studentSubjectsSelect.disabled = true; // until classes chosen
 
-        // 🔹 Preselect Staff Subjects
+        // ðŸ”¹ Preselect Staff Subjects
         if (staff?.subjects?.length) {
             staff.subjects.forEach(sub => {
                 const value = `${sub.section_id}:${sub.subject_id}`;
@@ -784,7 +1761,7 @@ async function populateSubjects(staff = null, student = null) {
             });
         }
 
-        // 🔹 Preselect Student Subjects
+        // ðŸ”¹ Preselect Student Subjects
         if (student?.subjects?.length) {
             student.subjects.forEach(subId => {
                 const opt = studentSubjectsSelect.querySelector(`option[value="${subId}"]`);
@@ -931,6 +1908,7 @@ const exportToPDF = async () => {
         doc.save('bookings.pdf');
     }
 };
+
 
 // --- Export Bookings to Excel ---
 const exportToExcel = async () => {
@@ -1645,6 +2623,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+    // Function to populate class select dropdowns
+async function populateClassSelects() {
+    const classData = await fetchData('/api/classes');
+    const classSelect = document.getElementById('classSelect');
+    const trackClassSelect = document.getElementById('trackClassSelect');
+
+    if (classData.success) {
+        // Clear existing options
+        classSelect.innerHTML = '<option value="">-- Select Class --</option>';
+        trackClassSelect.innerHTML = '<option value="">-- Select Class --</option>';
+
+        classData.data.forEach(cls => {
+            const option = document.createElement('option');
+            option.value = `${cls.section_id}:${cls.id}`; // Format: section_id:class_id
+            option.textContent = cls.name;
+            classSelect.appendChild(option.cloneNode(true));
+            trackClassSelect.appendChild(option);
+        });
+    } else {
+        console.error('Failed to fetch classes:', classData.message);
+        showMessageModal('error', 'Failed to load classes.');
+    }
+}
+
     // Add Modal Triggers
     document.getElementById('addStaffBtn').addEventListener('click', () => {
         document.getElementById('staffId').value = '';
@@ -1878,18 +2881,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Fees Form Handling
-    document.getElementById('setFeesForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!validateForm(document.getElementById('setFeesForm'))) return;
-        const feesData = {
-            basicFees: document.getElementById('basicFees').value,
-            mediumFees: document.getElementById('mediumFees').value,
-            highFees: document.getElementById('highFees').value
-        };
-        showMessageModal('feesSaved', 'feesSaved');
-        document.getElementById('setFeesForm').reset();
-    });
+   
 
     // Academic Calendar Form Handling
     document.getElementById('academicCalendarForm').addEventListener('submit', async (e) => {
@@ -2064,7 +3056,6 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessageModal('error', result.message || 'Failed to log out.');
         }
     });
-
     // Initial Page Load
     (async () => {
         const userData = await fetchData('/api/user-details');
@@ -2089,4 +3080,4 @@ document.addEventListener('DOMContentLoaded', () => {
         translatePage(currentLang);
     })();
 
-});
+}); 
