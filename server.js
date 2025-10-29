@@ -6,6 +6,7 @@ const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
 const ExcelJS = require('exceljs');
+const feesRoutes = require('./fees_routes');
 const multer = require('multer');
 const moment = require('moment'); // install with: npm install moment
 const app = express();
@@ -554,53 +555,25 @@ app.post('/api/staff-logout', (req, res) => {
     });
 });
 
-// Staff Dashboard Stats
-app.get('/api/staff-dashboard-stats/:staffId', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-    const staffId = req.params.staffId;
-    const query = `
-        SELECT 
-            COUNT(DISTINCT sc.id) AS totalClasses,
-            COUNT(DISTINCT se.student_id) AS totalStudents,
-            AVG(CASE WHEN sa.date = CURDATE() AND sa.attendance_status = 'Present' THEN 1 ELSE 0 END) * 100 AS attendanceToday,
-            AVG((ssa.ca1_score + ssa.ca2_score + ssa.ca3_score + ssa.exam_score) / 4) AS averageGrade
-        FROM staff s
-        LEFT JOIN staff_classes sc ON s.id = sc.staff_id
-        LEFT JOIN Student_Enrollments se ON sc.section_id = se.section_id AND 
-            ((sc.section_id = 1 AND sc.class_id = se.class_ref) OR 
-             (sc.section_id = 2 AND sc.western_class_id = se.class_ref))
-        LEFT JOIN Student_Attendance sa ON se.enrollment_id = sa.enrollment_id
-        LEFT JOIN Student_Subject_Assessments ssa ON se.enrollment_id = ssa.enrollment_id 
-            AND ssa.subject_id IN (SELECT subject_id FROM staff_subjects WHERE staff_id = s.id)
-        WHERE s.id = ?
-    `;
-    db.query(query, [staffId], (err, results) => {
-        if (err) {
-            console.error('Error fetching dashboard stats:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        res.status(200).json({ success: true, data: results[0] });
-    });
-});
 
-// Fetch all classes
 app.get('/api/classes', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.status(401).json({ success: false, message: 'Unauthorized.' });
     }
+
     const query = `
         SELECT class_id AS id, class_name AS name, 1 AS section_id FROM Classes
         UNION
         SELECT western_class_id AS id, class_name AS name, 2 AS section_id FROM Western_Classes
         ORDER BY name
     `;
+
     db.query(query, (err, results) => {
         if (err) {
             console.error('Error fetching classes:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
         }
+        console.log('Classes fetched:', results); // Debug
         res.status(200).json({ success: true, data: results });
     });
 });
@@ -676,102 +649,6 @@ app.get('/api/staff-memorization-schemes', (req, res) => {
             return res.status(500).json({ success: false, message: 'Database error.' });
         }
         res.status(200).json({ success: true, data: results });
-    });
-});
-
-// Staff Attendance
-app.get('/api/staff-attendance/:staffId', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-    const { staffId } = req.params;
-    const { section_id, class_id, date, day } = req.query;
-    const query = `
-        SELECT 
-            s.full_name AS student_name,
-            se.enrollment_id,
-            sa.attendance_status
-        FROM staff st
-        JOIN staff_form_master sfm ON st.id = sfm.staff_id
-        JOIN Student_Enrollments se ON sfm.section_id = se.section_id AND 
-            ((sfm.section_id = 1 AND sfm.class_id = se.class_ref) OR 
-             (sfm.section_id = 2 AND sfm.western_class_id = se.class_ref))
-        JOIN Students s ON se.student_id = s.id
-        LEFT JOIN Student_Attendance sa ON se.enrollment_id = sa.enrollment_id AND sa.date = ? AND sa.attendance_day = ?
-        WHERE st.id = ? AND sfm.section_id = ? AND 
-              ((sfm.section_id = 1 AND sfm.class_id = ?) OR 
-               (sfm.section_id = 2 AND sfm.western_class_id = ?))
-        AND sfm.term = (SELECT MAX(term) FROM staff_form_master)
-    `;
-    db.query(query, [date, day, staffId, section_id, class_id, class_id], (err, results) => {
-        if (err) {
-            console.error('Error fetching attendance:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        res.status(200).json({ success: true, data: results });
-    });
-});
-
-app.post('/api/staff-attendance/:staffId', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-    const { staffId } = req.params;
-    const { section_id, class_id, date, day, attendance } = req.body;
-    db.beginTransaction((err) => {
-        if (err) {
-            console.error('Transaction start error:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        const deleteQuery = `
-            DELETE sa FROM Student_Attendance sa
-            JOIN Student_Enrollments se ON sa.enrollment_id = se.enrollment_id
-            JOIN staff_form_master sfm ON se.section_id = sfm.section_id AND 
-                ((sfm.section_id = 1 AND sfm.class_id = se.class_ref) OR 
-                 (sfm.section_id = 2 AND sfm.western_class_id = se.class_ref))
-            JOIN staff st ON sfm.staff_id = st.id
-            WHERE st.id = ? AND sfm.section_id = ? AND 
-                  ((sfm.section_id = 1 AND sfm.class_id = ?) OR 
-                   (sfm.section_id = 2 AND sfm.western_class_id = ?))
-            AND sa.date = ? AND sa.attendance_day = ?
-            AND sfm.term = (SELECT MAX(term) FROM staff_form_master)
-        `;
-        db.query(deleteQuery, [staffId, section_id, class_id, class_id, date, day], (err) => {
-            if (err) {
-                return db.rollback(() => {
-                    console.error('Error deleting old attendance:', err);
-                    res.status(500).json({ success: false, message: 'Database error.' });
-                });
-            }
-            const insertQuery = `
-                INSERT INTO Student_Attendance (enrollment_id, section_id, attendance_day, attendance_status, date)
-                VALUES ?
-            `;
-            const values = attendance.map(record => [
-                record.enrollment_id,
-                section_id,
-                day,
-                record.attendance_status,
-                date
-            ]);
-            db.query(insertQuery, [values], (err) => {
-                if (err) {
-                    return db.rollback(() => {
-                        console.error('Error saving attendance:', err);
-                        res.status(500).json({ success: false, message: 'Database error.' });
-                    });
-                }
-                db.commit((err) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            console.error('Commit error:', err);
-                            res.status(500).json({ success: false, message: 'Database error.' });
-                        });
-                    }
-                    res.status(200).json({ success: true, message: 'Attendance saved.' });
-                });
-            });
-        });
     });
 });
 
@@ -2201,161 +2078,161 @@ app.post('/api/students', upload.single('profile_picture'), (req, res) => {
 // PUT UPDATE STUDENT (Partial Update)
 // ==========================
 app.put('/api/students/:id', upload.single('profile_picture'), (req, res) => {
-    const studentDbId = req.params.id;
-    
-    // Helper function to safely get and standardize array input from form data
-    const getFormDataArray = (key) => {
-        // Checks for 'key' (e.g., 'classes') or 'key[]' (e.g., 'classes[]')
-        let values = req.body[key] || req.body[`${key}[]`];
-        
-        if (!values) return [];
-        
-        // Ensure values is an array (converts string to array if only one item selected)
-        if (!Array.isArray(values)) {
-            values = [values];
-        }
-        return values;
-    };
+    const studentDbId = req.params.id;
+    
+    // Helper function to safely get and standardize array input from form data
+    const getFormDataArray = (key) => {
+        // Checks for 'key' (e.g., 'classes') or 'key[]' (e.g., 'classes[]')
+        let values = req.body[key] || req.body[`${key}[]`];
+        
+        if (!values) return [];
+        
+        // Ensure values is an array (converts string to array if only one item selected)
+        if (!Array.isArray(values)) {
+            values = [values];
+        }
+        return values;
+    };
 
-    // 1. Safely parse classes and subjects (FIX: Ensures they are arrays)
-    const classes = getFormDataArray('classes');
-    
-    // Subjects array should contain simple IDs, as determined by client-side logic
-    const subjects = getFormDataArray('subjects');
-    const simpleSubjectIds = subjects.map(s => {
-        const strS = String(s);
-        // We use the simple ID here since the client-side form submit handler sends the simple ID.
-        return strS.includes(':') ? strS.split(':')[1] : strS;
-    });
+    // 1. Safely parse classes and subjects (FIX: Ensures they are arrays)
+    const classes = getFormDataArray('classes');
+    
+    // Subjects array should contain simple IDs, as determined by client-side logic
+    const subjects = getFormDataArray('subjects');
+    const simpleSubjectIds = subjects.map(s => {
+        const strS = String(s);
+        // We use the simple ID here since the client-side form submit handler sends the simple ID.
+        return strS.includes(':') ? strS.split(':')[1] : strS;
+    });
 
-    const {
-        student_id, full_name, guardian_phone, email, address, gender,
-        date_of_birth, level = 1, term = 1
-    } = req.body;
-    
-    // Helper to check if a field exists in the body (needed for partial update of core fields)
-    const hasField = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
+    const {
+        student_id, full_name, guardian_phone, email, address, gender,
+        date_of_birth, level = 1, term = 1
+    } = req.body;
+    
+    // Helper to check if a field exists in the body (needed for partial update of core fields)
+    const hasField = (key) => Object.prototype.hasOwnProperty.call(req.body, key);
 
-    // Build UPDATE dynamically only with provided fields
-    const updateFields = [];
-    const params = [];
+    // Build UPDATE dynamically only with provided fields
+    const updateFields = [];
+    const params = [];
 
-    // Use the `hasField` check to ensure we process fields even if they are empty strings or zero
-    if (hasField('student_id')) { updateFields.push("student_id = ?"); params.push(student_id); }
-    if (hasField('full_name')) { updateFields.push("full_name = ?"); params.push(full_name); }
-    if (hasField('guardian_phone')) { updateFields.push("guardian_phone = ?"); params.push(guardian_phone); }
-    if (hasField('email')) { updateFields.push("email = ?"); params.push(email); } 
-    if (hasField('address')) { updateFields.push("address = ?"); params.push(address); }
-    if (hasField('gender')) { updateFields.push("gender = ?"); params.push(gender); }
-    if (hasField('date_of_birth')) { updateFields.push("date_of_birth = ?"); params.push(date_of_birth); }
+    // Use the `hasField` check to ensure we process fields even if they are empty strings or zero
+    if (hasField('student_id')) { updateFields.push("student_id = ?"); params.push(student_id); }
+    if (hasField('full_name')) { updateFields.push("full_name = ?"); params.push(full_name); }
+    if (hasField('guardian_phone')) { updateFields.push("guardian_phone = ?"); params.push(guardian_phone); }
+    if (hasField('email')) { updateFields.push("email = ?"); params.push(email); } 
+    if (hasField('address')) { updateFields.push("address = ?"); params.push(address); }
+    if (hasField('gender')) { updateFields.push("gender = ?"); params.push(gender); }
+    if (hasField('date_of_birth')) { updateFields.push("date_of_birth = ?"); params.push(date_of_birth); }
 
-    if (req.file) { // only if profile picture uploaded
-        updateFields.push("profile_picture = ?");
-        params.push(req.file.filename);
-    }
+    if (req.file) { // only if profile picture uploaded
+        updateFields.push("profile_picture = ?");
+        params.push(req.file.filename);
+    }
 
-    params.push(studentDbId);
+    params.push(studentDbId);
 
-    // If we have fields to update, run UPDATE first
-    const updateSql = updateFields.length > 0
-        ? `UPDATE Students SET ${updateFields.join(", ")} WHERE id = ?`
-        : null;
+    // If we have fields to update, run UPDATE first
+    const updateSql = updateFields.length > 0
+        ? `UPDATE Students SET ${updateFields.join(", ")} WHERE id = ?`
+        : null;
 
-    function proceed() {
-        // Now using the reliably parsed 'classes' and 'simpleSubjectIds' arrays
-        updateClasses(() => updateSubjects(() => {
-            return res.json({ success: true, message: "Student updated successfully" });
-        }));
-    }
+    function proceed() {
+        // Now using the reliably parsed 'classes' and 'simpleSubjectIds' arrays
+        updateClasses(() => updateSubjects(() => {
+            return res.json({ success: true, message: "Student updated successfully" });
+        }));
+    }
 
-    if (updateSql) {
-        db.query(updateSql, params, (err) => {
-            if (err) {
-                console.error("Error updating student:", err);
-                return res.status(500).json({ success: false, message: "Failed to update student." });
-            }
-            proceed();
-        });
-    } else {
-        proceed(); // nothing to update in Students table, go to relations
-    }
+    if (updateSql) {
+        db.query(updateSql, params, (err) => {
+            if (err) {
+                console.error("Error updating student:", err);
+                return res.status(500).json({ success: false, message: "Failed to update student." });
+            }
+            proceed();
+        });
+    } else {
+        proceed(); // nothing to update in Students table, go to relations
+    }
 
-    // ====================
-    // Update Classes only if provided (uses the parsed 'classes' array)
-    // FIX: Added deletion of Student_Subjects before Student_Enrollments
-    // ====================
-    function updateClasses(next) {
-        // The client-side logic ensures classes are sent if anything related to relations changes
-        if (classes.length > 0) {
-            
-            // 1. IMPORTANT FIX: Delete dependent Student_Subjects first to satisfy Foreign Key constraints
-            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (errSub) => {
-                if (errSub) {
-                    console.error("Error clearing associated subjects before enrollments:", errSub);
-                    return res.status(500).json({ success: false, message: "Failed to clear associated subjects before updating classes." });
-                }
+    // ====================
+    // Update Classes only if provided (uses the parsed 'classes' array)
+    // FIX: Added deletion of Student_Subjects before Student_Enrollments
+    // ====================
+    function updateClasses(next) {
+        // The client-side logic ensures classes are sent if anything related to relations changes
+        if (classes.length > 0) {
+            
+            // 1. IMPORTANT FIX: Delete dependent Student_Subjects first to satisfy Foreign Key constraints
+            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (errSub) => {
+                if (errSub) {
+                    console.error("Error clearing associated subjects before enrollments:", errSub);
+                    return res.status(500).json({ success: false, message: "Failed to clear associated subjects before updating classes." });
+                }
 
-                // 2. Now safely delete the Student_Enrollments (Classes)
-                db.query("DELETE FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (errEnroll) => {
-                    if (errEnroll) {
-                        console.error("Error clearing old classes/enrollments:", errEnroll);
-                        return res.status(500).json({ success: false, message: "Failed to clear old classes." }); 
-                    }
+                // 2. Now safely delete the Student_Enrollments (Classes)
+                db.query("DELETE FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (errEnroll) => {
+                    if (errEnroll) {
+                        console.error("Error clearing old classes/enrollments:", errEnroll);
+                        return res.status(500).json({ success: false, message: "Failed to clear old classes." }); 
+                    }
 
-                    // 3. Insert new enrollments
-                    const enrollValues = classes.map(cls => {
-                        const [section_id, class_ref] = String(cls).split(":").map(Number);
-                        return [studentDbId, section_id, class_ref, level, term];
-                    });
+                    // 3. Insert new enrollments
+                    const enrollValues = classes.map(cls => {
+                        const [section_id, class_ref] = String(cls).split(":").map(Number);
+                        return [studentDbId, section_id, class_ref, level, term];
+                    });
 
-                    db.query("INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term) VALUES ?", [enrollValues], (err2) => {
-                        if (err2) {
-                            console.error("Error inserting new classes:", err2);
-                            return res.status(500).json({ success: false, message: "Failed to insert classes." });
-                        }
-                        next();
-                    });
-                });
-            });
-        } else {
-            next(); // skip classes if not provided
-        }
-    }
+                    db.query("INSERT INTO Student_Enrollments (student_id, section_id, class_ref, level, term) VALUES ?", [enrollValues], (err2) => {
+                        if (err2) {
+                            console.error("Error inserting new classes:", err2);
+                            return res.status(500).json({ success: false, message: "Failed to insert classes." });
+                        }
+                        next();
+                    });
+                });
+            });
+        } else {
+            next(); // skip classes if not provided
+        }
+    }
 
-    // ====================
-    // Update Subjects only if provided (uses the parsed 'simpleSubjectIds' array)
-    // NOTE: The delete logic here is mostly redundant if updateClasses ran, but kept for safety.
-    // ====================
-    function updateSubjects(next) {
-        // The client-side logic ensures subjects are sent if anything related to relations changes
-        if (simpleSubjectIds.length > 0) {
-            // Delete old subjects based on enrollments related to this student
-            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (err) => {
-                if (err) return res.status(500).json({ success: false, message: "Failed to clear old subjects." });
+    // ====================
+    // Update Subjects only if provided (uses the parsed 'simpleSubjectIds' array)
+    // NOTE: The delete logic here is mostly redundant if updateClasses ran, but kept for safety.
+    // ====================
+    function updateSubjects(next) {
+        // The client-side logic ensures subjects are sent if anything related to relations changes
+        if (simpleSubjectIds.length > 0) {
+            // Delete old subjects based on enrollments related to this student
+            db.query("DELETE FROM Student_Subjects WHERE enrollment_id IN (SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?)", [studentDbId], (err) => {
+                if (err) return res.status(500).json({ success: false, message: "Failed to clear old subjects." });
 
-                // Fetch current enrollment IDs (these are the newly inserted ones from updateClasses)
-                db.query("SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (err2, enrollments) => {
-                    if (err2) return res.status(500).json({ success: false, message: "Failed to fetch enrollments." });
+                // Fetch current enrollment IDs (these are the newly inserted ones from updateClasses)
+                db.query("SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ?", [studentDbId], (err2, enrollments) => {
+                    if (err2) return res.status(500).json({ success: false, message: "Failed to fetch enrollments." });
 
-                    const subjValues = [];
-                    enrollments.forEach(enr => {
-                        simpleSubjectIds.forEach(subId => subjValues.push([enr.enrollment_id, Number(subId), term]));
-                    });
+                    const subjValues = [];
+                    enrollments.forEach(enr => {
+                        simpleSubjectIds.forEach(subId => subjValues.push([enr.enrollment_id, Number(subId), term]));
+                    });
 
-                    if (subjValues.length > 0) {
-                        db.query("INSERT INTO Student_Subjects (enrollment_id, subject_id, term) VALUES ?", [subjValues], (err3) => {
-                            if (err3) return res.status(500).json({ success: false, message: "Failed to insert subjects." });
-                            next();
-                        });
-                    } else {
-                        next();
-                    }
-                });
-            });
-        } else {
-            next(); // skip subjects if not provided
-        }
-    }
+                    if (subjValues.length > 0) {
+                        db.query("INSERT INTO Student_Subjects (enrollment_id, subject_id, term) VALUES ?", [subjValues], (err3) => {
+                            if (err3) return res.status(500).json({ success: false, message: "Failed to insert subjects." });
+                            next();
+                        });
+                    } else {
+                        next();
+                    }
+                });
+            });
+        } else {
+            next(); // skip subjects if not provided
+        }
+    }
 });
 
 // ==========================
@@ -2764,6 +2641,1215 @@ app.post('/api/student-logout', (req, res) => {
     });
 });
 
+
+// ================================================================
+//  FEES MANAGEMENT – FULLY UPDATED BACKEND
+//  Supports: Student ID → Payment → Auto-create Student_Fees
+// ================================================================
+
+// GET sessions
+app.get('/api/sessions', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const query = `
+        SELECT session_year, is_current
+        FROM Sessions
+        ORDER BY start_date DESC
+    `;
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching sessions:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.status(200).json({ success: true, data: results });
+    });
+});
+
+// GET student by admission number (for modal)
+app.get('/api/students/by-admission/:admission', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const admission = req.params.admission.trim();
+    const sql = `
+        SELECT 
+            s.id,
+            s.full_name,
+            s.student_id AS admission_no,
+            se.section_id,
+            se.class_ref
+        FROM Students s
+        LEFT JOIN Student_Enrollments se ON s.id = se.student_id
+        WHERE s.student_id = ?
+        LIMIT 1
+    `;
+
+    db.query(sql, [admission], (err, rows) => {
+        if (err || !rows.length) {
+            console.error('Student not found:', err);
+            return res.status(404).json({ success: false, message: 'Student not found' });
+        }
+        res.json({ success: true, data: rows[0] });
+    });
+});
+
+// GET fee structures (overview)
+app.get('/api/fees/structures', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { session, term } = req.query;
+    if (!session) {
+        return res.status(400).json({ success: false, message: 'Session year is required.' });
+    }
+
+    const params = [session];
+    let termClause = '';
+    if (term) {
+        termClause = ` AND term = ?`;
+        params.push(parseInt(term));
+    }
+
+    const query = `
+        SELECT 
+            structure_id, 
+            class_id AS class_ref, 
+            1 AS section_id, 
+            total_fee, 
+            term, 
+            description, 
+            session_year
+        FROM Islamic_Fee_Structures
+        WHERE session_year = ? ${termClause}
+        UNION
+        SELECT 
+            structure_id, 
+            western_class_id AS class_ref, 
+            2 AS section_id, 
+            total_fee, 
+            term, 
+            description, 
+            session_year
+        FROM Western_Fee_Structures
+        WHERE session_year = ? ${termClause}
+    `;
+
+    const finalParams = term ? [session, parseInt(term), session, parseInt(term)] : [session, session];
+
+    db.query(query, finalParams, (err, results) => {
+        if (err) {
+            console.error('Error fetching fee structures:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.json({ success: true, data: results });
+    });
+});
+
+// POST set fee structure + auto-create Student_Fees
+app.post('/api/fees/set', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { section_id, class_ref, total_fee, term, description, session_year } = req.body;
+
+    if (!section_id || !class_ref || !total_fee || !term || !session_year) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+
+    db.beginTransaction(err => {
+        if (err) return res.status(500).json({ success: false, message: 'Transaction error.' });
+
+        const feeTable = section_id === 1 ? 'Islamic_Fee_Structures' : 'Western_Fee_Structures';
+        const classColumn = section_id === 1 ? 'class_id' : 'western_class_id';
+
+        const insertFeeQuery = `
+            INSERT INTO ${feeTable} (${classColumn}, term, total_fee, description, session_year)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+                total_fee = VALUES(total_fee),
+                description = VALUES(description)
+        `;
+
+        db.query(insertFeeQuery, [class_ref, term, total_fee, description || null, session_year], (err, result) => {
+            if (err) {
+                return db.rollback(() => {
+                    console.error('Error saving fee structure:', err);
+                    res.status(500).json({ success: false, message: 'Failed to save fee structure.' });
+                });
+            }
+
+            const structure_id = result.insertId || null;
+
+            // Get structure_id if not new
+            if (!structure_id) {
+                const getIdQuery = `SELECT structure_id FROM ${feeTable} WHERE ${classColumn} = ? AND term = ? AND session_year = ?`;
+                db.query(getIdQuery, [class_ref, term, session_year], (err, rows) => {
+                    if (err || !rows.length) return db.rollback(() => res.status(500).json({ success: false }));
+                    upsertStudentFees(rows[0].structure_id);
+                });
+            } else {
+                upsertStudentFees(structure_id);
+            }
+
+            function upsertStudentFees(structure_id) {
+                const upsertQuery = `
+                    INSERT INTO Student_Fees (enrollment_id, structure_id, section_id, total_fee, session_year)
+                    SELECT se.enrollment_id, ?, ?, ?, ?
+                    FROM Student_Enrollments se
+                    WHERE se.section_id = ? AND se.class_ref = ? AND se.term = ?
+                    ON DUPLICATE KEY UPDATE
+                        total_fee = VALUES(total_fee),
+                        structure_id = VALUES(structure_id),
+                        updated_date = CURRENT_TIMESTAMP
+                `;
+
+                db.query(upsertQuery, [structure_id, section_id, total_fee, session_year, section_id, class_ref, term], err => {
+                    if (err) {
+                        return db.rollback(() => {
+                            console.error('Error updating Student_Fees:', err);
+                            res.status(500).json({ success: false, message: 'Failed to update student fees.' });
+                        });
+                    }
+
+                    db.commit(err => {
+                        if (err) return db.rollback(() => res.status(500).json({ success: false }));
+                        res.json({ success: true, message: 'Fee structure and student fees updated.' });
+                    });
+                });
+            }
+        });
+    });
+});
+
+// GET payment tracking (supports session, term, class filters)
+app.get('/api/fees/payments', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const { session, term, class: classValue, student_id } = req.query;
+    if (!session) {
+        return res.status(400).json({ success: false, message: 'Session year is required.' });
+    }
+
+    let query = `
+        SELECT 
+            sf.student_fee_id,
+            s.id AS student_id,
+            s.full_name AS student_name,
+            s.student_id AS admission_no,
+            s.guardian_phone,
+            se.section_id,
+            se.class_ref,
+            sf.total_fee,
+            COALESCE(SUM(p.payment_amount), 0) AS amount_paid,
+            sf.total_fee - COALESCE(SUM(p.payment_amount), 0) AS remaining_amount,
+            CASE WHEN sf.total_fee - COALESCE(SUM(p.payment_amount), 0) <= 0 THEN 'Completed' ELSE 'Pending' END AS status
+        FROM Student_Fees sf
+        JOIN Student_Enrollments se ON sf.enrollment_id = se.enrollment_id
+        JOIN Students s ON se.student_id = s.id
+        LEFT JOIN Student_Fee_Payments p 
+            ON p.student_fee_id = sf.student_fee_id
+            AND p.session_year = ?
+            ${term ? 'AND p.term = ?' : ''}
+        WHERE sf.session_year = ?
+    `;
+
+    const params = [session];
+    if (term) params.push(parseInt(term));
+    params.push(session);
+
+    if (classValue) {
+        const [section_id, class_ref] = classValue.split(':').map(Number);
+        query += ` AND se.section_id = ? AND se.class_ref = ?`;
+        params.push(section_id, class_ref);
+    }
+
+    if (student_id) {
+        query += ` AND s.id = ?`;
+        params.push(parseInt(student_id));
+    }
+
+    query += ` GROUP BY sf.student_fee_id ORDER BY s.full_name`;
+
+    db.query(query, params, (err, results) => {
+        if (err) {
+            console.error('Error fetching payments:', err);
+            return res.status(500).json({ success: false, message: 'Database error.', error: err.message });
+        }
+        res.json({ success: true, data: results });
+    });
+});
+
+// POST add payment (creates Student_Fees if missing)
+app.post('/api/fees/payments', (req, res) => {
+    if (!req.session.isAuthenticated) {
+        return res.status(401).json({ success: false, message: 'Unauthorized.' });
+    }
+
+    const {
+        student_fee_id, payment_amount, payment_method, notes,
+        term, session_year, class_ref, section_id,
+        student_name, total_fee, remaining_amount
+    } = req.body;
+
+    const missing = [];
+if (!payment_amount || payment_amount <= 0) missing.push('payment_amount');
+if (!term) missing.push('term');
+if (!session_year) missing.push('session_year');
+if (!class_ref) missing.push('class_ref');
+if (!section_id) missing.push('section_id');
+
+if (missing.length > 0) {
+    console.error("❌ Missing Fields:", missing, "Received:", req.body);
+    return res.status(400).json({ 
+        success: false, 
+        message: `Missing required fields: ${missing.join(', ')}`,
+        received: req.body
+    });
+
+    }
+
+    db.beginTransaction(async err => {
+        if (err) return res.status(500).json({ success: false });
+
+        try {
+            // 1. Verify session
+            const [sess] = await queryPromise(`SELECT session_year FROM Sessions WHERE session_year = ?`, [session_year]);
+            if (!sess) throw new Error('Invalid session');
+
+            let feeId = student_fee_id;
+
+            // 2. If no student_fee_id → create Student_Fees
+            if (!feeId) {
+                const [enrollment] = await queryPromise(`
+                    SELECT enrollment_id FROM Student_Enrollments 
+                    WHERE student_id = (SELECT id FROM Students WHERE student_id = ?)
+                    AND section_id = ? AND class_ref = ? AND term = ?
+                `, [req.body.student_admission || '', section_id, class_ref, term]);
+
+                if (!enrollment) throw new Error('Student not enrolled in this term');
+
+                // Get structure_id
+                const table = section_id === 1 ? 'Islamic_Fee_Structures' : 'Western_Fee_Structures';
+                const col = section_id === 1 ? 'class_id' : 'western_class_id';
+                const [structure] = await queryPromise(`
+                    SELECT structure_id FROM ${table} 
+                    WHERE ${col} = ? AND term = ? AND session_year = ?
+                `, [class_ref, term, session_year]);
+
+                if (!structure) throw new Error('Fee structure not set');
+
+                const [insertRes] = await queryPromise(`
+                    INSERT INTO Student_Fees (enrollment_id, structure_id, section_id, total_fee, session_year, amount_paid, remaining_amount, status)
+                    VALUES (?, ?, ?, ?, ?, 0, ?, 'Pending')
+                `, [enrollment.enrollment_id, structure.structure_id, section_id, total_fee || 0, session_year, total_fee || 0]);
+
+                feeId = insertRes.insertId;
+            }
+
+            // 3. Insert payment
+            await queryPromise(`
+                INSERT INTO Student_Fee_Payments 
+                (student_fee_id, payment_amount, payment_method, notes, payment_date, term, session_year, class_ref, section_id)
+                VALUES (?, ?, ?, ?, CURDATE(), ?, ?, ?, ?)
+            `, [feeId, payment_amount, payment_method || null, notes || null, term, session_year, class_ref, section_id]);
+
+            // 4. Update Student_Fees
+            const [fee] = await queryPromise(`
+                SELECT total_fee, amount_paid FROM Student_Fees WHERE student_fee_id = ?
+            `, [feeId]);
+
+            const newPaid = (fee.amount_paid || 0) + payment_amount;
+            const newRemaining = fee.total_fee - newPaid;
+            const status = newRemaining <= 0 ? 'Completed' : 'Pending';
+
+            await queryPromise(`
+                UPDATE Student_Fees 
+                SET amount_paid = ?, remaining_amount = ?, status = ?
+                WHERE student_fee_id = ?
+            `, [newPaid, newRemaining, status, feeId]);
+
+            // 5. Return data for receipt
+            const [payment] = await queryPromise(`
+                SELECT * FROM Student_Fee_Payments WHERE student_fee_id = ? ORDER BY payment_id DESC LIMIT 1
+            `, [feeId]);
+
+            db.commit(err => {
+                if (err) throw err;
+                res.json({
+                    success: true,
+                    data: {
+                        student_fee_id: feeId,
+                        payment_amount,
+                        total_fee: fee.total_fee,
+                        remaining_amount: newRemaining,
+                        student_name: student_name || 'N/A',
+                        session_year,
+                        term,
+                        class_ref,
+                        section_id,
+                        payment_method: payment_method || 'N/A',
+                        notes: notes || 'None'
+                    }
+                });
+            });
+        } catch (error) {
+            db.rollback(() => {
+                console.error('Payment error:', error);
+                res.status(500).json({ success: false, message: error.message || 'Payment failed' });
+            });
+        }
+    });
+});
+
+// Helper: Promise wrapper for db.query
+function queryPromise(sql, params) {
+    return new Promise((resolve, reject) => {
+        db.query(sql, params, (err, results) => {
+            if (err) return reject(err);
+            resolve(results);
+        });
+    });
+}
+
+// ================================================================
+// 1. SEARCH STUDENTS BY ID OR NAME (for dropdown)
+// ================================================================
+app.get('/api/students/search', (req, res) => {
+    if (!req.session.isAuthenticated) return res.status(401).json({ success: false });
+
+    const q = (req.query.q || '').trim();
+    if (!q) return res.json({ success: true, data: [] });
+
+    const sql = `
+        SELECT 
+            s.id,
+            s.student_id AS admission_no,
+            s.full_name AS name,
+            se.section_id,
+            se.class_ref,
+            COALESCE(c.class_name, w.western_class_name) AS class_name
+        FROM Students s
+        LEFT JOIN Student_Enrollments se ON s.id = se.student_id
+        LEFT JOIN Classes c ON se.section_id = 1 AND c.class_id = se.class_ref
+        LEFT JOIN Western_Classes w ON se.section_id = 2 AND w.western_class_id = se.class_ref
+        WHERE s.student_id LIKE ? OR s.full_name LIKE ?
+        LIMIT 20
+    `;
+
+    const like = `%${q}%`;
+    db.query(sql, [like, like], (err, rows) => {
+        if (err) return res.status(500).json({ success: false });
+        res.json({ success: true, data: rows });
+    });
+});
+
+// ================================================================
+// 2. GET FEE DETAILS FOR STUDENT + SESSION + TERM
+// ================================================================
+app.get('/api/fees/student-balance', (req, res) => {
+    if (!req.session.isAuthenticated) return res.status(401).json({ success: false });
+
+    const { admission_no, session_year, term } = req.query;
+    if (!admission_no || !session_year || !term) {
+        return res.status(400).json({ success: false, message: 'Missing params' });
+    }
+
+    const sql = `
+        SELECT 
+            sf.student_fee_id,
+            sf.total_fee,
+            COALESCE(SUM(p.payment_amount), 0) AS amount_paid,
+            (sf.total_fee - COALESCE(SUM(p.payment_amount), 0)) AS remaining_amount,
+            s.full_name,
+            s.student_id,
+            se.section_id,
+            se.class_ref,
+            COALESCE(c.class_name, w.western_class_name) AS class_name
+        FROM Students s
+        JOIN Student_Enrollments se ON s.id = se.student_id
+        LEFT JOIN Student_Fees sf ON sf.enrollment_id = se.enrollment_id
+            AND sf.session_year = ? AND sf.term = ?
+        LEFT JOIN Student_Fee_Payments p ON p.student_fee_id = sf.student_fee_id
+        LEFT JOIN Classes c ON se.section_id = 1 AND c.class_id = se.class_ref
+        LEFT JOIN Western_Classes w ON se.section_id = 2 AND w.western_class_id = se.class_ref
+        WHERE s.student_id = ? AND se.term = ?
+        GROUP BY sf.student_fee_id
+        LIMIT 1
+    `;
+
+    db.query(sql, [session_year, term, admission_no, term], (err, rows) => {
+        if (err) return res.status(500).json({ success: false });
+        if (!rows.length || !rows[0].student_fee_id) {
+            return res.json({ success: true, data: null }); // No fee yet
+        }
+        res.json({ success: true, data: rows[0] });
+    });
+});
+//end of payment codes
+
+
+app.get("/api/sessions", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." })
+  }
+  const query = "SELECT * FROM Sessions ORDER BY start_date DESC"
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching sessions:", err)
+      return res.status(500).json({ success: false, message: "Database error." })
+    }
+    res.status(200).json({ success: true, data: results })
+  })
+})
+
+app.get("/api/staff/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." })
+  }
+  const { staffId } = req.params
+
+  const staffQuery = `
+        SELECT s.id, s.staff_id, s.name, s.role, s.email, s.phone
+        FROM staff s
+        WHERE s.id = ? AND s.status = 'Active'
+    `
+
+  db.query(staffQuery, [staffId], (err, staffResults) => {
+    if (err) {
+      console.error("Error fetching staff info:", err)
+      return res.status(500).json({ success: false, message: "Database error." })
+    }
+    if (staffResults.length === 0) {
+      return res.status(404).json({ success: false, message: "Staff not found." })
+    }
+
+    const staff = staffResults[0]
+
+    // Check if form master
+    const formMasterQuery = `
+            SELECT section_id, class_id, western_class_id
+            FROM staff_form_master
+            WHERE staff_id = ?
+            ORDER BY term DESC
+            LIMIT 1
+        `
+
+    db.query(formMasterQuery, [staffId], (err, formMasterResults) => {
+      if (err) {
+        console.error("Error fetching form master info:", err)
+        return res.status(500).json({ success: false, message: "Database error." })
+      }
+
+      staff.formMaster = formMasterResults.length > 0 ? formMasterResults[0] : null
+
+      // Get classes
+      const classesQuery = `
+                SELECT DISTINCT sc.section_id, sc.class_id, sc.western_class_id
+                FROM staff_classes sc
+                WHERE sc.staff_id = ?
+            `
+
+      db.query(classesQuery, [staffId], (err, classesResults) => {
+        if (err) {
+          console.error("Error fetching classes:", err)
+          return res.status(500).json({ success: false, message: "Database error." })
+        }
+
+        staff.classes = classesResults
+        res.status(200).json({ success: true, data: staff })
+      })
+    })
+  })
+})
+
+// -----------------------------
+// MEMORIZATION SCHEME ENDPOINTS
+// -----------------------------
+
+// Load weeks available for memorization
+app.get("/api/staff-memorization-weeks", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const { class_id, term, session } = req.query;
+
+  if (!class_id || !term || !session) {
+    return res.status(400).json({ success: false, message: "Missing required query parameters." });
+  }
+
+  const query = `
+    SELECT DISTINCT week
+    FROM Daily_Memorization_Scheme
+    WHERE class_id = ? AND term = ? AND session_year = ?
+    ORDER BY week
+  `;
+
+  db.query(query, [class_id, term, session], (err, results) => {
+    if (err) {
+      console.error("Error fetching weeks:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+    res.status(200).json({ success: true, data: results });
+  });
+});
+
+// Load memorization data (students + scheme)
+app.get("/api/staff-memorization/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const { staffId } = req.params;
+  const { section_id, class_id, term, week, session } = req.query;
+
+  if (!section_id || !class_id || !term || !week || !session) {
+    return res.status(400).json({ success: false, message: "Missing required parameters." });
+  }
+
+  const query = `
+    SELECT 
+      s.full_name AS student_name,
+      s.student_id,
+      se.enrollment_id,
+      dms.id AS scheme_id,
+      dms.week,
+      dms.day,
+      dms.from_surah_ayah,
+      dms.to_surah_ayah,
+      sma.daily_grade,
+      sma.grade,
+      sma.comments
+    FROM staff st
+    JOIN staff_classes sc ON st.id = sc.staff_id
+    JOIN Student_Enrollments se ON sc.section_id = se.section_id 
+        AND sc.class_id = se.class_ref AND se.session_year = ?
+    JOIN Students s ON se.student_id = s.id
+    JOIN Daily_Memorization_Scheme dms ON sc.class_id = dms.class_id 
+        AND dms.term = ? AND dms.week = ? AND dms.session_year = ?
+    LEFT JOIN Student_Memorization_Assessments sma ON se.enrollment_id = sma.enrollment_id 
+        AND sma.scheme_id = dms.id AND sma.session_year = ?
+    WHERE st.id = ? AND sc.section_id = ? AND sc.class_id = ?
+    ORDER BY s.full_name
+  `;
+
+  db.query(query, [session, term, week, session, session, staffId, section_id, class_id], (err, results) => {
+    if (err) {
+      console.error("Error fetching memorization:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    res.status(200).json({ success: true, data: results });
+  });
+});
+
+// Save memorization assessment
+app.post("/api/staff-memorization/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const { staffId } = req.params;
+  const { section_id, class_id, term, week, session, memorization } = req.body;
+
+  if (!section_id || !class_id || !term || !week || !session || !memorization || !Array.isArray(memorization)) {
+    return res.status(400).json({ success: false, message: "Missing or invalid required fields." });
+  }
+
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error("Transaction start error:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    const insertQuery = `
+      INSERT INTO Student_Memorization_Assessments 
+      (enrollment_id, scheme_id, daily_grade, grade, comments, date, session_year)
+      VALUES ?
+      ON DUPLICATE KEY UPDATE
+      daily_grade = VALUES(daily_grade),
+      grade = VALUES(grade),
+      comments = VALUES(comments),
+      date = VALUES(date)
+    `;
+
+    const values = memorization.map(record => [
+      record.enrollment_id,
+      record.scheme_id,
+      record.daily_grade,
+      record.grade,
+      record.comments || "",
+      new Date().toISOString().slice(0, 19).replace("T", " "),
+      session
+    ]);
+
+    db.query(insertQuery, [values], (err) => {
+      if (err) {
+        return db.rollback(() => {
+          console.error("Error saving memorization:", err);
+          res.status(500).json({ success: false, message: "Database error saving memorization." });
+        });
+      }
+
+      db.commit((err) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error("Commit error:", err);
+            res.status(500).json({ success: false, message: "Commit error." });
+          });
+        }
+        res.status(200).json({ success: true, message: "Memorization saved successfully." });
+      });
+    });
+  });
+});
+
+
+app.get("/api/staff-students/:staffId", (req, res) => {
+  const { staffId } = req.params;
+  const { section_id, class_id, term } = req.query;
+
+  // Validate input
+  if (!section_id || !class_id || !term) {
+    return res.status(400).json({ success: false, message: "Missing required query parameters: section_id, class_id, term." });
+  }
+
+  const query = `
+    SELECT 
+      s.student_id,
+      s.full_name,
+      se.enrollment_id
+    FROM Students s
+    JOIN Student_Enrollments se ON s.id = se.student_id
+    JOIN staff_form_master sfm ON se.section_id = sfm.section_id
+    JOIN staff st ON sfm.staff_id = st.id
+    WHERE st.id = ?
+      AND se.section_id = ?
+      AND (sfm.class_id = ? OR sfm.western_class_id = ?)
+      AND sfm.term = ?
+      AND se.term = ?
+  `;
+
+  db.query(query, [staffId, section_id, class_id, class_id, term, term], (err, results) => {
+    if (err) {
+      console.error("Error fetching students:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "No students found for this class/section/term." });
+    }
+
+    res.status(200).json({ success: true, data: results });
+  });
+});
+
+app.post("/api/staff-attendance/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const { staffId } = req.params;
+  const { section_id, class_id, session, term, date, week_number, attendance } = req.body;
+
+  // Validate input
+  if (
+    !section_id ||
+    !class_id ||
+    !session ||
+    !term ||
+    !week_number ||
+    !date ||
+    !attendance ||
+    !Array.isArray(attendance) ||
+    attendance.length === 0
+  ) {
+    console.error("Missing fields:", { section_id, class_id, session, term, date, week_number, attendance });
+    return res.status(400).json({ success: false, message: "Missing or invalid required fields." });
+  }
+
+  if (![1, 2, 3].includes(parseInt(term))) {
+    return res.status(400).json({ success: false, message: "Invalid term. Must be 1, 2, or 3." });
+  }
+
+  if (parseInt(week_number) < 1 || parseInt(week_number) > 14) {
+    return res.status(400).json({ success: false, message: "Invalid week number. Must be between 1 and 14." });
+  }
+
+  if (!/^\d{4}\/\d{4}$/.test(session)) {
+    return res.status(400).json({ success: false, message: `Invalid session format: "${session}". Must be YYYY/YYYY.` });
+  }
+
+  const timestamp = new Date(date || new Date()).toISOString().slice(0, 19).replace("T", " ");
+
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error("Transaction start error:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    // Delete existing attendance for this staff, class, section, term, and week
+    const deleteQuery = `
+      DELETE sa
+      FROM Student_Attendance sa
+      JOIN staff_form_master sfm 
+        ON sfm.section_id = sa.section_id
+      JOIN staff st 
+        ON st.id = sfm.staff_id
+      WHERE st.id = ?
+        AND sfm.section_id = ?
+        AND ((sfm.section_id = 1 AND sfm.class_id = ?) OR (sfm.section_id = 2 AND sfm.western_class_id = ?))
+        AND sa.term = ?
+        AND sa.week_number = ?
+        AND sa.session_year = ?;
+    `;
+
+    db.query(
+      deleteQuery,
+      [staffId, section_id, class_id, class_id, term, week_number, session],
+      (err) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error("Error deleting old attendance:", err);
+            res.status(500).json({ success: false, message: "Database error deleting old attendance." });
+          });
+        }
+
+        // Insert new attendance records (no enrollment_id)
+        const insertQuery = `
+          INSERT INTO Student_Attendance 
+          (student_id, section_id, attendance_status, week_number, term, session_year, timestamp, is_active)
+          VALUES ?
+        `;
+
+        const attendanceValues = attendance.map((record) => {
+          if (!record.student_id || !record.attendance_status) {
+            throw new Error("Missing student_id or attendance_status in record.");
+          }
+          if (!["Present", "Absent"].includes(record.attendance_status)) {
+            throw new Error("Invalid attendance status.");
+          }
+
+          return [
+            record.student_id,
+            section_id,
+            record.attendance_status,
+            week_number,
+            term,
+            session,
+            timestamp,
+            true,
+          ];
+        });
+
+        db.query(insertQuery, [attendanceValues], (err) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error("Error saving attendance:", err);
+              res.status(500).json({ success: false, message: "Database error saving attendance." });
+            });
+          }
+
+          db.commit((err) => {
+            if (err) {
+              return db.rollback(() => {
+                console.error("Commit error:", err);
+                res.status(500).json({ success: false, message: "Database commit error." });
+              });
+            }
+            res.status(200).json({ success: true, message: "Attendance saved successfully." });
+          });
+        });
+      }
+    );
+  });
+});
+
+app.get("/api/student-report", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." })
+  }
+  const { student_id, section_id, class_id, term, session } = req.query
+
+  const query = `
+        SELECT 
+            s.full_name,
+            s.student_id,
+            sub.subject_name,
+            ssa.ca1_score,
+            ssa.ca2_score,
+            ssa.ca3_score,
+            ssa.exam_score,
+            (COALESCE(ssa.ca1_score, 0) + COALESCE(ssa.ca2_score, 0) + 
+             COALESCE(ssa.ca3_score, 0) + COALESCE(ssa.exam_score, 0)) AS total_score,
+            ssa.comments
+        FROM Students s
+        JOIN Student_Enrollments se ON s.id = se.student_id
+        JOIN Student_Subject_Assessments ssa ON se.enrollment_id = ssa.enrollment_id
+        JOIN Subjects sub ON ssa.subject_id = sub.subject_id
+        WHERE s.id = ? AND se.section_id = ? AND se.class_ref = ? 
+            AND ssa.term = ? AND se.session_year = ?
+        ORDER BY sub.subject_name
+    `
+
+  db.query(query, [student_id, section_id, class_id, term, session], (err, results) => {
+    if (err) {
+      console.error("Error fetching student report:", err)
+      return res.status(500).json({ success: false, message: "Database error." })
+    }
+
+    // Generate HTML report
+    let html = `
+            <html>
+            <head>
+                <title>Student Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #00897b; color: white; }
+                    h1 { color: #2f4f4f; }
+                </style>
+            </head>
+            <body>
+                <h1>Student Report Sheet</h1>
+                <p><strong>Student Name:</strong> ${results[0]?.full_name || "N/A"}</p>
+                <p><strong>Student ID:</strong> ${results[0]?.student_id || "N/A"}</p>
+                <p><strong>Term:</strong> ${term}</p>
+                <p><strong>Session:</strong> ${session}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>CA1</th>
+                            <th>CA2</th>
+                            <th>CA3</th>
+                            <th>Exam</th>
+                            <th>Total</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `
+
+    results.forEach((row) => {
+      html += `
+                <tr>
+                    <td>${row.subject_name}</td>
+                    <td>${row.ca1_score || "-"}</td>
+                    <td>${row.ca2_score || "-"}</td>
+                    <td>${row.ca3_score || "-"}</td>
+                    <td>${row.exam_score || "-"}</td>
+                    <td>${row.total_score}</td>
+                    <td>${row.comments || "-"}</td>
+                </tr>
+            `
+    })
+
+    html += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `
+
+    res.send(html)
+  })
+})
+
+app.get("/api/tahfiz-report", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." })
+  }
+  const { student_id, section_id, class_id, term, session } = req.query
+
+  const query = `
+        SELECT 
+            s.full_name,
+            s.student_id,
+            dms.week,
+            dms.day,
+            dms.from_surah_ayah,
+            dms.to_surah_ayah,
+            sma.daily_grade,
+            sma.grade,
+            sma.comments,
+            COALESCE((
+                CASE sma.daily_grade
+                    WHEN 'A' THEN 5
+                    WHEN 'B' THEN 4
+                    WHEN 'C' THEN 3
+                    WHEN 'D' THEN 2
+                    WHEN 'E' THEN 1
+                    WHEN 'F' THEN 0
+                    ELSE 0
+                END + 
+                CASE sma.grade
+                    WHEN 'A' THEN 5
+                    WHEN 'B' THEN 4
+                    WHEN 'C' THEN 3
+                    WHEN 'D' THEN 2
+                    WHEN 'E' THEN 1
+                    WHEN 'F' THEN 0
+                    ELSE 0
+                END
+            ) / 2.0 * 20) AS average_score
+        FROM Students s
+        JOIN Student_Enrollments se ON s.id = se.student_id
+        JOIN Daily_Memorization_Scheme dms ON se.class_ref = dms.class_id 
+            AND dms.term = ? AND dms.session_year = ?
+        LEFT JOIN Student_Memorization_Assessments sma ON se.enrollment_id = sma.enrollment_id 
+            AND sma.scheme_id = dms.id AND sma.session_year = ?
+        WHERE s.id = ? AND se.section_id = ? AND se.class_ref = ? AND se.session_year = ?
+        ORDER BY dms.week, dms.day
+    `
+
+  db.query(query, [term, session, session, student_id, section_id, class_id, session], (err, results) => {
+    if (err) {
+      console.error("Error fetching tahfiz report:", err)
+      return res.status(500).json({ success: false, message: "Database error." })
+    }
+
+    // Generate HTML report
+    let html = `
+            <html>
+            <head>
+                <title>Tahfiz Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #00897b; color: white; }
+                    h1 { color: #2f4f4f; }
+                </style>
+            </head>
+            <body>
+                <h1>Tahfiz Report</h1>
+                <p><strong>Student Name:</strong> ${results[0]?.full_name || "N/A"}</p>
+                <p><strong>Student ID:</strong> ${results[0]?.student_id || "N/A"}</p>
+                <p><strong>Term:</strong> ${term}</p>
+                <p><strong>Session:</strong> ${session}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Week</th>
+                            <th>Day</th>
+                            <th>From Ayah</th>
+                            <th>To Ayah</th>
+                            <th>Daily Grade</th>
+                            <th>Grade</th>
+                            <th>Average (%)</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `
+
+    results.forEach((row) => {
+      html += `
+                <tr>
+                    <td>${row.week}</td>
+                    <td>${row.day}</td>
+                    <td>${row.from_surah_ayah}</td>
+                    <td>${row.to_surah_ayah}</td>
+                    <td>${row.daily_grade || "-"}</td>
+                    <td>${row.grade || "-"}</td>
+                    <td>${row.average_score ? row.average_score.toFixed(1) : "-"}</td>
+                    <td>${row.comments || "-"}</td>
+                </tr>
+            `
+    })
+
+    html += `
+                    </tbody>
+                </table>
+            </body>
+            </html>
+        `
+
+    res.send(html)
+  })
+})
+
+app.get("/api/download-report", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." })
+  }
+  const { student_id, section_id, class_id, term, session } = req.query
+  res.redirect(
+    `/api/student-report?student_id=${student_id}&section_id=${section_id}&class_id=${class_id}&term=${term}&session=${session}`,
+  )
+})
+
+//load student for attendance
+app.get("/api/staff-students/:staffId", (req, res) => {
+  const { staffId } = req.params;
+  const { section_id, class_id, term } = req.query;
+
+  // Validate input
+  if (!section_id || !class_id || !term) {
+    return res.status(400).json({ success: false, message: "Missing required query parameters: section_id, class_id, term." });
+  }
+
+  const query = `
+    SELECT 
+      s.student_id,
+      s.full_name,
+      se.enrollment_id
+    FROM Students s
+    JOIN Student_Enrollments se ON s.id = se.student_id
+    JOIN staff_form_master sfm ON se.section_id = sfm.section_id
+    JOIN staff st ON sfm.staff_id = st.id
+    WHERE st.id = ?
+      AND se.section_id = ?
+      AND (sfm.class_id = ? OR sfm.western_class_id = ?)
+      AND sfm.term = ?
+      AND se.term = ?
+  `;
+
+  db.query(query, [staffId, section_id, class_id, class_id, term, term], (err, results) => {
+    if (err) {
+      console.error("Error fetching students:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "No students found for this class/section/term." });
+    }
+
+    res.status(200).json({ success: true, data: results });
+  });
+});
+
+//student attendance
+app.post("/api/staff-attendance/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const { staffId } = req.params;
+  const { section_id, class_id, session, term, date, week_number, attendance } = req.body;
+
+  // Validate input
+  if (
+    !section_id ||
+    !class_id ||
+    !session ||
+    !term ||
+    !week_number ||
+    !date ||
+    !attendance ||
+    !Array.isArray(attendance) ||
+    attendance.length === 0
+  ) {
+    console.error("Missing fields:", { section_id, class_id, session, term, date, week_number, attendance });
+    return res.status(400).json({ success: false, message: "Missing or invalid required fields." });
+  }
+
+  if (![1, 2, 3].includes(parseInt(term))) {
+    return res.status(400).json({ success: false, message: "Invalid term. Must be 1, 2, or 3." });
+  }
+
+  if (parseInt(week_number) < 1 || parseInt(week_number) > 14) {
+    return res.status(400).json({ success: false, message: "Invalid week number. Must be between 1 and 14." });
+  }
+
+  if (!/^\d{4}\/\d{4}$/.test(session)) {
+  return res.status(400).json({ success: false, message: `Invalid session format: "${session}". Must be YYYY/YYYY.` });
+}
+
+  const timestamp = new Date(date || new Date()).toISOString().slice(0, 19).replace("T", " ");
+
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error("Transaction start error:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    // Delete existing attendance for this staff, class, section, term, and week
+    const deleteQuery = `
+      DELETE sa
+      FROM Student_Attendance sa
+      JOIN staff_form_master sfm 
+        ON sfm.section_id = sa.section_id
+      JOIN staff st 
+        ON st.id = sfm.staff_id
+      WHERE st.id = ?
+        AND sfm.section_id = ?
+        AND ((sfm.section_id = 1 AND sfm.class_id = ?) OR (sfm.section_id = 2 AND sfm.western_class_id = ?))
+        AND sa.term = ?
+        AND sa.week_number = ?
+        AND sa.session_year = ?;
+    `;
+
+    db.query(
+      deleteQuery,
+      [staffId, section_id, class_id, class_id, term, week_number, session],
+      (err) => {
+        if (err) {
+          return db.rollback(() => {
+            console.error("Error deleting old attendance:", err);
+            res.status(500).json({ success: false, message: "Database error deleting old attendance." });
+          });
+        }
+
+        // Insert new attendance records (no enrollment_id)
+        const insertQuery = `
+          INSERT INTO Student_Attendance 
+          (student_id, section_id, attendance_status, week_number, term, session_year, timestamp, is_active)
+          VALUES ?
+        `;
+
+        const attendanceValues = attendance.map((record) => {
+          if (!record.student_id || !record.attendance_status) {
+            throw new Error("Missing student_id or attendance_status in record.");
+          }
+          if (!["Present", "Absent"].includes(record.attendance_status)) {
+            throw new Error("Invalid attendance status.");
+          }
+
+          return [
+            record.student_id,
+            section_id,
+            record.attendance_status,
+            week_number,
+            term,
+            session,
+            timestamp,
+            true,
+          ];
+        });
+
+        db.query(insertQuery, [attendanceValues], (err) => {
+          if (err) {
+            return db.rollback(() => {
+              console.error("Error saving attendance:", err);
+              res.status(500).json({ success: false, message: "Database error saving attendance." });
+            });
+          }
+
+          db.commit((err) => {
+            if (err) {
+              return db.rollback(() => {
+                console.error("Commit error:", err);
+                res.status(500).json({ success: false, message: "Database commit error." });
+              });
+            }
+            res.status(200).json({ success: true, message: "Attendance saved successfully." });
+          });
+        });
+      }
+    );
+  });
+});
 
 //server
 app.listen(port, () => {
