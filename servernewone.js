@@ -6,7 +6,6 @@ const db = require('./mysql'); // Ensure this is createPool
 const cors = require('cors');
 const path = require('path');
 const ExcelJS = require('exceljs');
-const feesRoutes = require('./fees_routes');
 const multer = require('multer');
 const moment = require('moment'); // install with: npm install moment
 const app = express();
@@ -632,25 +631,7 @@ app.get('/api/staff-subjects/:staffId', (req, res) => {
     });
 });
 
-// Staff Memorization Schemes
-app.get('/api/staff-memorization-schemes', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-    const { class_id } = req.query;
-    const query = `
-        SELECT id, week, day, from_surah_ayah, to_surah_ayah
-        FROM Daily_Memorization_Scheme
-        WHERE class_id = ? AND term = 1
-    `;
-    db.query(query, [class_id], (err, results) => {
-        if (err) {
-            console.error('Error fetching memorization schemes:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        res.status(200).json({ success: true, data: results });
-    });
-});
+
 
 // Staff Assessments
 app.get('/api/staff-assessments/:staffId', (req, res) => {
@@ -755,101 +736,6 @@ app.post('/api/staff-assessments/:staffId', (req, res) => {
     });
 });
 
-// Staff Memorization
-app.get('/api/staff-memorization/:staffId', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-    const { staffId } = req.params;
-    const { section_id, class_id, scheme_id } = req.query;
-    const query = `
-        SELECT 
-            s.full_name AS student_name,
-            se.enrollment_id,
-            dms.week,
-            dms.day,
-            dms.from_surah_ayah,
-            dms.to_surah_ayah,
-            sma.daily_grade,
-            sma.exam_grade,
-            sma.comments
-        FROM staff st
-        JOIN staff_classes sc ON st.id = sc.staff_id
-        JOIN Student_Enrollments se ON sc.section_id = se.section_id AND 
-            sc.class_id = se.class_ref
-        JOIN Students s ON se.student_id = s.id
-        JOIN Daily_Memorization_Scheme dms ON sc.class_id = dms.class_id
-        LEFT JOIN Student_Memorization_Assessments sma ON se.enrollment_id = sma.enrollment_id 
-            AND sma.scheme_id = dms.id AND sma.date = CURDATE()
-        WHERE st.id = ? AND sc.section_id = 1 AND sc.class_id = ? AND dms.id = ?
-    `;
-    db.query(query, [staffId, class_id, scheme_id], (err, results) => {
-        if (err) {
-            console.error('Error fetching memorization:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        res.status(200).json({ success: true, data: results });
-    });
-});
-
-app.post('/api/staff-memorization/:staffId', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-    const { staffId } = req.params;
-    const { section_id, class_id, scheme_id, memorization } = req.body;
-    db.beginTransaction((err) => {
-        if (err) {
-            console.error('Transaction start error:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        const deleteQuery = `
-            DELETE sma FROM Student_Memorization_Assessments sma
-            JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
-            JOIN staff_classes sc ON se.section_id = sc.section_id AND sc.class_id = se.class_ref
-            JOIN staff st ON sc.staff_id = st.id
-            WHERE st.id = ? AND sc.section_id = 1 AND sc.class_id = ? 
-            AND sma.scheme_id = ? AND sma.date = CURDATE()
-        `;
-        db.query(deleteQuery, [staffId, class_id, scheme_id], (err) => {
-            if (err) {
-                return db.rollback(() => {
-                    console.error('Error deleting old memorization:', err);
-                    res.status(500).json({ success: false, message: 'Database error.' });
-                });
-            }
-            const insertQuery = `
-                INSERT INTO Student_Memorization_Assessments (enrollment_id, scheme_id, daily_grade, exam_grade, comments, date)
-                VALUES ?
-            `;
-            const values = memorization.map(record => [
-                record.enrollment_id,
-                scheme_id,
-                record.daily_grade,
-                record.exam_grade,
-                record.comments,
-                record.date
-            ]);
-            db.query(insertQuery, [values], (err) => {
-                if (err) {
-                    return db.rollback(() => {
-                        console.error('Error saving memorization:', err);
-                        res.status(500).json({ success: false, message: 'Database error.' });
-                    });
-                }
-                db.commit((err) => {
-                    if (err) {
-                        return db.rollback(() => {
-                            console.error('Commit error:', err);
-                            res.status(500).json({ success: false, message: 'Database error.' });
-                        });
-                    }
-                    res.status(200).json({ success: true, message: 'Memorization progress saved.' });
-                });
-            });
-        });
-    });
-});
 
 // Fetch all classes
 app.get('/api/classes', (req, res) => {
@@ -2483,30 +2369,6 @@ app.post('/api/generate-id-card', (req, res) => {
     });
 });
 
-// Fetch memorization progress
-app.get('/api/memorization-progress/:studentId', (req, res) => {
-    if (!req.session.isAuthenticated) {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
-
-    const studentId = req.params.studentId;
-    const query = `
-        SELECT dms.week, dms.day, dms.from_surah_ayah, dms.to_surah_ayah, dms.term,
-               sma.daily_grade, sma.exam_grade, sma.comments, sma.date
-        FROM Daily_Memorization_Scheme dms
-        JOIN Student_Enrollments e ON dms.class_id = e.class_ref AND dms.term = e.term AND e.section_id = 1
-        LEFT JOIN Student_Memorization_Assessments sma ON e.enrollment_id = sma.enrollment_id AND dms.id = sma.scheme_id
-        WHERE e.student_id = ?
-        ORDER BY dms.term, dms.week, dms.day
-    `;
-    db.query(query, [studentId], (err, results) => {
-        if (err) {
-            console.error('Error fetching memorization progress:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-        res.status(200).json({ success: true, data: results });
-    });
-});
 
 // Student Login (from previous response)
 app.post('/api/student-login', async (req, res) => {
@@ -3169,21 +3031,50 @@ app.get("/api/staff/:staffId", (req, res) => {
     })
   })
 })
-
-// -----------------------------
+// =============================
 // MEMORIZATION SCHEME ENDPOINTS
-// -----------------------------
+// =============================
 
-// Load weeks available for memorization
+// 1. GET: Load specific ayat range for week + day (any session)
+app.get("/api/staff-memorization-schemes", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+
+  const { class_id, term, week, day, session } = req.query;
+
+  if (!class_id || !term || !week || !day || !session) {
+    return res.status(400).json({ success: false, message: "Missing parameters: class_id, term, week, day, session." });
+  }
+
+  const query = `
+    SELECT id, week, day, from_surah_ayah, to_surah_ayah
+    FROM Daily_Memorization_Scheme
+    WHERE class_id = ? AND term = ? AND week = ? AND day = ? AND session_year = ?
+    LIMIT 1
+  `;
+
+  db.query(query, [class_id, term, week, day, session], (err, results) => {
+    if (err) {
+      console.error("Error fetching scheme:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "No ayat range found for this week & day." });
+    }
+    res.json({ success: true, data: results });
+  });
+});
+
+// 2. GET: Load available weeks (for dropdown)
 app.get("/api/staff-memorization-weeks", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized." });
   }
 
   const { class_id, term, session } = req.query;
-
   if (!class_id || !term || !session) {
-    return res.status(400).json({ success: false, message: "Missing required query parameters." });
+    return res.status(400).json({ success: false, message: "Missing parameters." });
   }
 
   const query = `
@@ -3194,125 +3085,273 @@ app.get("/api/staff-memorization-weeks", (req, res) => {
   `;
 
   db.query(query, [class_id, term, session], (err, results) => {
-    if (err) {
-      console.error("Error fetching weeks:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
-    }
-    res.status(200).json({ success: true, data: results });
+    if (err) return res.status(500).json({ success: false });
+    res.json({ success: true, data: results.map(r => ({ week: r.week })) });
   });
 });
 
-// Load memorization data (students + scheme)
+// 3. GET: Load students + grades for a specific week/day (any session)
+// Load students for memorization assessment
+// Load students for memorization assessment
 app.get("/api/staff-memorization/:staffId", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-  }
-
   const { staffId } = req.params;
-  const { section_id, class_id, term, week, session } = req.query;
+  const { section_id, class_id, scheme_id, session, term, week, day } = req.query;
 
-  if (!section_id || !class_id || !term || !week || !session) {
-    return res.status(400).json({ success: false, message: "Missing required parameters." });
+  if (!section_id || !class_id || !scheme_id || !session || !term || !week || !day) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required query parameters."
+    });
   }
 
   const query = `
     SELECT 
+      s.id AS student_id,
       s.full_name AS student_name,
-      s.student_id,
-      se.enrollment_id,
-      dms.id AS scheme_id,
-      dms.week,
-      dms.day,
-      dms.from_surah_ayah,
-      dms.to_surah_ayah,
-      sma.daily_grade,
-      sma.grade,
-      sma.comments
-    FROM staff st
-    JOIN staff_classes sc ON st.id = sc.staff_id
-    JOIN Student_Enrollments se ON sc.section_id = se.section_id 
-        AND sc.class_id = se.class_ref AND se.session_year = ?
-    JOIN Students s ON se.student_id = s.id
-    JOIN Daily_Memorization_Scheme dms ON sc.class_id = dms.class_id 
-        AND dms.term = ? AND dms.week = ? AND dms.session_year = ?
-    LEFT JOIN Student_Memorization_Assessments sma ON se.enrollment_id = sma.enrollment_id 
-        AND sma.scheme_id = dms.id AND sma.session_year = ?
-    WHERE st.id = ? AND sc.section_id = ? AND sc.class_id = ?
-    ORDER BY s.full_name
+      e.enrollment_id,
+      a.daily_grade,
+      a.exam_grade AS grade,
+      a.comments
+    FROM Student_Enrollments e
+    JOIN Students s ON s.id = e.student_id
+    LEFT JOIN Student_Memorization_Assessments a 
+      ON a.enrollment_id = e.enrollment_id
+     AND a.scheme_id = ?
+     AND a.session_year = ?
+     AND a.term = ?
+    WHERE e.section_id = ?
+      AND e.class_ref = ?
+    ORDER BY s.full_name ASC
   `;
 
-  db.query(query, [session, term, week, session, session, staffId, section_id, class_id], (err, results) => {
-    if (err) {
-      console.error("Error fetching memorization:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
-    }
+  db.query(
+    query,
+    [scheme_id, session, term, section_id, class_id],
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching memorization students:", err);
+        return res.status(500).json({ success: false, message: "Database error." });
+      }
 
-    res.status(200).json({ success: true, data: results });
-  });
+      if (results.length === 0) {
+        return res.status(404).json({ success: false, message: "No students found for this class." });
+      }
+
+      res.status(200).json({ success: true, data: results });
+    }
+  );
 });
 
-// Save memorization assessment
+
+// 4. POST: Save memorization grades (any session)
 app.post("/api/staff-memorization/:staffId", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized." });
   }
 
   const { staffId } = req.params;
-  const { section_id, class_id, term, week, session, memorization } = req.body;
+  const { section_id, class_id, term, week, day, session, scheme_id, memorization } = req.body;
 
-  if (!section_id || !class_id || !term || !week || !session || !memorization || !Array.isArray(memorization)) {
-    return res.status(400).json({ success: false, message: "Missing or invalid required fields." });
+  if (
+    !section_id || !class_id || !term || !week || !day || 
+    !session || !scheme_id || !memorization || !Array.isArray(memorization)
+  ) {
+    return res.status(400).json({ success: false, message: "Invalid or missing data." });
   }
 
-  db.beginTransaction((err) => {
+  db.beginTransaction(err => {
     if (err) {
-      console.error("Transaction start error:", err);
+      console.error("Transaction error:", err);
       return res.status(500).json({ success: false, message: "Database error." });
     }
 
-    const insertQuery = `
-      INSERT INTO Student_Memorization_Assessments 
-      (enrollment_id, scheme_id, daily_grade, grade, comments, date, session_year)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE
-      daily_grade = VALUES(daily_grade),
-      grade = VALUES(grade),
-      comments = VALUES(comments),
-      date = VALUES(date)
+    // === STEP 1: DELETE OLD ENTRIES FOR TODAY ===
+    const deleteQuery = `
+      DELETE sma FROM Student_Memorization_Assessments sma
+      JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+      JOIN (
+        SELECT staff_id, section_id, class_id FROM staff_classes
+        UNION
+        SELECT staff_id, section_id, class_id FROM staff_form_master
+      ) sc ON se.section_id = sc.section_id AND se.class_ref = sc.class_id
+      WHERE sc.staff_id = ?
+        AND se.section_id = ?
+        AND se.class_ref = ?
+        AND sma.scheme_id = ?
+        AND sma.date = CURDATE()
+        AND sma.session_year = ?
     `;
 
-    const values = memorization.map(record => [
-      record.enrollment_id,
-      record.scheme_id,
-      record.daily_grade,
-      record.grade,
-      record.comments || "",
-      new Date().toISOString().slice(0, 19).replace("T", " "),
-      session
-    ]);
+    db.query(
+      deleteQuery,
+      [staffId, section_id, class_id, scheme_id, session],
+      (err) => {
+        if (err) {
+          console.error("Delete error:", err);
+          return db.rollback(() => res.status(500).json({ success: false }));
+        }
 
-    db.query(insertQuery, [values], (err) => {
-      if (err) {
-        return db.rollback(() => {
-          console.error("Error saving memorization:", err);
-          res.status(500).json({ success: false, message: "Database error saving memorization." });
+        // === STEP 2: INSERT / UPDATE NEW GRADES ===
+        const values = memorization.map(r => [
+          r.enrollment_id,
+          scheme_id,
+          r.daily_grade || null,
+          r.grade || null,           // frontend sends "grade" → maps to exam_grade
+          r.comments || "",
+          new Date().toISOString().slice(0, 10),  // YYYY-MM-DD
+          session,
+          term
+        ]);
+
+        const insertQuery = `
+          INSERT INTO Student_Memorization_Assessments 
+          (enrollment_id, scheme_id, daily_grade, exam_grade, comments, date, session_year, term)
+          VALUES ?
+          ON DUPLICATE KEY UPDATE
+            daily_grade = VALUES(daily_grade),
+            exam_grade  = VALUES(exam_grade),
+            comments    = VALUES(comments),
+            date        = VALUES(date)
+        `;
+
+        db.query(insertQuery, [values], (err) => {
+          if (err) {
+          console.error("Insert error:", err);
+            return db.rollback(() => res.status(500).json({ success: false }));
+          }
+
+          db.commit((err) => {
+            if (err) {
+              console.error("Commit error:", err);
+              return db.rollback(() => res.status(500).json({ success: false }));
+            }
+            res.json({ success: true, message: "Memorization saved successfully." });
+          });
         });
       }
+    );
+  });
+});
+// 5. GET: Tahfiz Report (HTML) – any session
+app.get("/api/tahfiz-report", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
 
-      db.commit((err) => {
-        if (err) {
-          return db.rollback(() => {
-            console.error("Commit error:", err);
-            res.status(500).json({ success: false, message: "Commit error." });
-          });
-        }
-        res.status(200).json({ success: true, message: "Memorization saved successfully." });
-      });
+  const { student_id, section_id, class_id, term, session } = req.query;
+  if (!student_id || !section_id || !class_id || !term || !session) {
+    return res.status(400).json({ success: false, message: "Missing parameters." });
+  }
+
+  const query = `
+    SELECT 
+      s.full_name,
+      s.student_id,
+      dms.week,
+      dms.day,
+      dms.from_surah_ayah,
+      dms.to_surah_ayah,
+      sma.daily_grade,
+      sma.grade,
+      sma.comments,
+      COALESCE((
+        CASE sma.daily_grade WHEN 'A' THEN 5 WHEN 'B' THEN 4 WHEN 'C' THEN 3 WHEN 'D' THEN 2 WHEN 'E' THEN 1 WHEN 'F' THEN 0 ELSE 0 END +
+        CASE sma.grade WHEN 'A' THEN 5 WHEN 'B' THEN 4 WHEN 'C' THEN 3 WHEN 'D' THEN 2 WHEN 'E' THEN 1 WHEN 'F' THEN 0 ELSE 0 END
+      ) / 2.0 * 20, 0) AS average_score
+    FROM Students s
+    JOIN Student_Enrollments se 
+      ON s.id = se.student_id
+      AND se.section_id = ? AND se.class_ref = ? AND se.session_year = ?
+    JOIN Daily_Memorization_Scheme dms 
+      ON se.class_ref = dms.class_id 
+      AND dms.term = ? AND dms.session_year = ?
+    LEFT JOIN Student_Memorization_Assessments sma 
+      ON se.enrollment_id = sma.enrollment_id 
+      AND sma.scheme_id = dms.id AND sma.session_year = ?
+    WHERE s.id = ?
+    ORDER BY dms.week, dms.day
+  `;
+
+  db.query(query, [section_id, class_id, session, term, session, session, student_id], (err, results) => {
+    if (err) {
+      console.error("Report error:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    const termName = term === '1' ? 'الأول' : term === '2' ? 'الثاني' : 'الثالث';
+
+    let html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>تقرير التحفيظ</title>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; direction: rtl; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+          th { background-color: #00897b; color: white; }
+          h1, p { text-align: center; }
+        </style>
+      </head>
+      <body>
+        <h1>تقرير التحفيظ</h1>
+        <p><strong>الاسم:</strong> ${results[0]?.full_name || "غير معروف"}</p>
+        <p><strong>رقم الطالب:</strong> ${results[0]?.student_id || "غير معروف"}</p>
+        <p><strong>الفصل الدراسي:</strong> ${termName}</p>
+        <p><strong>العام الدراسي:</strong> ${session}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>الأسبوع</th>
+              <th>اليوم</th>
+              <th>من آية</th>
+              <th>إلى آية</th>
+              <th>تقييم يومي</th>
+              <th>تقييم نهائي</th>
+              <th>المتوسط %</th>
+              <th>ملاحظات</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+
+    results.forEach(row => {
+      html += `
+        <tr>
+          <td>${row.week}</td>
+          <td>${row.day}</td>
+          <td>${row.from_surah_ayah}</td>
+          <td>${row.to_surah_ayah}</td>
+          <td>${row.daily_grade || "-"}</td>
+          <td>${row.grade || "-"}</td>
+          <td>${row.average_score ? row.average_score.toFixed(1) : "-"}</td>
+          <td>${row.comments || "-"}</td>
+        </tr>
+      `;
     });
+
+    html += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    res.send(html);
   });
 });
 
+// 6. Redirect: Download report
+app.get("/api/download-report", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized." });
+  }
+  const { student_id, section_id, class_id, term, session } = req.query;
+  res.redirect(`/api/tahfiz-report?student_id=${student_id}&section_id=${section_id}&class_id=${class_id}&term=${term}&session=${session}`);
+});
 
+//get Attendance
 app.get("/api/staff-students/:staffId", (req, res) => {
   const { staffId } = req.params;
   const { section_id, class_id, term } = req.query;
