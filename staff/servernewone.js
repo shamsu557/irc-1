@@ -3095,7 +3095,7 @@ app.get("/api/staff-memorization/:staffId", (req, res) => {
       s.full_name        AS student_name,
       e.enrollment_id,
       a.daily_grade,
-      a.exam_grade       AS grade,
+      sme.exam_grade     AS grade,
       a.comments
     FROM Student_Enrollments e
     JOIN Students s ON s.id = e.student_id
@@ -3104,10 +3104,14 @@ app.get("/api/staff-memorization/:staffId", (req, res) => {
      AND a.scheme_id     = ?
      AND a.session_year  = ?
      AND a.term          = ?
+    LEFT JOIN Student_Memorization_Exam sme
+      ON sme.enrollment_id = e.enrollment_id
+     AND sme.term          = ?
+     AND sme.session_year  = ?
     WHERE e.section_id = ? AND e.class_ref = ?
     ORDER BY s.full_name`;
 
-  db.query(sql, [scheme_id, session, term, section_id, class_id], (err, rows) => {
+  db.query(sql, [scheme_id, session, term, term, session, section_id, class_id], (err, rows) => {
     if (err) {
       console.error("Student fetch error:", err);
       return res.status(500).json({ success: false, message: "DB error." });
@@ -3123,63 +3127,107 @@ app.post("/api/staff-memorization/:staffId", (req, res) => {
     return res.status(401).json({ success: false, message: "Unauthorized." });
 
   const { staffId } = req.params;
-  const {
-    section_id, class_id, term, week, day,
-    session, scheme_id, memorization
-  } = req.body;
+  const { term, week, day, session, scheme_id, memorization } = req.body;
 
   if (
-    !section_id || !class_id || !term || !week || !day ||
+    !term || !week || !day ||
     !session || !scheme_id || !Array.isArray(memorization) || !memorization.length
   )
     return res.status(400).json({ success: false, message: "Invalid payload." });
 
-  db.beginTransaction(trErr => {
+  db.beginTransaction(async (trErr) => {
     if (trErr) return res.status(500).json({ success: false });
-
-    const insertSql = `
-      INSERT INTO Student_Memorization_Assessments
-        (enrollment_id, scheme_id, daily_grade, exam_grade, comments,
-         date, session_year, term, week,
-         from_surah_ayah, to_surah_ayah, assessed_day)
-      VALUES ?
-      ON DUPLICATE KEY UPDATE
-        daily_grade = VALUES(daily_grade),
-        exam_grade = VALUES(exam_grade),
-        comments = VALUES(comments),
-        from_surah_ayah = VALUES(from_surah_ayah),
-        to_surah_ayah = VALUES(to_surah_ayah),
-        date = VALUES(date)
-    `;
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const values = memorization.map(r => [
-      r.enrollment_id,
-      scheme_id,
-      r.daily_grade || null,
-      r.grade || null, // exam_grade
-      r.comments || "",
-      today,
-      session,
-      term,
-      week,
-      r.from_surah_ayah,
-      r.to_surah_ayah,
-      day
-    ]);
+    try {
+      // ---------- 1️⃣ Separate daily / exam ----------
+      const dailyGrades = [];
+      const examGradesMap = new Map();               // deduplicate per student+term+session (ignore scheme_id)
 
-    db.query(insertSql, [values], insErr => {
-      if (insErr) {
-        console.error("Insert error:", insErr);
-        return db.rollback(() => res.status(500).json({ success: false }));
+      memorization.forEach(r => {
+        // ----- daily -----
+        if (r.daily_grade) {
+          dailyGrades.push([
+            r.enrollment_id,
+            scheme_id,
+            r.daily_grade,
+            null,                     // exam_grade
+            r.comments || "",
+            today,
+            session,
+            term,
+            week,
+            r.from_surah_ayah,
+            r.to_surah_ayah,
+            day
+          ]);
+        }
+
+        // ----- exam (once per term+session) -----
+        if (r.grade != null) {
+          const key = `${r.enrollment_id}_${term}_${session}`;
+          examGradesMap.set(key, [
+            r.enrollment_id,
+            term,
+            session,
+            r.grade
+          ]);
+        }
+      });
+
+      const examGrades = Array.from(examGradesMap.values());
+
+      // ---------- 2️⃣ Daily grades (unchanged) ----------
+      if (dailyGrades.length) {
+        const insertDailySql = `
+          INSERT INTO Student_Memorization_Assessments
+            (enrollment_id, scheme_id, daily_grade, exam_grade, comments,
+             date, session_year, term, week,
+             from_surah_ayah, to_surah_ayah, assessed_day)
+          VALUES ?
+          ON DUPLICATE KEY UPDATE
+            daily_grade = VALUES(daily_grade),
+            comments    = VALUES(comments),
+            from_surah_ayah = VALUES(from_surah_ayah),
+            to_surah_ayah   = VALUES(to_surah_ayah),
+            date            = VALUES(date)
+        `;
+        await new Promise((resolve, reject) =>
+          db.query(insertDailySql, [dailyGrades], err => err ? reject(err) : resolve())
+        );
       }
 
+      // ---------- 3️⃣ Exam grades (updated: no scheme_id) ----------
+      if (examGrades.length) {
+        const examValues = examGrades.map(
+          ([enrollment_id, term, session_year, exam_grade]) => [
+            enrollment_id, term, session_year, exam_grade
+          ]
+        );
+
+        const insertExamSql = `
+          INSERT INTO Student_Memorization_Exam
+            (enrollment_id, term, session_year, exam_grade)
+          VALUES ?
+          ON DUPLICATE KEY UPDATE
+            exam_grade = VALUES(exam_grade)
+        `;
+
+        await new Promise((resolve, reject) =>
+          db.query(insertExamSql, [examValues], err => err ? reject(err) : resolve())
+        );
+      }
+
+      // ---------- 4️⃣ Commit ----------
       db.commit(commitErr => {
         if (commitErr) return db.rollback(() => res.status(500).json({ success: false }));
         res.json({ success: true, message: "Saved successfully." });
       });
-    });
+    } catch (err) {
+      console.error("Error saving memorization:", err);
+      db.rollback(() => res.status(500).json({ success: false }));
+    }
   });
 });
 
@@ -3197,7 +3245,7 @@ app.get("/api/tahfiz-report", (req, res) => {
       s.full_name, s.student_id,
       dms.week, dms.day,
       dms.from_surah_ayah, dms.to_surah_ayah,
-      sma.daily_grade, sma.exam_grade, sma.comments
+      sma.daily_grade, sme.exam_grade, sma.comments
     FROM Students s
     JOIN Student_Enrollments se
       ON s.id = se.student_id
@@ -3209,10 +3257,14 @@ app.get("/api/tahfiz-report", (req, res) => {
       ON sma.enrollment_id = se.enrollment_id
      AND sma.scheme_id = dms.id
      AND sma.session_year = ?
+    LEFT JOIN Student_Memorization_Exam sme
+      ON sme.enrollment_id = se.enrollment_id
+     AND sme.term = ?
+     AND sme.session_year = ?
     WHERE s.id = ?
     ORDER BY dms.week, dms.day`;
 
-  db.query(sql, [section_id, class_id, session, term, session, session, student_id], (err, rows) => {
+  db.query(sql, [section_id, class_id, session, term, session, session, term, session, student_id], (err, rows) => {
     if (err) return res.status(500).json({ success: false, message: "DB error." });
 
     const termName = { "1": "الأول", "2": "الثاني", "3": "الثالث" }[term] || term;
@@ -3270,10 +3322,18 @@ app.get("/api/class-memorization-assessments", (req, res) => {
     return res.status(400).json({ success: false, message: "Missing parameters." });
 
   const sql = `
-    SELECT s.student_id, s.full_name, sma.*
+    SELECT
+      s.student_id, s.full_name,
+      sma.daily_grade, sme.exam_grade,
+      sma.comments, sma.date, sma.session_year, sma.term, sma.week,
+      sma.from_surah_ayah, sma.to_surah_ayah, sma.assessed_day
     FROM Student_Memorization_Assessments sma
     JOIN Student_Enrollments e ON sma.enrollment_id = e.enrollment_id
     JOIN Students s ON e.student_id = s.id
+    LEFT JOIN Student_Memorization_Exam sme
+      ON sme.enrollment_id = e.enrollment_id
+     AND sme.term = sma.term
+     AND sme.session_year = sma.session_year
     WHERE e.section_id = ? AND e.class_ref = ? AND sma.session_year = ? AND sma.term = ?`;
 
   db.query(sql, [section_id, class_id, session_year, term], (err, rows) => {

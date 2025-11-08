@@ -395,9 +395,13 @@ async function selectCurrentAyatRange() {
               ).join("")}
             </select>
           </td>
-          <td>
-            <input type="number" class="form-control exam-grade" data-enrollment-id="${stu.enrollment_id}" min="0" max="100" value="${stu.grade || ""}">
-          </td>
+         <td>
+      <select class="form-select exam-grade" data-enrollment-id="${stu.enrollment_id}">
+        ${["","A","B","C","D","F"].map(g =>
+          `<option value="${g}" ${stu.grade===g?"selected":""}>${g||"-"}</option>`
+        ).join("")}
+      </select>
+    </td>
           <td>
             <input type="text" class="form-control comment-input"
                    data-enrollment-id="${stu.enrollment_id}"
@@ -438,10 +442,11 @@ async function saveMemorization() {
     const exam = row.querySelector(".exam-grade").value
     const comment = row.querySelector(".comment-input").value.trim()
 
-    if (daily) {
+    // Allow saving if either daily or exam grade exists
+    if (daily || exam) {
       payload.push({
         enrollment_id: enrollmentId,
-        daily_grade: daily,
+        daily_grade: daily || null,
         grade: exam || null,
         comments: comment,
         from_surah_ayah: currentScheme.from_surah_ayah,
@@ -971,48 +976,42 @@ async function loadOverallStudents() {
       tbody.innerHTML = "";
 
       const overallData = Object.values(students).map((stu) => {
-        let avg_daily_mark = 0;
-        if (stu.dailies.length > 0) {
-          const pointsSum = stu.dailies.reduce((sum, g) => sum + (gradePoints[g] || 0), 0);
-          avg_daily_mark = pointsSum / stu.dailies.length;
-        }
-        const daily_score = (avg_daily_mark / 5) * 80;
+  // === DAILY AVERAGE ===
+  let avg_daily_mark = 0;
+  if (stu.dailies.length > 0) {
+    const pointsSum = stu.dailies.reduce((sum, g) => sum + (gradePoints[g] || 0), 0);
+    avg_daily_mark = pointsSum / stu.dailies.length;
+  }
+  const daily_score = (avg_daily_mark / 5) * 80;
 
-        let exam_mark = 0;
-        if (stu.exam_grade !== null) {
-          if (stu.exam_grade >= 90) exam_mark = 5;
-          else if (stu.exam_grade >= 80) exam_mark = 4;
-          else if (stu.exam_grade >= 70) exam_mark = 3;
-          else if (stu.exam_grade >= 60) exam_mark = 2;
-          else if (stu.exam_grade >= 40) exam_mark = 1;
-          else exam_mark = 0;
-        }
-        const exam_score = (exam_mark / 5) * 20;
+  // === EXAM: Once per term/session → direct point mapping (no average) ===
+  const examGradeMap = { 'A': 5, 'B': 4, 'C': 3, 'D': 2, 'F': 0 };
+  const exam_mark = stu.exam_grade ? (examGradeMap[stu.exam_grade] || 0) : 0;
+  const exam_score = (exam_mark / 5) * 20;
 
-        const total_mark = daily_score + exam_score;
+  const total_mark = daily_score + exam_score;
 
-        let final_grade = 'F';
-        if (total_mark >= 70) final_grade = 'A';
-        else if (total_mark >= 60) final_grade = 'B';
-        else if (total_mark >= 50) final_grade = 'C';
-        else if (total_mark >= 40) final_grade = 'D';
+  let final_grade = 'F';
+  if (total_mark >= 70) final_grade = 'A';
+  else if (total_mark >= 60) final_grade = 'B';
+  else if (total_mark >= 50) final_grade = 'C';
+  else if (total_mark >= 40) final_grade = 'D';
 
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${stu.full_name}</td>
-          <td>${stu.student_id}</td>
-          <td>${avg_daily_mark.toFixed(2)}</td>
-          <td>${daily_score.toFixed(2)}</td>
-          <td>${exam_mark}</td>
-          <td>${exam_score.toFixed(2)}</td>
-          <td>${total_mark.toFixed(2)}</td>
-          <td>${final_grade}</td>
-        `;
-        tbody.appendChild(row);
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${stu.full_name}</td>
+    <td>${stu.student_id}</td>
+    <td>${avg_daily_mark.toFixed(2)}</td>
+    <td>${daily_score.toFixed(2)}</td>
+    <td>${exam_mark}</td>
+    <td>${exam_score.toFixed(2)}</td>
+    <td>${total_mark.toFixed(2)}</td>
+    <td>${final_grade}</td>
+  `;
+  tbody.appendChild(row);
 
-        return { ...stu, avg_daily_mark, daily_score, exam_mark, exam_score, total_mark, final_grade };
-      });
-
+  return { ...stu, avg_daily_mark, daily_score, exam_mark, exam_score, total_mark, final_grade };
+});
       window.currentOverallData = overallData;
     } else {
       alert("Failed to load assessments");
