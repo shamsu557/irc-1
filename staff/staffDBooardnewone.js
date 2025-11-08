@@ -1,7 +1,8 @@
 let currentStaffId = null
 let currentStaffRole = null
 let currentStaffInfo = null
-let currentScheme = null  // ← Single source of truth
+let currentScheme = null  
+
 
 // Initialize dashboard
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1022,57 +1023,150 @@ async function loadOverallStudents() {
   }
 }
 
-// Export overall PDF
+// ──────────────────────────────────────────────────────────────
+// School Information (used for PDF / Excel export)
+const schoolInfo = {
+  name: "Ibadurrahman College",
+  address:
+    "No. 1968 A, Gwammaja Housing Estate, Audu Wawu Street, opp. Ihya'ussunnah Juma'a Mosque, Dala L.G.A, Kano State, Nigeria.",
+  phone: "08033459721, 09062171496",
+  email: "info@irc.com.ng",
+  logoSrc: "assets/images/logo.jpeg",   // <-- make sure the path is reachable from the page
+};
+// ── Helper: Get selected class name from <select> ─────────────────
+function getCurrentClassName() {
+  const select = document.getElementById("overallClassSelect");
+  const option = select.options[select.selectedIndex];
+  return option ? option.textContent.trim() : "N/A";
+}
+
+// ── EXPORT PDF (with full school header) ────────────────────────
 function exportOverallPdf() {
   if (!window.currentOverallData) return alert("Load data first");
 
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: "landscape" });
 
-  doc.text("Overall Tahfiz Results", 10, 10);
-  doc.text("School Information and Logo", 10, 20);
+  const logo = new Image();
+  logo.src = schoolInfo.logoSrc;
 
-  doc.autoTable({
-    startY: 30,
-    head: [['Name', 'ID', 'Avg Daily', 'Daily /80', 'Exam Mark', 'Exam /20', 'Total', 'Grade']],
-    body: window.currentOverallData.map(stu => [
-      stu.full_name,
-      stu.student_id,
-      stu.avg_daily_mark.toFixed(2),
-      stu.daily_score.toFixed(2),
-      stu.exam_mark,
-      stu.exam_score.toFixed(2),
-      stu.total_mark.toFixed(2),
-      stu.final_grade
-    ]),
-  });
+  logo.onload = () => drawPdf();
+  logo.onerror = () => drawPdf();   // draw even if logo fails
 
-  doc.save("overall_results.pdf");
+  function drawPdf() {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 30;
+    const logoHeight = 30;
+    const startY = 15;
+
+    // Logo (left)
+    try { doc.addImage(logo, "JPEG", 14, startY, logoWidth, logoHeight); } catch (e) {}
+
+    // School name (center)
+    doc.setFontSize(16).setFont(undefined, "bold");
+    doc.text(schoolInfo.name, pageWidth / 2, startY + 8, { align: "center" });
+
+    // Address & contact (center)
+    doc.setFontSize(10).setFont(undefined, "normal");
+    const contactLines = [
+      schoolInfo.address,
+      `Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}`
+    ];
+    contactLines.forEach((line, i) => {
+      doc.text(line, pageWidth / 2, startY + 18 + i * 5, { align: "center" });
+    });
+
+    // Report title & filters
+    const className = getCurrentClassName();
+    const term = document.getElementById("overallTermSelect").options[
+      document.getElementById("overallTermSelect").selectedIndex
+    ].textContent.trim();
+    const session = document.getElementById("overallSessionSelect").value;
+
+    doc.setFontSize(14).setFont(undefined, "bold");
+    doc.text("Overall Tahfiz Results", pageWidth / 2, startY + 38, { align: "center" });
+
+    doc.setFontSize(11).setFont(undefined, "normal");
+    const infoLines = [
+      `Class: ${className}`,
+      `Term: ${term}`,
+      `Session: ${session}`
+    ];
+    infoLines.forEach((line, i) => {
+      doc.text(line, pageWidth / 2, startY + 48 + i * 5, { align: "center" });
+    });
+
+    // Table
+   doc.autoTable({
+  startY: startY + 65,
+  head: [["Name", "ID", "Avg Daily", "Daily /80", "Exam Mark", "Exam /20", "Total", "Grade"]],
+  body: window.currentOverallData.map(stu => [
+    stu.full_name,
+    stu.student_id,
+    stu.avg_daily_mark.toFixed(2),
+    stu.daily_score.toFixed(2),
+    stu.exam_mark,
+    stu.exam_score.toFixed(2),
+    stu.total_mark.toFixed(2),
+    stu.final_grade
+  ]),
+  theme: "grid",
+  styles: { fontSize: 10, cellPadding: 4 }, // Slightly bigger text & padding
+  headStyles: { fillColor: [0, 137, 123], textColor: [255, 255, 255] },
+  columnStyles: {
+    0: { cellWidth: 50 }, // Name
+    1: { cellWidth: 40 }, // ID
+    2: { cellWidth: 30 }, // Avg Daily
+    3: { cellWidth: 30 }, // Daily /80
+    4: { cellWidth: 30 }, // Exam Mark
+    5: { cellWidth: 28 }, // Exam /20
+    6: { cellWidth: 28 }, // Total
+    7: { cellWidth: 22 }  // Grade
+  }
+});
+
+    doc.save("overall_tahfiz_results.pdf");
+  }
 }
 
-// Export overall Excel
+// ── EXPORT EXCEL (with full school header) ─────────────────────
 function exportOverallExcel() {
   if (!window.currentOverallData) return alert("Load data first");
 
-  const ws_data = [
+  const className = getCurrentClassName();
+  const term = document.getElementById("overallTermSelect").options[
+    document.getElementById("overallTermSelect").selectedIndex
+  ].textContent.trim();
+  const session = document.getElementById("overallSessionSelect").value;
+
+  const header = [
+    [schoolInfo.name],
+    [schoolInfo.address],
+    [`Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}`],
+    [""],
+    ["Overall Tahfiz Results"],
+    [`Class: ${className}`],
+    [`Term: ${term}`],
+    [`Session: ${session}`],
+    [""],
     ["Name", "ID", "Avg Daily", "Daily /80", "Exam Mark", "Exam /20", "Total", "Grade"]
   ];
 
-  window.currentOverallData.forEach(stu => {
-    ws_data.push([
-      stu.full_name,
-      stu.student_id,
-      stu.avg_daily_mark.toFixed(2),
-      stu.daily_score.toFixed(2),
-      stu.exam_mark,
-      stu.exam_score.toFixed(2),
-      stu.total_mark.toFixed(2),
-      stu.final_grade
-    ]);
-  });
+  const dataRows = window.currentOverallData.map(stu => [
+    stu.full_name,
+    stu.student_id,
+    stu.avg_daily_mark.toFixed(2),
+    stu.daily_score.toFixed(2),
+    stu.exam_mark,
+    stu.exam_score.toFixed(2),
+    stu.total_mark.toFixed(2),
+    stu.final_grade
+  ]);
 
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  const ws = XLSX.utils.aoa_to_sheet([...header, ...dataRows]);
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Overall");
-  XLSX.writeFile(wb, "overall_results.xlsx");
+  XLSX.utils.book_append_sheet(wb, ws, "Overall Results");
+  XLSX.writeFile(wb, "overall_tahfiz_results.xlsx");
 }
