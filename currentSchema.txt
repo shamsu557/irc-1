@@ -375,20 +375,59 @@ CREATE TABLE Daily_Memorization_Scheme (
     FOREIGN KEY (class_id) REFERENCES Classes(class_id)
 );
 
+--- =========================
+-- Student Memorization Assessments (COMPLETE)
 -- =========================
--- Student Memorization Assessments
--- =========================
+DROP TABLE IF EXISTS Student_Memorization_Assessments;
+DROP TABLE IF EXISTS Student_Memorization_Assessments;
+
 CREATE TABLE Student_Memorization_Assessments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     enrollment_id INT NOT NULL,
     scheme_id INT NOT NULL,
-    daily_grade CHAR(1) DEFAULT NULL CHECK (daily_grade IN ('A', 'B', 'C', 'D', 'E', 'F')),
-    exam_grade INT DEFAULT NULL CHECK (exam_grade >= 0 AND exam_grade <= 100),
+
+    daily_grade CHAR(1) DEFAULT NULL
+                  CHECK (daily_grade IN ('A','B','C','D','E','F')),
+    exam_grade CHAR(1) DEFAULT NULL
+                  CHECK (exam_grade IN ('A','B','C','D','F')),
     comments TEXT DEFAULT NULL,
-    date DATE DEFAULT CURRENT_DATE,
+    date DATE NOT NULL DEFAULT (CURRENT_DATE),
+
+    session_year VARCHAR(9) NOT NULL COMMENT 'e.g. 2024/2025',
+    term TINYINT NOT NULL COMMENT '1, 2, or 3',
+    week TINYINT NOT NULL,
+    from_surah_ayah VARCHAR(50) NOT NULL,
+    to_surah_ayah VARCHAR(50) NOT NULL,
+    assessed_day ENUM('السبت','الأحد') NOT NULL,
+
+    avg_daily_mark DECIMAL(5,2) NULL,
+    daily_score DECIMAL(5,2) NULL,
+    exam_mark TINYINT NULL,
+    exam_score DECIMAL(5,2) NULL,
+    total_mark DECIMAL(5,2) NULL,
+    final_grade CHAR(1) NULL
+                  CHECK (final_grade IN ('A','B','C','D','F')),
+
     FOREIGN KEY (enrollment_id) REFERENCES Student_Enrollments(enrollment_id),
     FOREIGN KEY (scheme_id) REFERENCES Daily_Memorization_Scheme(id),
-    UNIQUE KEY unique_assessment (enrollment_id, scheme_id, date)
+
+    -- ✅ Enforce unique per week + day per student
+    UNIQUE KEY unique_daily (
+        enrollment_id, scheme_id, session_year, term, week, assessed_day
+    )
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS Student_Memorization_Exam;
+
+CREATE TABLE Student_Memorization_Exam (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    enrollment_id INT NOT NULL,
+    scheme_id INT NOT NULL,
+    term TINYINT NOT NULL,
+    session_year VARCHAR(9) NOT NULL,
+    exam_grade CHAR(1) NOT NULL
+               CHECK (exam_grade IN ('A','B','C','D','F')),
+    UNIQUE KEY unique_exam (enrollment_id, term, session_year); 
 );
 
 -- =========================
@@ -398,18 +437,17 @@ CREATE TABLE Student_Subject_Assessments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     enrollment_id INT NOT NULL,
     subject_id INT NOT NULL,
-    term INT NOT NULL,
-    ca1_score INT DEFAULT NULL CHECK (ca1_score >= 0 AND ca1_score <= 100),
-    ca2_score INT DEFAULT NULL CHECK (ca2_score >= 0 AND ca2_score <= 100),
-    ca3_score INT DEFAULT NULL CHECK (ca3_score >= 0 AND ca3_score <= 100),
-    exam_score INT DEFAULT NULL CHECK (exam_score >= 0 AND exam_score <= 100),
+    term VARCHAR(20) NOT NULL,  -- e.g., 'First', 'Second'
+    session_year VARCHAR(9) NOT NULL,  -- e.g., '2024/2025'
+    ca1_score TINYINT DEFAULT NULL CHECK (ca1_score >= 0 AND ca1_score <= 15),
+    ca2_score TINYINT DEFAULT NULL CHECK (ca2_score >= 0 AND ca2_score <= 15),
+    exam_score TINYINT DEFAULT NULL CHECK (exam_score >= 0 AND exam_score <= 70),
     comments TEXT DEFAULT NULL,
     date DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (enrollment_id) REFERENCES Student_Enrollments(enrollment_id),
     FOREIGN KEY (subject_id) REFERENCES Subjects(subject_id),
-    UNIQUE KEY unique_subject_assessment (enrollment_id, subject_id, term, date)
+    UNIQUE KEY unique_subject_assessment (enrollment_id, subject_id, term, session_year)
 );
-
 -- Creating database
 CREATE DATABASE IF NOT EXISTS school_management;
 USE school_management;
@@ -1044,3 +1082,25 @@ ALTER TABLE Student_Enrollments
 ADD COLUMN session_year VARCHAR(20) DEFAULT '2024/2025' AFTER term,
 ADD FOREIGN KEY (session_year) REFERENCES Sessions(session_year);
 
+-- Daily_Memorization_Scheme
+ALTER TABLE Daily_Memorization_Scheme 
+ADD COLUMN IF NOT EXISTS session_year VARCHAR(20) NOT NULL DEFAULT '2025/2026';
+
+-- Student_Enrollments
+ALTER TABLE Student_Enrollments 
+ADD COLUMN IF NOT EXISTS session_year VARCHAR(20) NOT NULL DEFAULT '2025/2026';
+
+-- Student_Memorization_Assessments
+ALTER TABLE Student_Memorization_Assessments 
+ADD COLUMN IF NOT EXISTS session_year VARCHAR(20) NOT NULL DEFAULT '2025/2026';
+ALTER TABLE Sessions 
+ADD COLUMN IF NOT EXISTS start_date DATE;
+
+ALTER TABLE Student_Memorization_Assessments
+ADD COLUMN term INT NOT NULL DEFAULT 1;
+
+
+
+
+// add this next year please:
+// INSERT INTO Sessions (session_year, is_current, start_date) VALUES ('2026/2027', 1, '2026-09-01');
