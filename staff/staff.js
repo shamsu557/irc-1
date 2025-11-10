@@ -7,7 +7,9 @@ let currentScheme = null
 document.addEventListener("DOMContentLoaded", async () => {
   await loadStaffInfo()
   await loadDashboardStats()
-  await loadSessions()
+  await loadSessions()  
+await loadClasses("attendanceClassSelect");
+await loadClasses("viewAttendanceClassSelect");
   await loadClasses("memorizationClassSelect")
   await loadClasses("dailyClassSelect")
   await loadClasses("overallClassSelect")
@@ -165,14 +167,15 @@ async function loadSessions() {
 
     if (data.success) {
       const sessionSelects = [
-        document.getElementById("memorizationSessionSelect"),
-        document.getElementById("reportSessionSelect"),
-        document.getElementById("attendanceSessionSelect"),
-        document.getElementById("dailySessionSelect"),
-        document.getElementById("overallSessionSelect"),
-        document.getElementById("subjectSessionSelect"),
-        document.getElementById("viewSubjectSessionSelect")
-      ]
+  document.getElementById("memorizationSessionSelect"),
+  document.getElementById("reportSessionSelect"),
+  document.getElementById("attendanceSessionSelect"),
+  document.getElementById("viewAttendanceSessionSelect"),
+  document.getElementById("dailySessionSelect"),
+  document.getElementById("overallSessionSelect"),
+  document.getElementById("subjectSessionSelect"),
+  document.getElementById("viewSubjectSessionSelect")
+];
 
       sessionSelects.forEach((select) => {
         if (select) {
@@ -289,7 +292,10 @@ function switchView(view) {
   document.querySelectorAll(".nav-link").forEach((link) => link.classList.remove("active"))
   document.querySelector(`[data-view="${view}"]`).classList.add("active")
 
-  if (view === "attendance") loadClasses("attendanceClassSelect")
+ if (view === "attendance") {
+  loadClasses("attendanceClassSelect");
+  loadClasses("viewAttendanceClassSelect");
+}
   if (view === "memorization") loadClasses("memorizationClassSelect")
   if (view === "subjects") switchSubjectTab('add')
   if (view === "reports") loadClasses("reportClassSelect")
@@ -783,13 +789,13 @@ async function loadAttendance() {
 // Save attendance
 async function saveAttendance() {
   const classValue = document.getElementById("attendanceClassSelect").value;
-  const date = document.getElementById("attendanceDate").value;
+  const day = document.getElementById("attendanceDay").value;
   const term = document.getElementById("attendanceTermSelect").value;
   const session = document.getElementById("attendanceSessionSelect").value;
   const week_number = document.getElementById("attendanceWeekSelect").value;
 
-  if (!classValue || !date || !term || !session || !week_number) {
-    alert("Warning: Please select class, date, term, session, and week");
+  if (!classValue || !day || !term || !session || !week_number) {
+    alert("Warning: Please select class, day, term, session, and week");
     return;
   }
 
@@ -822,8 +828,8 @@ async function saveAttendance() {
         class_id,
         term,
         session,
-        date,
         week_number,
+        day, // ✅ Send only day, not date
         attendance,
       }),
     });
@@ -841,7 +847,6 @@ async function saveAttendance() {
     alert("Warning: Network error while saving attendance.");
   }
 }
-
 // Auto-fill today's date & day
 document.addEventListener("DOMContentLoaded", () => {
   const dateInput = document.getElementById("attendanceDate");
@@ -1296,4 +1301,163 @@ function exportOverallExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Overall Results");
   XLSX.writeFile(wb, "overall_tahfiz_results.xlsx");
+}
+// === ATTENDANCE TAB SWITCHING ===
+const attendanceTabs = {
+  take: document.getElementById('attendance-take-section'),
+  view: document.getElementById('attendance-view-section')
+};
+
+function switchAttendanceTab(tab) {
+  Object.values(attendanceTabs).forEach(t => t.style.display = 'none');
+  attendanceTabs[tab].style.display = 'block';
+
+  document.getElementById('attendanceTakeBtn').classList.remove('active');
+  document.getElementById('attendanceViewBtn').classList.remove('active');
+
+  if (tab === 'take') document.getElementById('attendanceTakeBtn').classList.add('active');
+  if (tab === 'view') document.getElementById('attendanceViewBtn').classList.add('active');
+}
+
+document.getElementById('attendanceTakeBtn').addEventListener('click', () => switchAttendanceTab('take'));
+document.getElementById('attendanceViewBtn').addEventListener('click', () => switchAttendanceTab('view'));
+
+// === LOAD WEEKLY ATTENDANCE ===
+document.getElementById('loadViewAttendanceBtn').addEventListener('click', async () => {
+  const classVal = document.getElementById('viewAttendanceClassSelect').value;
+  const session = document.getElementById('viewAttendanceSessionSelect').value;
+  const term = document.getElementById('viewAttendanceTermSelect').value;
+  const week = document.getElementById('viewAttendanceWeekSelect').value;
+
+  if (!classVal || !session || !term || !week) return alert('Please select all fields.');
+
+  const [sectionId] = classVal.split(':');
+  const tbody = document.getElementById('viewAttendanceTableBody');
+  tbody.innerHTML = '';
+
+  try {
+    const res = await fetch(`/api/staff-attendance-weekly/${currentStaffId}?section_id=${sectionId}&term=${term}&session=${session}&week=${week}`);
+    const data = await res.json();
+
+    if (!(data.success && data.data && data.data.length)) {
+      alert('No records found for the selected week.');
+      return;
+    }
+
+    const weekDays = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'];
+
+    data.data.forEach(stu => {
+      const row = document.createElement('tr');
+
+      // Count total presents and total days
+      let totalPresent = 0;
+      let totalDays = 0;
+
+      const dayCells = weekDays.map(day => {
+        const status = stu.days[day] || '-';
+        if (status === 'Present') totalPresent++;
+        if (status === 'Present' || status === 'Absent') totalDays++;
+        return `<td class="text-center">${status}</td>`;
+      }).join('');
+
+      const percent = totalDays > 0 ? ((totalPresent / totalDays) * 100).toFixed(1) : 0;
+
+      row.innerHTML = `
+        <td>${stu.student_name}</td>
+        ${dayCells}
+        <td class="text-center fw-bold">${totalPresent}/${totalDays}</td>
+        <td class="text-center fw-bold">${percent}%</td>
+      `;
+      tbody.appendChild(row);
+    });
+
+  } catch (err) {
+    console.error(err);
+    alert('Error loading weekly attendance.');
+  }
+});
+
+async function exportAttendancePdf() {
+  const classSelect = document.getElementById("viewAttendanceClassSelect");
+  const sessionSelect = document.getElementById("viewAttendanceSessionSelect");
+  const termSelect = document.getElementById("attendanceTermSelect");
+
+  if (!classSelect.value || !sessionSelect.value || !termSelect.value) {
+    return alert("Please select class, session, and term");
+  }
+
+  const className = classSelect.selectedOptions[0].textContent;
+  const session = sessionSelect.value;
+  const term = termSelect.selectedOptions[0].textContent;
+
+  try {
+    const response = await fetch(`/api/staff-attendance-data?section_id=${classSelect.value.split(":")[0]}&class_id=${classSelect.value.split(":")[1]}&session=${session}&term=${term}`);
+    const data = await response.json();
+
+    if (!data.success || !data.data.length) return alert("No attendance records found");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: "landscape" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // School info header
+    doc.setFontSize(16).setFont(undefined, "bold");
+    doc.text(schoolInfo.name, pageWidth / 2, 15, { align: "center" });
+    doc.setFontSize(11).setFont(undefined, "normal");
+    doc.text(`Attendance Report | Class: ${className} | Term: ${term} | Session: ${session}`, pageWidth / 2, 25, { align: "center" });
+
+    // Table
+    doc.autoTable({
+      startY: 35,
+      head: [["Student Name", "Student ID", "Status"]],
+      body: data.data.map(s => [s.full_name, s.student_id, s.attendance_status]),
+      theme: "grid",
+      styles: { fontSize: 10, cellPadding: 3 },
+      headStyles: { fillColor: [0, 137, 123], textColor: [255, 255, 255] }
+    });
+
+    doc.save(`Attendance_${className.replace(/ /g, "_")}_${term}_${session}.pdf`);
+  } catch (e) {
+    console.error(e);
+    alert("Failed to export attendance PDF");
+  }
+}
+
+async function exportAttendanceExcel() {
+  const classSelect = document.getElementById("viewAttendanceClassSelect");
+  const sessionSelect = document.getElementById("viewAttendanceSessionSelect");
+  const termSelect = document.getElementById("attendanceTermSelect");
+
+  if (!classSelect.value || !sessionSelect.value || !termSelect.value) {
+    return alert("Please select class, session, and term");
+  }
+
+  const className = classSelect.selectedOptions[0].textContent;
+  const session = sessionSelect.value;
+  const term = termSelect.selectedOptions[0].textContent;
+
+  try {
+    const response = await fetch(`/api/staff-attendance-data?section_id=${classSelect.value.split(":")[0]}&class_id=${classSelect.value.split(":")[1]}&session=${session}&term=${term}`);
+    const data = await response.json();
+
+    if (!data.success || !data.data.length) return alert("No attendance records found");
+
+    const header = [
+      [schoolInfo.name],
+      [`Attendance Report | Class: ${className} | Term: ${term} | Session: ${session}`],
+      [""],
+      ["Student Name", "Student ID", "Status"]
+    ];
+
+    const rows = data.data.map(s => [s.full_name, s.student_id, s.attendance_status]);
+    const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }]; // merge school name
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+    XLSX.writeFile(wb, `Attendance_${className.replace(/ /g, "_")}_${term}_${session}.xlsx`);
+  } catch (e) {
+    console.error(e);
+    alert("Failed to export attendance Excel");
+  }
 }

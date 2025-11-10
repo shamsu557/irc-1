@@ -3403,126 +3403,6 @@ app.get("/api/staff-students/:staffId", (req, res) => {
   });
 });
 
-app.post("/api/staff-attendance/:staffId", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-  }
-
-  const { staffId } = req.params;
-  const { section_id, class_id, session, term, date, week_number, attendance } = req.body;
-
-  // Validate input
-  if (
-    !section_id ||
-    !class_id ||
-    !session ||
-    !term ||
-    !week_number ||
-    !date ||
-    !attendance ||
-    !Array.isArray(attendance) ||
-    attendance.length === 0
-  ) {
-    console.error("Missing fields:", { section_id, class_id, session, term, date, week_number, attendance });
-    return res.status(400).json({ success: false, message: "Missing or invalid required fields." });
-  }
-
-  if (![1, 2, 3].includes(parseInt(term))) {
-    return res.status(400).json({ success: false, message: "Invalid term. Must be 1, 2, or 3." });
-  }
-
-  if (parseInt(week_number) < 1 || parseInt(week_number) > 14) {
-    return res.status(400).json({ success: false, message: "Invalid week number. Must be between 1 and 14." });
-  }
-
-  if (!/^\d{4}\/\d{4}$/.test(session)) {
-    return res.status(400).json({ success: false, message: `Invalid session format: "${session}". Must be YYYY/YYYY.` });
-  }
-
-  const timestamp = new Date(date || new Date()).toISOString().slice(0, 19).replace("T", " ");
-
-  db.beginTransaction((err) => {
-    if (err) {
-      console.error("Transaction start error:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
-    }
-
-    // Delete existing attendance for this staff, class, section, term, and week
-    const deleteQuery = `
-      DELETE sa
-      FROM Student_Attendance sa
-      JOIN staff_form_master sfm 
-        ON sfm.section_id = sa.section_id
-      JOIN staff st 
-        ON st.id = sfm.staff_id
-      WHERE st.id = ?
-        AND sfm.section_id = ?
-        AND ((sfm.section_id = 1 AND sfm.class_id = ?) OR (sfm.section_id = 2 AND sfm.western_class_id = ?))
-        AND sa.term = ?
-        AND sa.week_number = ?
-        AND sa.session_year = ?;
-    `;
-
-    db.query(
-      deleteQuery,
-      [staffId, section_id, class_id, class_id, term, week_number, session],
-      (err) => {
-        if (err) {
-          return db.rollback(() => {
-            console.error("Error deleting old attendance:", err);
-            res.status(500).json({ success: false, message: "Database error deleting old attendance." });
-          });
-        }
-
-        // Insert new attendance records (no enrollment_id)
-        const insertQuery = `
-          INSERT INTO Student_Attendance 
-          (student_id, section_id, attendance_status, week_number, term, session_year, timestamp, is_active)
-          VALUES ?
-        `;
-
-        const attendanceValues = attendance.map((record) => {
-          if (!record.student_id || !record.attendance_status) {
-            throw new Error("Missing student_id or attendance_status in record.");
-          }
-          if (!["Present", "Absent"].includes(record.attendance_status)) {
-            throw new Error("Invalid attendance status.");
-          }
-
-          return [
-            record.student_id,
-            section_id,
-            record.attendance_status,
-            week_number,
-            term,
-            session,
-            timestamp,
-            true,
-          ];
-        });
-
-        db.query(insertQuery, [attendanceValues], (err) => {
-          if (err) {
-            return db.rollback(() => {
-              console.error("Error saving attendance:", err);
-              res.status(500).json({ success: false, message: "Database error saving attendance." });
-            });
-          }
-
-          db.commit((err) => {
-            if (err) {
-              return db.rollback(() => {
-                console.error("Commit error:", err);
-                res.status(500).json({ success: false, message: "Database commit error." });
-              });
-            }
-            res.status(200).json({ success: true, message: "Attendance saved successfully." });
-          });
-        });
-      }
-    );
-  });
-});
 
 app.get("/api/student-report", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
@@ -3657,13 +3537,14 @@ app.get("/api/staff-students/:staffId", (req, res) => {
 });
 
 //student attendance
+// ✅ FIXED VERSION — student attendance
 app.post("/api/staff-attendance/:staffId", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized." });
   }
 
   const { staffId } = req.params;
-  const { section_id, class_id, session, term, date, week_number, attendance } = req.body;
+  const { section_id, class_id, session, term, day, week_number, attendance } = req.body;
 
   // Validate input
   if (
@@ -3672,12 +3553,12 @@ app.post("/api/staff-attendance/:staffId", (req, res) => {
     !session ||
     !term ||
     !week_number ||
-    !date ||
+    !day ||
     !attendance ||
     !Array.isArray(attendance) ||
     attendance.length === 0
   ) {
-    console.error("Missing fields:", { section_id, class_id, session, term, date, week_number, attendance });
+    console.error("Missing fields:", { section_id, class_id, session, term, day, week_number, attendance });
     return res.status(400).json({ success: false, message: "Missing or invalid required fields." });
   }
 
@@ -3690,10 +3571,11 @@ app.post("/api/staff-attendance/:staffId", (req, res) => {
   }
 
   if (!/^\d{4}\/\d{4}$/.test(session)) {
-  return res.status(400).json({ success: false, message: `Invalid session format: "${session}". Must be YYYY/YYYY.` });
-}
+    return res.status(400).json({ success: false, message: `Invalid session format: "${session}". Must be YYYY/YYYY.` });
+  }
 
-  const timestamp = new Date(date || new Date()).toISOString().slice(0, 19).replace("T", " ");
+  // Use current timestamp but store selected day
+  const timestamp = new Date().toISOString().slice(0, 19).replace("T", " ");
 
   db.beginTransaction((err) => {
     if (err) {
@@ -3701,7 +3583,7 @@ app.post("/api/staff-attendance/:staffId", (req, res) => {
       return res.status(500).json({ success: false, message: "Database error." });
     }
 
-    // Delete existing attendance for this staff, class, section, term, and week
+    // Delete existing attendance for this week/class/term/session
     const deleteQuery = `
       DELETE sa
       FROM Student_Attendance sa
@@ -3714,12 +3596,13 @@ app.post("/api/staff-attendance/:staffId", (req, res) => {
         AND ((sfm.section_id = 1 AND sfm.class_id = ?) OR (sfm.section_id = 2 AND sfm.western_class_id = ?))
         AND sa.term = ?
         AND sa.week_number = ?
-        AND sa.session_year = ?;
+        AND sa.session_year = ?
+        AND sa.day_name = ?;
     `;
 
     db.query(
       deleteQuery,
-      [staffId, section_id, class_id, class_id, term, week_number, session],
+      [staffId, section_id, class_id, class_id, term, week_number, session, day],
       (err) => {
         if (err) {
           return db.rollback(() => {
@@ -3728,32 +3611,24 @@ app.post("/api/staff-attendance/:staffId", (req, res) => {
           });
         }
 
-        // Insert new attendance records (no enrollment_id)
+        // Insert new attendance records
         const insertQuery = `
           INSERT INTO Student_Attendance 
-          (student_id, section_id, attendance_status, week_number, term, session_year, timestamp, is_active)
+          (student_id, section_id, attendance_status, week_number, term, session_year, day_name, timestamp, is_active)
           VALUES ?
         `;
 
-        const attendanceValues = attendance.map((record) => {
-          if (!record.student_id || !record.attendance_status) {
-            throw new Error("Missing student_id or attendance_status in record.");
-          }
-          if (!["Present", "Absent"].includes(record.attendance_status)) {
-            throw new Error("Invalid attendance status.");
-          }
-
-          return [
-            record.student_id,
-            section_id,
-            record.attendance_status,
-            week_number,
-            term,
-            session,
-            timestamp,
-            true,
-          ];
-        });
+        const attendanceValues = attendance.map((record) => [
+          record.student_id,
+          section_id,
+          record.attendance_status,
+          week_number,
+          term,
+          session,
+          day,
+          timestamp,
+          true,
+        ]);
 
         db.query(insertQuery, [attendanceValues], (err) => {
           if (err) {
@@ -3775,6 +3650,75 @@ app.post("/api/staff-attendance/:staffId", (req, res) => {
         });
       }
     );
+  });
+});
+
+// === FIXED WEEKLY ATTENDANCE VIEW ===
+app.get("/api/staff-attendance-weekly/:staffId", (req, res) => {
+  const { staffId } = req.params;
+  const { section_id, term, session, week } = req.query;
+
+  // Validation
+  if (!staffId || !section_id || !term || !session || !week) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required query parameters (staffId, section_id, term, session, week).",
+    });
+  }
+
+  const query = `
+    SELECT 
+      sa.student_id,
+      s.full_name,
+      sa.attendance_status,
+      sa.day_name,
+      sa.timestamp
+    FROM Student_Attendance sa
+    JOIN Students s ON sa.student_id = s.student_id
+    WHERE sa.section_id = ?
+      AND sa.term = ?
+      AND sa.week_number = ?
+      AND sa.session_year = ?
+      AND sa.is_active = 1
+    ORDER BY s.full_name, sa.timestamp;
+  `;
+
+  db.query(query, [section_id, term, week, session], (err, results) => {
+    if (err) {
+      console.error("Error fetching weekly attendance:", err);
+      return res.status(500).json({ success: false, message: "Database error." });
+    }
+
+    if (!results.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No attendance records found for the selected week.",
+      });
+    }
+
+    // Group attendance by student
+    const grouped = {};
+    results.forEach((r) => {
+      if (!grouped[r.student_id]) {
+        grouped[r.student_id] = {
+          student_id: r.student_id,
+          student_name: r.full_name,
+          days: {},
+        };
+      }
+
+      // Use day_name directly from DB (not DAYNAME())
+      if (r.day_name) {
+        grouped[r.student_id].days[r.day_name] = r.attendance_status;
+      }
+    });
+
+    const finalData = Object.values(grouped);
+
+    res.json({
+      success: true,
+      data: finalData,
+    });
   });
 });
 

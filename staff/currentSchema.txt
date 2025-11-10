@@ -388,8 +388,8 @@ CREATE TABLE Student_Memorization_Assessments (
 
     daily_grade CHAR(1) DEFAULT NULL
                   CHECK (daily_grade IN ('A','B','C','D','E','F')),
-    exam_grade INT DEFAULT NULL
-                  CHECK (exam_grade >= 0 AND exam_grade <= 100),
+    exam_grade CHAR(1) DEFAULT NULL
+                  CHECK (exam_grade IN ('A','B','C','D','F')),
     comments TEXT DEFAULT NULL,
     date DATE NOT NULL DEFAULT (CURRENT_DATE),
 
@@ -417,6 +417,19 @@ CREATE TABLE Student_Memorization_Assessments (
     )
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS Student_Memorization_Exam;
+
+CREATE TABLE Student_Memorization_Exam (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    enrollment_id INT NOT NULL,
+    scheme_id INT NOT NULL,
+    term TINYINT NOT NULL,
+    session_year VARCHAR(9) NOT NULL,
+    exam_grade CHAR(1) NOT NULL
+               CHECK (exam_grade IN ('A','B','C','D','F')),
+    UNIQUE KEY unique_exam (enrollment_id, term, session_year); 
+);
+
 -- =========================
 -- Student Subject Assessments
 -- =========================
@@ -424,18 +437,17 @@ CREATE TABLE Student_Subject_Assessments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     enrollment_id INT NOT NULL,
     subject_id INT NOT NULL,
-    term INT NOT NULL,
-    ca1_score INT DEFAULT NULL CHECK (ca1_score >= 0 AND ca1_score <= 100),
-    ca2_score INT DEFAULT NULL CHECK (ca2_score >= 0 AND ca2_score <= 100),
-    ca3_score INT DEFAULT NULL CHECK (ca3_score >= 0 AND ca3_score <= 100),
-    exam_score INT DEFAULT NULL CHECK (exam_score >= 0 AND exam_score <= 100),
+    term VARCHAR(20) NOT NULL,  -- e.g., 'First', 'Second'
+    session_year VARCHAR(9) NOT NULL,  -- e.g., '2024/2025'
+    ca1_score TINYINT DEFAULT NULL CHECK (ca1_score >= 0 AND ca1_score <= 15),
+    ca2_score TINYINT DEFAULT NULL CHECK (ca2_score >= 0 AND ca2_score <= 15),
+    exam_score TINYINT DEFAULT NULL CHECK (exam_score >= 0 AND exam_score <= 70),
     comments TEXT DEFAULT NULL,
     date DATE DEFAULT CURRENT_DATE,
     FOREIGN KEY (enrollment_id) REFERENCES Student_Enrollments(enrollment_id),
     FOREIGN KEY (subject_id) REFERENCES Subjects(subject_id),
-    UNIQUE KEY unique_subject_assessment (enrollment_id, subject_id, term, date)
+    UNIQUE KEY unique_subject_assessment (enrollment_id, subject_id, term, session_year)
 );
-
 -- Creating database
 CREATE DATABASE IF NOT EXISTS school_management;
 USE school_management;
@@ -510,6 +522,7 @@ CREATE TABLE Student_Attendance (
     week_number INT NOT NULL CHECK (week_number >= 1 AND week_number <= 14),
     term INT NOT NULL CHECK (term >= 1 AND term <= 3),
     session_year VARCHAR(20) NOT NULL,
+    day_name VARCHAR(20) NOT NULL;
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
