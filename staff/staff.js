@@ -196,92 +196,103 @@ async function loadSessions() {
 }
 
 // Setup event listeners
+// Setup event listeners
 function setupEventListeners() {
   // Navigation
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.addEventListener("click", (e) => {
-      e.preventDefault()
-      const view = e.currentTarget.getAttribute("data-view")
-      switchView(view)
-    })
-  })
+      e.preventDefault();
+      const view = e.currentTarget.getAttribute("data-view");
+      switchView(view);
+    });
+  });
 
-  // Sidebar toggle
+  // Sidebar toggle (mobile)
   document.getElementById("sidebarToggleMobile")?.addEventListener("click", () => {
-    document.getElementById("sidebar").classList.toggle("open")
-  })
+    document.getElementById("sidebar").classList.toggle("open");
+  });
 
   // Logout
   document.getElementById("logoutBtn").addEventListener("click", async (e) => {
-    e.preventDefault()
-    await fetch("/api/staff-logout", { method: "POST" })
-    window.location.href = "/staff-login"
-  })
+    e.preventDefault();
+    await fetch("/api/staff-logout", { method: "POST" });
+    window.location.href = "/staff-login";
+  });
 
   // === MEMORIZATION: RESET ON CHANGE ===
   const resetMemorization = () => {
     ["memorizationTermSelect", "memorizationWeekSelect", "memorizationDaySelect"].forEach(id => {
-      document.getElementById(id).value = ""
-    })
-    document.getElementById("memorizationDaySelect").style.display = "none"
-    document.getElementById("ayatRangeSection").style.display = "none"
-    document.getElementById("selectedAyahInfo").style.display = "none"
-    document.getElementById("memorizationStudentsSection").style.display = "none"
-    currentScheme = null
-  }
+      document.getElementById(id).value = "";
+    });
+    document.getElementById("memorizationDaySelect").style.display = "none";
+    document.getElementById("ayatRangeSection").style.display = "none";
+    document.getElementById("selectedAyahInfo").style.display = "none";
+    document.getElementById("memorizationStudentsSection").style.display = "none";
+    currentScheme = null;
+  };
 
-  document.getElementById("memorizationClassSelect")?.addEventListener("change", resetMemorization)
-  document.getElementById("memorizationSessionSelect")?.addEventListener("change", resetMemorization)
+  document.getElementById("memorizationClassSelect")?.addEventListener("change", resetMemorization);
+  document.getElementById("memorizationSessionSelect")?.addEventListener("change", resetMemorization);
 
   // Term → reset week/day
   document.getElementById("memorizationTermSelect")?.addEventListener("change", () => {
-    document.getElementById("memorizationWeekSelect").value = ""
-    document.getElementById("memorizationDaySelect").value = ""
-    document.getElementById("memorizationDaySelect").style.display = "none"
-    document.getElementById("ayatRangeSection").style.display = "none"
-    document.getElementById("memorizationStudentsSection").style.display = "none"
-  })
+    document.getElementById("memorizationWeekSelect").value = "";
+    document.getElementById("memorizationDaySelect").value = "";
+    document.getElementById("memorizationDaySelect").style.display = "none";
+    document.getElementById("ayatRangeSection").style.display = "none";
+    document.getElementById("memorizationStudentsSection").style.display = "none";
+  });
 
   // Week → show Day selector
   document.getElementById("memorizationWeekSelect")?.addEventListener("change", () => {
-    const week = document.getElementById("memorizationWeekSelect").value
-    const daySelect = document.getElementById("memorizationDaySelect")
+    const week = document.getElementById("memorizationWeekSelect").value;
+    const daySelect = document.getElementById("memorizationDaySelect");
     if (week) {
-      daySelect.style.display = "block"
-      daySelect.value = ""
-      document.getElementById("ayatRangeSection").style.display = "none"
+      daySelect.style.display = "block";
+      daySelect.value = "";
+      document.getElementById("ayatRangeSection").style.display = "none";
     } else {
-      daySelect.style.display = "none"
+      daySelect.style.display = "none";
     }
-  })
+  });
 
   // Day → load ayat range
-  document.getElementById("memorizationDaySelect")?.addEventListener("change", loadAyatRangeForDay)
+  document.getElementById("memorizationDaySelect")?.addEventListener("change", loadAyatRangeForDay);
 
   // Select button
-  document.getElementById("selectAyatBtn")?.addEventListener("click", selectCurrentAyatRange)
+  document.getElementById("selectAyatBtn")?.addEventListener("click", selectCurrentAyatRange);
 
-  // Save button
-  document.getElementById("saveMemorizationBtn")?.addEventListener("click", saveMemorization)
+  // Save memorization
+  document.getElementById("saveMemorizationBtn")?.addEventListener("click", saveMemorization);
 
-  // Other buttons
-  document.getElementById("loadAttendanceBtn")?.addEventListener("click", loadAttendance)
-  document.getElementById("loadReportStudentsBtn")?.addEventListener("click", loadReportStudents)
-  document.getElementById("saveAttendanceBtn")?.addEventListener("click", saveAttendance)
-  document.getElementById("videoUploadForm")?.addEventListener("submit", uploadVideo)
-  document.getElementById("loadDailyStudentsBtn")?.addEventListener("click", loadDailyStudents)
-  document.getElementById("loadOverallStudentsBtn")?.addEventListener("click", loadOverallStudents)
-  document.getElementById("exportOverallPdfBtn")?.addEventListener("click", exportOverallPdf)
-  document.getElementById("exportOverallExcelBtn")?.addEventListener("click", exportOverallExcel)
+  // Attendance
+  document.getElementById("loadAttendanceBtn")?.addEventListener("click", loadAttendance);
+  document.getElementById("saveAttendanceBtn")?.addEventListener("click", saveAttendance);
+
+  // ✅ Attendance Export Buttons (previously missing)
+  document.getElementById("exportAttendancePdfBtn")?.addEventListener("click", exportAttendancePdf);
+  document.getElementById("exportAttendanceExcelBtn")?.addEventListener("click", exportAttendanceExcel);
+
+  // Reports
+  document.getElementById("loadReportStudentsBtn")?.addEventListener("click", loadReportStudents);
+
+  // Video Upload
+  document.getElementById("videoUploadForm")?.addEventListener("submit", uploadVideo);
+
+  // Tahfiz Daily / Overall
+  document.getElementById("loadDailyStudentsBtn")?.addEventListener("click", loadDailyStudents);
+  document.getElementById("loadOverallStudentsBtn")?.addEventListener("click", loadOverallStudents);
+  document.getElementById("exportOverallPdfBtn")?.addEventListener("click", exportOverallPdf);
+  document.getElementById("exportOverallExcelBtn")?.addEventListener("click", exportOverallExcel);
 
   // === SUBJECTS: Add Scores ===
-  document.getElementById("loadSubjectScoresBtn")?.addEventListener("click", loadSubjectStudents)
-  document.getElementById("saveSubjectScoresBtn")?.addEventListener("click", saveSubjectScores)
+  document.getElementById("loadSubjectScoresBtn")?.addEventListener("click", loadSubjectStudents);
+  document.getElementById("saveSubjectScoresBtn")?.addEventListener("click", saveSubjectScores);
 
   // === SUBJECTS: View Scores ===
-  document.getElementById("loadSubjectResultsBtn")?.addEventListener("click", loadSubjectResults)
-  document.getElementById("exportSubjectPdfBtn")?.addEventListener("click", exportSubjectPdf)
-  document.getElementById("exportSubjectExcelBtn")?.addEventListener("click", exportSubjectExcel)
+  document.getElementById("loadSubjectResultsBtn")?.addEventListener("click", loadSubjectResults);
+  document.getElementById("exportSubjectPdfBtn")?.addEventListener("click", exportSubjectPdf);
+  document.getElementById("exportSubjectExcelBtn")?.addEventListener("click", exportSubjectExcel);
 }
 
 // Switch view
@@ -1323,35 +1334,43 @@ document.getElementById('attendanceTakeBtn').addEventListener('click', () => swi
 document.getElementById('attendanceViewBtn').addEventListener('click', () => switchAttendanceTab('view'));
 
 // === LOAD WEEKLY ATTENDANCE ===
+// Load weekly attendance + store the data globally for export
 document.getElementById('loadViewAttendanceBtn').addEventListener('click', async () => {
-  const classVal = document.getElementById('viewAttendanceClassSelect').value;
-  const session = document.getElementById('viewAttendanceSessionSelect').value;
-  const term = document.getElementById('viewAttendanceTermSelect').value;
-  const week = document.getElementById('viewAttendanceWeekSelect').value;
+  const classVal   = document.getElementById('viewAttendanceClassSelect').value;
+  const session    = document.getElementById('viewAttendanceSessionSelect').value;
+  const term       = document.getElementById('viewAttendanceTermSelect').value;
+  const week       = document.getElementById('viewAttendanceWeekSelect').value;
 
   if (!classVal || !session || !term || !week) return alert('Please select all fields.');
 
-  const [sectionId] = classVal.split(':');
+  const [sectionId, classId] = classVal.split(':');   // we need classId too now
   const tbody = document.getElementById('viewAttendanceTableBody');
-  tbody.innerHTML = '';
+  tbody.innerHTML = '<tr><td colspan="11" class="text-center">Loading...</td></tr>';
 
   try {
-    const res = await fetch(`/api/staff-attendance-weekly/${currentStaffId}?section_id=${sectionId}&term=${term}&session=${session}&week=${week}`);
+    const res = await fetch(
+      `/api/staff-attendance-weekly/${currentStaffId}?section_id=${sectionId}&class_id=${classId}&term=${term}&session=${session}&week=${week}`
+    );
     const data = await res.json();
 
-    if (!(data.success && data.data && data.data.length)) {
-      alert('No records found for the selected week.');
+    tbody.innerHTML = ''; // clear loading row
+
+    if (!data.success || !data.data || data.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted">No records found for the selected week.</td></tr>';
+      window.currentAttendanceData = [];               // clear old data
       return;
     }
+
+    // THIS IS THE KEY LINE
+    window.currentAttendanceData = data.data;          // store for export
 
     const weekDays = ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'];
 
     data.data.forEach(stu => {
       const row = document.createElement('tr');
 
-      // Count total presents and total days
       let totalPresent = 0;
-      let totalDays = 0;
+      let totalDays    = 0;
 
       const dayCells = weekDays.map(day => {
         const status = stu.days[day] || '-';
@@ -1364,6 +1383,7 @@ document.getElementById('loadViewAttendanceBtn').addEventListener('click', async
 
       row.innerHTML = `
         <td>${stu.student_name}</td>
+        <td>${stu.student_id || 'N/A'}</td>   <!-- show ID -->
         ${dayCells}
         <td class="text-center fw-bold">${totalPresent}/${totalDays}</td>
         <td class="text-center fw-bold">${percent}%</td>
@@ -1371,93 +1391,174 @@ document.getElementById('loadViewAttendanceBtn').addEventListener('click', async
       tbody.appendChild(row);
     });
 
+    // optional nice feedback
+    alert('Attendance loaded successfully! You can now export to PDF or Excel.');
+
   } catch (err) {
     console.error(err);
+    tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger">Error loading data.</td></tr>';
     alert('Error loading weekly attendance.');
   }
 });
 
+// EXPORT ATTENDANCE PDF (with Logo + Full School Header)
 async function exportAttendancePdf() {
-  const classSelect = document.getElementById("viewAttendanceClassSelect");
+  if (!window.currentAttendanceData || !window.currentAttendanceData.length)
+    return alert("No attendance data loaded. Please load attendance first.");
+
+  const classSelect   = document.getElementById("viewAttendanceClassSelect");
   const sessionSelect = document.getElementById("viewAttendanceSessionSelect");
-  const termSelect = document.getElementById("attendanceTermSelect");
+  const termSelect    = document.getElementById("viewAttendanceTermSelect");
+  const weekSelect    = document.getElementById("viewAttendanceWeekSelect");
 
-  if (!classSelect.value || !sessionSelect.value || !termSelect.value) {
-    return alert("Please select class, session, and term");
-  }
+  const className = classSelect.selectedOptions[0]?.textContent || "Unknown Class";
+  const session   = sessionSelect.value || "Unknown Session";
+  const term      = termSelect.selectedOptions[0]?.textContent || "Unknown Term";
+  const week      = weekSelect.value || "Unknown Week";
 
-  const className = classSelect.selectedOptions[0].textContent;
-  const session = sessionSelect.value;
-  const term = termSelect.selectedOptions[0].textContent;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
 
-  try {
-    const response = await fetch(`/api/staff-attendance-data?section_id=${classSelect.value.split(":")[0]}&class_id=${classSelect.value.split(":")[1]}&session=${session}&term=${term}`);
-    const data = await response.json();
+  // Load logo
+  const logo = new Image();
+  logo.src = schoolInfo.logoSrc; // "assets/images/logo.jpeg"
 
-    if (!data.success || !data.data.length) return alert("No attendance records found");
+  const drawHeader = () => {
+    const logoWidth = 30;
+    const logoHeight = 30;
+    const startY = 15;
 
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: "landscape" });
-    const pageWidth = doc.internal.pageSize.getWidth();
+    // Logo (left)
+    try {
+      doc.addImage(logo, "JPEG", 14, startY, logoWidth, logoHeight);
+    } catch (e) {
+      console.warn("Logo failed to load");
+    }
 
-    // School info header
-    doc.setFontSize(16).setFont(undefined, "bold");
-    doc.text(schoolInfo.name, pageWidth / 2, 15, { align: "center" });
-    doc.setFontSize(11).setFont(undefined, "normal");
-    doc.text(`Attendance Report | Class: ${className} | Term: ${term} | Session: ${session}`, pageWidth / 2, 25, { align: "center" });
+    // School Name
+    doc.setFontSize(18).setFont("helvetica", "bold");
+    doc.text(schoolInfo.name, pageWidth / 2, startY + 8, { align: "center" });
+
+    // Address + Contact
+    doc.setFontSize(10).setFont("helvetica", "normal");
+    doc.text(schoolInfo.address, pageWidth / 2, startY + 16, { align: "center" });
+    doc.text(`Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}`, pageWidth / 2, startY + 22, { align: "center" });
+
+    // Title
+    doc.setFontSize(14).setFont("helvetica", "bold");
+    doc.text("WEEKLY ATTENDANCE REPORT", pageWidth / 2, startY + 35, { align: "center" });
+
+    // Details
+    doc.setFontSize(11).setFont("helvetica", "normal");
+    doc.text(`Class: ${className} | Week: ${week} | Term: ${term} | Session: ${session}`, pageWidth / 2, startY + 43, { align: "center" });
 
     // Table
-    doc.autoTable({
-      startY: 35,
-      head: [["Student Name", "Student ID", "Status"]],
-      body: data.data.map(s => [s.full_name, s.student_id, s.attendance_status]),
-      theme: "grid",
-      styles: { fontSize: 10, cellPadding: 3 },
-      headStyles: { fillColor: [0, 137, 123], textColor: [255, 255, 255] }
+    const head = [["Name", "ID", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Total", "%"]];
+    const body = window.currentAttendanceData.map(s => {
+      const days = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
+      const presentCount = days.filter(d => s.days[d] === "Present").length;
+      const totalDays = days.filter(d => s.days[d] && s.days[d] !== '-').length;
+      const percent = totalDays > 0 ? ((presentCount / totalDays) * 100).toFixed(1) + "%" : "0%";
+
+      return [
+        s.student_name,
+        s.student_id || 'N/A',
+        ...days.map(d => s.days[d] || "-"),
+        `${presentCount}/${totalDays}`,
+        percent
+      ];
     });
 
-    doc.save(`Attendance_${className.replace(/ /g, "_")}_${term}_${session}.pdf`);
-  } catch (e) {
-    console.error(e);
-    alert("Failed to export attendance PDF");
-  }
+    doc.autoTable({
+      startY: startY + 55,
+      head: head,
+      body: body,
+      theme: "grid",
+      styles: { fontSize: 9, cellPadding: 3, halign: "center" },
+      headStyles: { fillColor: [0, 137, 123], textColor: [255, 255, 255], fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 40 }, // Name
+        1: { cellWidth: 25 }, // ID
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    // Footer
+    const footerY = pageHeight - 15;
+    doc.setFontSize(9).setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth / 2, footerY, { align: "center" });
+
+    doc.save(`Attendance_${className.replace(/ /g, "_")}_Week${week}_${term}_${session}.pdf`);
+  };
+
+  // Draw when logo loads (or fallback if it fails)
+  logo.onload = drawHeader;
+  logo.onerror = () => {
+    console.warn("Logo failed, generating without it...");
+    drawHeader();
+  };
 }
 
+// EXPORT ATTENDANCE EXCEL (with Full Header + Logo Placeholder)
 async function exportAttendanceExcel() {
-  const classSelect = document.getElementById("viewAttendanceClassSelect");
+  if (!window.currentAttendanceData || !window.currentAttendanceData.length)
+    return alert("No attendance data loaded. Please load attendance first.");
+
+  const classSelect   = document.getElementById("viewAttendanceClassSelect");
   const sessionSelect = document.getElementById("viewAttendanceSessionSelect");
-  const termSelect = document.getElementById("attendanceTermSelect");
+  const termSelect    = document.getElementById("viewAttendanceTermSelect");
+  const weekSelect    = document.getElementById("viewAttendanceWeekSelect");
 
-  if (!classSelect.value || !sessionSelect.value || !termSelect.value) {
-    return alert("Please select class, session, and term");
-  }
+  const className = classSelect.selectedOptions[0]?.textContent || "Unknown Class";
+  const session   = sessionSelect.value || "Unknown Session";
+  const term      = termSelect.selectedOptions[0]?.textContent || "Unknown Term";
+  const week      = weekSelect.value || "Unknown Week";
 
-  const className = classSelect.selectedOptions[0].textContent;
-  const session = sessionSelect.value;
-  const term = termSelect.selectedOptions[0].textContent;
+  const header = [
+    [schoolInfo.name],
+    [schoolInfo.address],
+    [`Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}`],
+    [""],
+    ["WEEKLY ATTENDANCE REPORT"],
+    [`Class: ${className} | Week: ${week} | Term: ${term} | Session: ${session}`],
+    [""],
+    ["Student Name", "Student ID", "Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Total Present", "Percentage"]
+  ];
 
-  try {
-    const response = await fetch(`/api/staff-attendance-data?section_id=${classSelect.value.split(":")[0]}&class_id=${classSelect.value.split(":")[1]}&session=${session}&term=${term}`);
-    const data = await response.json();
+  const rows = window.currentAttendanceData.map(s => {
+    const days = ["Saturday","Sunday","Monday","Tuesday","Wednesday","Thursday","Friday"];
+    const presentCount = days.filter(d => s.days[d] === "Present").length;
+    const totalDays = days.filter(d => s.days[d] && s.days[d] !== '-').length;
+    const percent = totalDays > 0 ? ((presentCount / totalDays) * 100).toFixed(1) + "%" : "0%";
 
-    if (!data.success || !data.data.length) return alert("No attendance records found");
-
-    const header = [
-      [schoolInfo.name],
-      [`Attendance Report | Class: ${className} | Term: ${term} | Session: ${session}`],
-      [""],
-      ["Student Name", "Student ID", "Status"]
+    return [
+      s.student_name,
+      s.student_id || 'N/A',
+      ...days.map(d => s.days[d] || "-"),
+      `${presentCount}/${totalDays}`,
+      percent
     ];
+  });
 
-    const rows = data.data.map(s => [s.full_name, s.student_id, s.attendance_status]);
-    const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
-    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }]; // merge school name
+  const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Attendance");
-    XLSX.writeFile(wb, `Attendance_${className.replace(/ /g, "_")}_${term}_${session}.xlsx`);
-  } catch (e) {
-    console.error(e);
-    alert("Failed to export attendance Excel");
-  }
+  // Merge school name across all columns
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+    { s: { r: 4, c: 0 }, e: { r: 4, c: 10 } },
+    { s: { r: 5, c: 0 }, e: { r: 5, c: 10 } }
+  ];
+
+  // Column widths
+  ws["!cols"] = [
+    { wch: 25 }, { wch: 12 }, // Name, ID
+    ...Array(7).fill({ wch: 8 }), // Days
+    { wch: 12 }, { wch: 10 } // Total, %
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Attendance");
+  XLSX.writeFile(wb, `Attendance_${className.replace(/ /g, "_")}_Week${week}_${term}_${session}.xlsx`);
 }
