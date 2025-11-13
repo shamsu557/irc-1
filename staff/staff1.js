@@ -942,15 +942,25 @@ window.generateTahfizReport = async (studentId) => {
       </div>
       <div class="mt-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-10 rounded-3xl shadow-2xl">
         <h3 class="text-4xl font-bold text-center mb-8">TERM SUMMARY</h3>
-        <div class="grid grid-cols-2 gap-10 text-2xl">
-          <div class="bg-white/20 p-6 rounded-2xl text-center">
-            <div class="text-5xl font-bold">${t.avg_daily_grade || "0.00"}</div>
-            <div>Average Daily Grade</div>
-          </div>
-          <div class="bg-white/20 p-6 rounded-2xl text-center">
-            <div class="text-5xl font-bold">${t.total_score || "0"}%</div>
-            <div>Total Score</div>
-          </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-10 text-2xl">
+  <div class="bg-white/20 p-6 rounded-2xl text-center">
+    <div class="text-5xl font-bold">${t.avg_daily_letter || "F"}</div>
+    <div>Average Daily Grade</div>
+  </div>
+  <div class="bg-white/20 p-6 rounded-2xl text-center">
+    <div class="text-5xl font-bold">${t.daily_score || "0"}%</div>
+    <div>Daily Assessment (80%)</div>
+  </div>
+  <div class="bg-white/20 p-6 rounded-2xl text-center">
+    <div class="text-5xl font-bold">${t.exam_score || "0"}%</div>
+    <div>Exam (20%)</div>
+  </div>
+  <div class="bg-white/20 p-6 rounded-2xl text-center">
+    <div class="text-5xl font-bold">${t.total_score || "0"}%</div>
+    <div>Total Score</div>
+  </div>
+</div>
+
         </div>
         <div class="text-center mt-8">
           <div class="inline-block bg-yellow-400 text-emerald-900 px-16 py-8 rounded-full text-6xl font-bold shadow-2xl">
@@ -958,9 +968,29 @@ window.generateTahfizReport = async (studentId) => {
           </div>
           <p class="text-3xl mt-6 font-bold">FINAL GRADE</p>
         </div>
-        <div class="mt-10 p-8 bg-white/20 rounded-3xl text-2xl italic text-center">
-          "${t.teacher_remark || "Keep memorizing daily! May Allah grant you success in both worlds."}"
-        </div>
+        <!-- Overall Result -->
+<div class="mt-12 bg-gradient-to-r from-emerald-700 to-teal-700 text-white p-8 rounded-3xl shadow-2xl">
+  <h3 class="text-4xl font-bold text-center mb-6">OVERALL RESULT</h3>
+  <div class="text-center text-6xl font-bold mb-4">
+    ${t.final_grade || "N/A"}
+  </div>
+  <p class="text-2xl italic">
+    ${
+      t.final_grade === "A"
+        ? "Excellent overall performance throughout the session."
+        : t.final_grade === "B"
+        ? "Very good memorization progress overall."
+        : t.final_grade === "C"
+        ? "Good performance, continue improving."
+        : t.final_grade === "D"
+        ? "Fair effort, more revision needed."
+         : t.final_grade === "E"
+        ? "Poor effort, this class should be repeated."
+        : "Needs serious improvement overall."
+    }
+  </p>
+</div>
+
       </div>
       <div class="text-center mt-12 text-gray-600">
         <p class="text-lg">Generated on: <strong>${new Date().toLocaleString("en-NG", { dateStyle: "full", timeStyle: "long" })}</strong></p>

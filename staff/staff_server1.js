@@ -3599,7 +3599,33 @@ app.get("/api/staff-dashboard-stats/:staffId", verifyStaffSession, async (req, r
 // === GET TAHFIZ REPORT (DAILY + SUMMARY) ===
 app.get("/api/tahfiz-report", (req, res) => {
   const { student_id, session, term, section_id, class_id } = req.query;
-  const sql = `
+
+  // -------------------------------------------------
+  // 1. Get ALL daily assessments for the student
+  // -------------------------------------------------
+  const dailySql = `
+    SELECT sma.daily_grade
+    FROM Student_Memorization_Assessments sma
+    JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+    JOIN Students s ON se.student_id = s.id
+    WHERE s.student_id = ? AND sma.session_year = ? AND sma.term = ?
+  `;
+
+  // -------------------------------------------------
+  // 2. Get the exam grade (if any)
+  // -------------------------------------------------
+  const examSql = `
+    SELECT sme.exam_grade
+    FROM Student_Memorization_Exam sme
+    JOIN Student_Enrollments se ON sme.enrollment_id = se.enrollment_id
+    JOIN Students s ON se.student_id = s.id
+    WHERE s.student_id = ? AND sme.session_year = ? AND sme.term = ?
+  `;
+
+  // -------------------------------------------------
+  // 3. Get student name + the detailed rows (for the table)
+  // -------------------------------------------------
+  const detailSql = `
     SELECT s.full_name, s.student_id, sma.week, sma.assessed_day AS day,
            sma.from_surah_ayah AS from_ayah, sma.to_surah_ayah AS to_ayah,
            sma.daily_grade, sma.comments AS comment
@@ -3609,30 +3635,84 @@ app.get("/api/tahfiz-report", (req, res) => {
     WHERE s.student_id = ? AND sma.session_year = ? AND sma.term = ?
     ORDER BY sma.week, sma.assessed_day
   `;
-  db.query(sql, [student_id, session, term], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: err.message });
-    if (!rows.length) return res.json({ success: false, message: "No Tahfiz data found" });
 
-    // Compute summary (average grade, total score, etc.)
-    const grades = { A: 5, B: 4, C: 3, D: 2, F: 1 };
-    const avgGradeValue = rows.reduce((sum, r) => sum + (grades[r.daily_grade] || 0), 0) / rows.length;
-    const avgDailyGrade = Object.keys(grades).find(k => grades[k] === Math.round(avgGradeValue)) || "F";
-
-    res.json({
-      success: true,
-      data: {
-        full_name: rows[0].full_name,
-        student_id: rows[0].student_id,
-        daily_records: rows,
-        avg_daily_grade: avgDailyGrade,
-        total_score: (avgGradeValue / 5 * 100).toFixed(2),
-        final_grade: avgDailyGrade,
-        teacher_remark: "Excellent memorization consistency. Keep it up!"
+  // -----------------------------------------------------------------
+  // Run the three queries in parallel (Promise.all) – fastest & clean
+  // -----------------------------------------------------------------
+  Promise.all([
+    new Promise((resolve, reject) => {
+      db.query(dailySql, [student_id, session, term], (err, rows) => (err ? reject(err) : resolve(rows)));
+    }),
+    new Promise((resolve, reject) => {
+      db.query(examSql, [student_id, session, term], (err, rows) => (err ? reject(err) : resolve(rows)));
+    }),
+    new Promise((resolve, reject) => {
+      db.query(detailSql, [student_id, session, term], (err, rows) => (err ? reject(err) : resolve(rows)));
+    })
+  ])
+    .then(([dailyRows, examRows, detailRows]) => {
+      if (!detailRows.length) {
+        return res.json({ success: false, message: "No Tahfiz data found" });
       }
-    });
-  });
-});
 
+      // -------------------------------------------------
+      // 4. GRADE → POINT mapping (same for daily & exam)
+      // -------------------------------------------------
+      const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+
+      // ---------- DAILY ----------
+      const dailyPoints = dailyRows.map(r => gradePoints[r.daily_grade] || 0);
+      const avgDailyPoint = dailyPoints.reduce((a, b) => a + b, 0) / dailyPoints.length;
+      const dailyScore = (avgDailyPoint / 5) * 80;               // 80 % of total
+
+      // ---------- EXAM ----------
+      const examGrade = examRows[0]?.exam_grade || null;
+      const examPoint = examGrade ? (gradePoints[examGrade] || 0) : 0;
+      const examScore = (examPoint / 5) * 20;                    // 20 % of total
+
+      // ---------- TOTAL ----------
+      const totalScore = dailyScore + examScore;
+
+      // ---------- FINAL GRADE ----------
+      let finalGrade = "F";
+      if (totalScore >= 70) finalGrade = "A";
+      else if (totalScore >= 60) finalGrade = "B";
+      else if (totalScore >= 50) finalGrade = "C";
+      else if (totalScore >= 40) finalGrade = "D";
+
+      // -------------------------------------------------
+      // 5. Build response
+      // -------------------------------------------------
+      res.json({
+        success: true,
+        data: {
+          full_name: detailRows[0].full_name,
+          student_id: detailRows[0].student_id,
+
+          // Detailed table rows (exactly what you already show)
+          daily_records: detailRows,
+
+          // ----- SUMMARY (real numbers) -----
+          exam_score: examScore.toFixed(2),          // out of 20
+          daily_score: dailyScore.toFixed(2),        // out of 80
+          total_score: totalScore.toFixed(2),        // out of 100
+          final_grade: finalGrade,
+
+          // Optional – keep the old average daily letter if you still want it
+          avg_daily_letter: Object.keys(gradePoints).find(
+            k => gradePoints[k] === Math.round(avgDailyPoint)
+          ) || "F",
+
+          teacher_remark:
+            "Excellent memorization consistency. Keep it up!"
+        }
+      });
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ success: false, message: err.message });
+    });
+});
 // === GET COMPLETE STUDENT REPORT ===
 app.get("/api/student-report", (req, res) => {
   const { student_id, session, term, section_id, class_id } = req.query;
