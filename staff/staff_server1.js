@@ -3566,36 +3566,41 @@ app.get("/api/staff-classes/:staffId", verifyStaffSession, async (req, res) => {
 // ──────────────────────────────────────────────────────────────
 // 2. DASHBOARD STATS (FIX 404 + JSON)
 // ──────────────────────────────────────────────────────────────
-app.get("/api/staff-dashboard-stats/:staffId", verifyStaffSession, async (req, res) => {
+// FIXED DASHBOARD STATS – NO HTML, NO 500
+app.get("/api/staff-dashboard-stats/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
   const { staffId } = req.params;
-  log(`Fetching dashboard stats for staff ${staffId}`);
 
-  try {
-    const [stats] = await pool.query(
-      `SELECT 
-         (SELECT COUNT(*) FROM Staff_Classes WHERE staff_id = ?) AS totalClasses,
-         (SELECT COUNT(DISTINCT se.student_id) FROM Student_Enrollments se
-          JOIN Staff_Classes sc ON se.class_ref = sc.class_id AND se.section_id = sc.section_id
-          WHERE sc.staff_id = ?) AS totalStudents`,
-      [staffId, staffId]
-    );
+  const query = `
+    SELECT 
+      (SELECT COUNT(*) FROM staff_classes WHERE staff_id = ?) AS totalClasses,
+      (SELECT COUNT(DISTINCT se.student_id) 
+       FROM student_enrollments se
+       JOIN staff_classes sc ON se.class_ref = sc.class_id AND se.section_id = sc.section_id
+       WHERE sc.staff_id = ?) AS totalStudents,
+      (SELECT COUNT(*) FROM staff_subjects WHERE staff_id = ?) AS totalSubjects
+  `;
 
-    const row = stats[0] || {};
+  db.query(query, [staffId, staffId, staffId], (err, results) => {
+    if (err) {
+      console.error("Dashboard stats error:", err);
+      return res.status(500).json({ success: false, message: "Stats error" });
+    }
+
+    const row = results[0] || {};
     res.json({
       success: true,
       data: {
         totalClasses: parseInt(row.totalClasses) || 0,
         totalStudents: parseInt(row.totalStudents) || 0,
-        attendanceToday: 95.5,
-        averageGrade: 78.2
+        totalSubjects: parseInt(row.totalSubjects) || 0
       }
     });
-  } catch (err) {
-    log(`dashboard-stats error`, err);
-    res.status(500).json({ success: false, message: "Stats failed" });
-  }
+  });
 });
-
 // ================================================================
 // 1. TAHFIZ REPORT – FINAL VERSION (WORKS WITH YOUR REAL TABLE)
 // ================================================================

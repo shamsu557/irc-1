@@ -113,28 +113,63 @@ async function loadStaffInfo() {
     console.error("Error loading staff info:", error)
   }
 }
-// Load dashboard statistics
+// Load dashboard statistics (CLEAN VERSION – ONLY WHAT YOU WANT)
+// FIXED: Now counts ALL subjects (both sections) — dropdown already works!
 async function loadDashboardStats() {
   try {
-    const sessionResponse = await fetch("/api/staff-session")
-    const sessionData = await sessionResponse.json()
-    if (!sessionData.success) {
-      console.error("Failed to get staff session")
-      return
+    const sessionResponse = await fetch("/api/staff-session");
+    const sessionData = await sessionResponse.json();
+    if (!sessionData.success) return;
+
+    const staffId = sessionData.data.staff_id;
+
+    // 1. Get assigned classes
+    const staffInfoRes = await fetch(`/api/staff/${staffId}`);
+    const staffInfo = await staffInfoRes.json();
+
+    let totalClasses = 0;
+    let totalStudents = 0;
+
+    if (staffInfo.success && staffInfo.data.classes) {
+      totalClasses = staffInfo.data.classes.length;
+
+      const studentSet = new Set();
+      for (const cls of staffInfo.data.classes) {
+        const res = await fetch(
+          `/api/staff-students/${staffId}?section_id=${cls.section_id}&class_id=${cls.class_id}`
+        );
+        const data = await res.json();
+        if (data.success && data.data.length) {
+          data.data.forEach(stu => studentSet.add(stu.student_id));
+        }
+      }
+      totalStudents = studentSet.size;
     }
-    const staffId = sessionData.data.staff_id
-    const response = await fetch(`/api/staff-dashboard-stats/${staffId}`)
-    const data = await response.json()
-    if (data.success) {
-      document.getElementById("totalClassesCount").textContent = data.data.totalClasses || 0
-      document.getElementById("totalStudentsCount").textContent = data.data.totalStudents || 0
-      document.getElementById("attendanceTodayCount").textContent = (data.data.attendanceToday || 0).toFixed(1) + "%"
-      document.getElementById("averageGradeCount").textContent = (data.data.averageGrade || 0).toFixed(1)
+
+    // FIXED: Count subjects from ALL sections (1 and 2)
+    let totalSubjects = 0;
+    const sectionIds = [1, 2]; // Arabic & Western sections
+    for (const sectionId of sectionIds) {
+      const subjectsRes = await fetch(`/api/staff-subjects/${staffId}?section_id=${sectionId}`);
+      const subjectsData = await subjectsRes.json();
+      if (subjectsData.success) {
+        totalSubjects += subjectsData.data.length;
+      }
     }
+
+    // Update dashboard
+    document.getElementById("totalClassesCount").textContent = totalClasses;
+    document.getElementById("totalStudentsCount").textContent = totalStudents;
+    document.getElementById("totalSubjectsCount").textContent = totalSubjects;
+
   } catch (error) {
-    console.error("Error loading dashboard stats:", error)
+    console.error("Error loading dashboard stats:", error);
   }
 }
+
+// Run when page loads
+document.addEventListener("DOMContentLoaded", loadDashboardStats);
+
 // Load sessions
 async function loadSessions() {
   try {

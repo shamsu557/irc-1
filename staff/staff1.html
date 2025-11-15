@@ -143,40 +143,46 @@
     <div class="main-content" id="mainContent">
         <button id="sidebarToggleMobile"></button>
 
-        <!-- Dashboard View -->
-        <div id="dashboard-view">
-            <h2 class="text-2xl font-semibold mb-4">Dashboard Overview</h2>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div class="dashboard-card card-gradient-1 text-white">
-                    <div class="flex items-center justify-between">
-                        <div><h5 class="text-sm font-medium opacity-90">My Classes</h5>
-                            <p id="totalClassesCount" class="text-4xl font-bold mt-1">0</p></div>
-                        <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
-                    </div>
+<!-- Dashboard View -->
+<div id="dashboard-view">
+    <h2 class="text-2xl font-semibold mb-4">Dashboard Overview</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+        <!-- Classes -->
+        <div class="dashboard-card card-gradient-1 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h5 class="text-sm font-medium opacity-90">My Classes</h5>
+                    <p id="totalClassesCount" class="text-4xl font-bold mt-1">0</p>
                 </div>
-                <div class="dashboard-card card-gradient-2 text-white">
-                    <div class="flex items-center justify-between">
-                        <div><h5 class="text-sm font-medium opacity-90">My Students</h5>
-                            <p id="totalStudentsCount" class="text-4xl font-bold mt-1">0</p></div>
-                        <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
-                    </div>
-                </div>
-                <div class="dashboard-card card-gradient-3 text-white">
-                    <div class="flex items-center justify-between">
-                        <div><h5 class="text-sm font-medium opacity-90">Attendance Today</h5>
-                            <p id="attendanceTodayCount" class="text-4xl font-bold mt-1">0%</p></div>
-                        <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
-                    </div>
-                </div>
-                <div class="dashboard-card card-gradient-4 text-white">
-                    <div class="flex items-center justify-between">
-                        <div><h5 class="text-sm font-medium opacity-90">Average Grade</h5>
-                            <p id="averageGradeCount" class="text-4xl font-bold mt-1">0</p></div>
-                        <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
-                    </div>
-                </div>
+                <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
             </div>
         </div>
+
+        <!-- Students -->
+        <div class="dashboard-card card-gradient-2 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h5 class="text-sm font-medium opacity-90">My Students</h5>
+                    <p id="totalStudentsCount" class="text-4xl font-bold mt-1">0</p>
+                </div>
+                <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
+            </div>
+        </div>
+
+        <!-- Subjects -->
+        <div class="dashboard-card card-gradient-3 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h5 class="text-sm font-medium opacity-90">My Subjects</h5>
+                    <p id="totalSubjectsCount" class="text-4xl font-bold mt-1">0</p>
+                </div>
+                <div class="p-3 rounded-full bg-white bg-opacity-20"></div>
+            </div>
+        </div>
+
+    </div>
+</div>
 
         <!-- Attendance View -->
         <div id="attendance-view" style="display:none;">
