@@ -879,355 +879,294 @@ async function loadReportStudents() {
     alert("Failed to load students");
   }
 }
-// INSTANT TAHFIZ REPORT (No reload, uses cached data)
-// UPDATED TAHFIZ REPORT WITH INSTANT BEAUTIFUL PREVIEW (NO BLIND DOWNLOAD)
+// =====================================================================
+// DAILY GRADE COMMENTS
+// =====================================================================
+const dailyGradeComments = {
+  A: "Excellent",
+  B: "Very good",
+  C: "Good",
+  D: "Pass",
+  E: "Fair",
+  F: "Fail"
+};
+
+// =====================================================================
+// FINAL GRADE COMMENTS
+// =====================================================================
+const finalGradeComments = {
+  A: "Excellent performance",
+  B: "Very good performance",
+  C: "Good performance",
+  D: "Pass – Warning",
+  E: "Probation",
+  F: "Fail"
+};
+
+// =====================================================================
+// TAHFIZ REPORT (PREVIEW)
+// =====================================================================
 window.generateTahfizReport = async (studentId) => {
   const student = currentReportStudentsData.find(s => s.student_id === studentId);
-  if (!student) return alert("Student not loaded. Reload list.");
-  // Show loading in modal
-  document.getElementById("tahfizPreviewBody").innerHTML = `
+  if (!student) return alert("Student not loaded.");
+
+  const previewBody = document.getElementById("tahfizPreviewBody");
+  previewBody.innerHTML = `
     <div class="text-center py-32">
       <div class="spinner-border text-emerald-600 w-24 h-24"></div>
       <p class="mt-8 text-3xl font-bold text-emerald-700">Generating Tahfiz Report...</p>
-    </div>`;
+    </div>
+  `;
   new bootstrap.Modal(document.getElementById("tahfizPreviewModal")).show();
+
   try {
     const res = await fetch(`/api/tahfiz-report?student_id=${studentId}&session=${student.session}&term=${student.term}&section_id=${student.sectionId}&class_id=${student.classId}`);
     const data = await res.json();
     if (!data.success) throw new Error(data.message || "No Tahfiz data");
+
     const t = data.data;
-    currentTahfizData = { ...t, student };
-    const rows = t.daily_records.map(r => `
-      <tr class="hover:bg-emerald-50 transition">
-        <td class="py-4 px-6 border-b-2 border-emerald-200 font-bold">Week ${r.week} - ${r.day}</td>
-        <td class="py-4 px-6 border-b-2 border-emerald-200 text-center">${r.from_ayah || "-"}</td>
-        <td class="py-4 px-6 border-b-2 border-emerald-200 text-center">${r.to_ayah || "-"}</td>
-        <td class="py-4 px-6 border-b-2 border-emerald-200 text-center">
-          <span class="px-4 py-2 rounded-full text-white font-bold text-lg ${r.daily_grade === 'A' ? 'bg-emerald-600' : r.daily_grade === 'B' ? 'bg-green-500' : r.daily_grade === 'C' ? 'bg-yellow-500' : 'bg-red-600'}">
-            ${r.daily_grade || "-"}
-          </span>
-        </td>
-        <td class="py-4 px-6 border-b-2 border-emerald-200 italic">${r.comment || "No comment"}</td>
-      </tr>
-    `).join("");
-    document.getElementById("tahfizPreviewBody").innerHTML = `
-      <div class="text-center mb-10">
-        <img src="assets/images/logo.jpeg" class="w-32 h-32 mx-auto rounded-full shadow-2xl border-8 border-white">
-        <h1 class="text-5xl font-bold text-emerald-800 mt-6">IBADURRAHMAN COLLEGE</h1>
-        <p class="text-2xl text-emerald-600 mt-2">Kano, Nigeria</p>
-        <p class="text-xl text-gray-600 mt-4">Tel: 08033459721 | Email: info@irc.com.ng</p>
-      </div>
-      <div class="bg-emerald-700 text-white p-8 rounded-3xl shadow-2xl mb-10">
-        <h2 class="text-4xl font-bold text-center mb-4">TAHFIZ MEMORIZATION REPORT</h2>
-        <div class="grid grid-cols-2 gap-8 text-xl">
-          <div><strong>Student:</strong> ${t.full_name}</div>
-          <div><strong>ID:</strong> ${t.student_id}</div>
-          <div><strong>Class:</strong> ${student.class_name}</div>
-          <div><strong>Session:</strong> ${student.session} | <strong>Term:</strong> ${student.term}</div>
-        </div>
-      </div>
-      <div class="overflow-x-auto rounded-3xl shadow-2xl">
-        <table class="w-full bg-white rounded-3xl">
-          <thead class="bg-emerald-700 text-white text-xl">
-            <tr>
-              <th class="py-6 px-8">Week & Day</th>
-              <th class="py-6 px-8">From Ayah</th>
-              <th class="py-6 px-8">To Ayah</th>
-              <th class="py-6 px-8">Grade</th>
-              <th class="py-6 px-8">Comment</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div class="mt-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-10 rounded-3xl shadow-2xl">
-        <h3 class="text-4xl font-bold text-center mb-8">TERM SUMMARY</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-10 text-2xl">
-  <div class="bg-white/20 p-6 rounded-2xl text-center">
-    <div class="text-5xl font-bold">${t.avg_daily_letter || "F"}</div>
-    <div>Average Daily Grade</div>
-  </div>
-  <div class="bg-white/20 p-6 rounded-2xl text-center">
-    <div class="text-5xl font-bold">${t.daily_score || "0"}%</div>
-    <div>Daily Assessment (80%)</div>
-  </div>
-  <div class="bg-white/20 p-6 rounded-2xl text-center">
-    <div class="text-5xl font-bold">${t.exam_score || "0"}%</div>
-    <div>Exam (20%)</div>
-  </div>
-  <div class="bg-white/20 p-6 rounded-2xl text-center">
-    <div class="text-5xl font-bold">${t.total_score || "0"}%</div>
-    <div>Total Score</div>
-  </div>
-</div>
+    window.currentTahfizData = { ...t, student };
 
-        </div>
-        <div class="text-center mt-8">
-          <div class="inline-block bg-yellow-400 text-emerald-900 px-16 py-8 rounded-full text-6xl font-bold shadow-2xl">
-            ${t.final_grade || "F"}
+    const dailyScoreValue = t.daily_score ?? t.daily_score_percent ?? t.daily_score_value ?? "-";
+    const examScoreValue  = t.exam_score  ?? t.exam_score_percent  ?? t.exam_mark ?? "-";
+    const finalScoreValue = t.total_score ?? t.total_mark ?? t.final_score ?? "-";
+    const finalGradeValue = t.final_grade ?? t.finalGrade ?? t.grade ?? "-";
+
+    const finalCommentFromApi = t.final_grade_comment ?? t.final_comment ?? null;
+    const finalComment = finalCommentFromApi ?? finalGradeComments[finalGradeValue?.toUpperCase()] ?? "-";
+
+    const rows = (t.daily_records || []).map((r, idx) => {
+      const rowBgClass = idx % 2 === 0 ? "bg-gray-50" : "bg-white";
+      const assessedDay = r.assessed_day || r.assessed_day_arabic || r.day || "N/A";
+      const fromAyah = r.from_surah_ayah ?? r.from_ayah ?? "-";
+      const toAyah = r.to_surah_ayah ?? r.to_ayah ?? "-";
+      const dailyGrade = r.daily_grade ?? "-";
+      const dailyComment = dailyGradeComments[dailyGrade] ?? "-";
+      return `
+        <tr class="${rowBgClass}">
+          <td class="py-3 px-4 border">${r.week ? "Week " + r.week + " - " : ""}${assessedDay}</td>
+          <td class="py-3 px-4 border">${fromAyah}</td>
+          <td class="py-3 px-4 border">${toAyah}</td>
+          <td class="py-3 px-4 border text-center font-bold">${dailyGrade}</td>
+          <td class="py-3 px-4 border italic">${dailyComment}</td>
+        </tr>
+      `;
+    }).join("");
+
+ const infoRows = `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:15px;">
+    <div style="background:#f8fafb;padding:10px;"><strong>Student:</strong> ${t.full_name || student.full_name}</div>
+    <div style="background:#ffffff;padding:10px;"><strong>Admission No:</strong> ${t.student_id || student.student_id}</div>
+    <div style="background:#f8fafb;padding:10px;"><strong>Class:</strong> ${student.class_name}</div>
+    <div style="background:#ffffff;padding:10px;"><strong>Session:</strong> ${student.session}</div>
+    <div style="background:#f8fafb;padding:10px;"><strong>Term:</strong> ${student.term}</div>
+    <div style="background:#ffffff;padding:10px;"><strong>Date:</strong> ${new Date().toLocaleDateString("en-NG")}</div>
+    <div style="background:#f8fafb;padding:10px;"><strong>Attendance:</strong> ${t.attendance?.percentage ?? "-"} (${t.attendance?.present ?? 0} of ${t.attendance?.total ?? 0} days)</div>
+    <div style="background:#ffffff;padding:10px;"><strong>Status:</strong> ${finalComment}</div>
+  </div>
+`;
+
+
+    previewBody.innerHTML = `
+      <div style="max-width:920px;margin:0 auto;font-family:Inter;">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e6f4ef;padding-bottom:12px;margin-bottom:18px;">
+          <img src="${schoolInfo.logoSrc}" style="width:84px;height:84px;border-radius:50%;border:2px solid #e6eef0;object-fit:cover;">
+          <div style="text-align:center;flex:1;">
+            <div style="font-size:20px;font-weight:700;color:#065f46">${schoolInfo.name}</div>
+            <div style="color:#374151;margin-top:6px">${schoolInfo.address}</div>
+            <div style="color:#6b7280;margin-top:4px">Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}</div>
           </div>
-          <p class="text-3xl mt-6 font-bold">FINAL GRADE</p>
+          <div style="width:84px;"></div>
         </div>
-        <!-- Overall Result -->
-<div class="mt-12 bg-gradient-to-r from-emerald-700 to-teal-700 text-white p-8 rounded-3xl shadow-2xl">
-  <h3 class="text-4xl font-bold text-center mb-6">OVERALL RESULT</h3>
-  <div class="text-center text-6xl font-bold mb-4">
-    ${t.final_grade || "N/A"}
-  </div>
-  <p class="text-2xl italic">
-    ${
-      t.final_grade === "A"
-        ? "Excellent overall performance throughout the session."
-        : t.final_grade === "B"
-        ? "Very good memorization progress overall."
-        : t.final_grade === "C"
-        ? "Good performance, continue improving."
-        : t.final_grade === "D"
-        ? "Fair effort, more revision needed."
-         : t.final_grade === "E"
-        ? "Poor effort, this class should be repeated."
-        : "Needs serious improvement overall."
-    }
-  </p>
-</div>
 
-      </div>
-      <div class="text-center mt-12 text-gray-600">
-        <p class="text-lg">Generated on: <strong>${new Date().toLocaleString("en-NG", { dateStyle: "full", timeStyle: "long" })}</strong></p>
-        <p class="text-sm mt-2">Ibadurrahman College • Kano, Nigeria • November 11, 2025</p>
+        ${infoRows}
+
+        <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:14px;">
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="background:#f3f4f6;font-weight:600;">
+                <th>Week & Day</th><th>From Ayah</th><th>To Ayah</th><th>Grade</th><th>Comment</th>
+              </tr>
+            </thead>
+            <tbody>${rows || `<tr><td colspan="5">No data</td></tr>`}</tbody>
+          </table>
+        </div>
+
+        <div style="padding:12px;background:#fafafa;text-align:center;">
+          <div style="display:flex;justify-content:space-around;max-width:680px;margin:auto;font-size:15px;">
+            <div><strong>Daily (80%):</strong> ${dailyScoreValue}%</div>
+            <div><strong>Exam (20%):</strong> ${examScoreValue}%</div>
+            <div><strong>Total:</strong> ${finalScoreValue}%</div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div style="display:inline-block;padding:18px 28px;border-radius:8px;border:1px solid #f59e0b;font-weight:700;font-size:32px;background:#fff;">
+              ${finalGradeValue}
+            </div>
+            <div style="margin-top:10px;font-size:16px;font-weight:600;color:#111827">${finalComment}</div>
+            <div style="font-size:13px;color:#6b7280;margin-top:6px">FINAL GRADE</div>
+          </div>
+        </div>
+
+        <div style="text-align:center;margin-top:18px;">
+          <div style="height:36px;"></div>
+          <div style="width:240px;margin:auto;border-top:2px solid #1f2937;margin-bottom:8px"></div>
+          <div style="font-weight:700;color:#111827">Sadiku Muhammad Ahmad</div>
+          <div style="color:#374151">Director</div>
+        </div>
+
+        <div style="text-align:center;color:#6b7280;font-size:12px;margin-top:12px;">
+          Generated on: <strong>${new Date().toLocaleString()}</strong>
+        </div>
       </div>
     `;
   } catch (err) {
-    document.getElementById("tahfizPreviewBody").innerHTML = `
-      <div class="text-center py-32 text-red-600">
-        <i class="fas fa-exclamation-triangle text-9xl"></i>
-        <p class="text-4xl font-bold mt-8">Failed to Load Report</p>
-        <p class="text-2xl mt-4">${err.message}</p>
-      </div>`;
+    previewBody.innerHTML = `<div style="color:red;text-align:center;padding:50px">${err.message}</div>`;
   }
 };
-// UPDATED COMPLETE REPORT WITH FULLSCREEN PREVIEW + PRINT BUTTON
+
+// =====================================================================
+// COMPLETE REPORT (PREVIEW)
+// =====================================================================
 window.generateCompleteReport = async (studentId) => {
   const student = currentReportStudentsData.find(s => s.student_id === studentId);
   if (!student) return alert("Student not loaded.");
-  document.getElementById("completeReportPreviewBody").innerHTML = `
+
+  const previewBody = document.getElementById("completeReportPreviewBody");
+  previewBody.innerHTML = `
     <div class="text-center py-40">
       <div class="spinner-border text-emerald-600 w-32 h-32"></div>
-      <p class="mt-10 text-4xl font-bold text-emerald-700">Generating Complete Report...</p>
-    </div>`;
-  document.getElementById("reportGeneratedTime").textContent = new Date().toLocaleString("en-NG", { dateStyle: "full", timeStyle: "medium" });
+      <p class="mt-10 text-4xl font-bold text-emerald-700">Generating Report...</p>
+    </div>
+  `;
   new bootstrap.Modal(document.getElementById("completeReportPreviewModal")).show();
+
   try {
-    const res = await fetch(`/api/student-report?student_id=${studentId}&session=${student.session}&term=${student.term}&type=complete&section_id=${student.sectionId}&class_id=${student.classId}`);
+    const res = await fetch(`/api/student-report?student_id=${studentId}&session=${student.session}&term=${student.term}`);
     const data = await res.json();
-    if (!data.success) throw new Error("No report data");
+    if (!data.success) throw new Error(data.message || "No report data");
+
     const r = data.data;
-    currentCompleteReportData = { ...r, student };
-    const subjectRows = r.subjects.map(s => `
-      <tr class="hover:bg-emerald-50 transition text-lg">
-        <td class="py-4 px-6 font-bold">${s.subject_name}</td>
-        <td class="py-4 px-6 text-center">${s.ca1 || "-"}</td>
-        <td class="py-4 px-6 text-center">${s.ca2 || "-"}</td>
-        <td class="py-4 px-6 text-center">${s.exam || "-"}</td>
-        <td class="py-4 px-6 text-center font-bold text-emerald-700">${s.total || "-"}</td>
-        <td class="py-4 px-6 text-center">
-          <span class="px-6 py-3 rounded-full text-white font-bold text-xl ${s.grade === 'A' ? 'bg-emerald-600' : s.grade === 'B' ? 'bg-green-500' : s.grade === 'C' ? 'bg-yellow-500' : 'bg-red-600'}">
-            ${s.grade || "F"}
-          </span>
-        </td>
-        <td class="py-4 px-6 text-center font-bold">${s.position || "-"}</td>
-      </tr>
-    `).join("");
-    document.getElementById("completeReportPreviewBody").innerHTML = `
-      <div class="max-w-6xl mx-auto bg-white rounded-3xl shadow-2xl p-12 border-8 border-emerald-700">
-        <!-- Header -->
-        <div class="text-center mb-12">
-          <img src="assets/images/logo.jpeg" class="w-40 h-40 mx-auto rounded-full shadow-2xl border-8 border-white">
-          <h1 class="text-6xl font-bold text-emerald-800 mt-8">IBADURRAHMAN COLLEGE</h1>
-          <p class="text-3xl text-emerald-600 mt-4">Kano, Nigeria</p>
-          <p class="text-2xl text-gray-700 mt-4">No. 1968 A, Gwammaja Housing Estate, Kano</p>
+    window.currentCompleteReportData = { ...r, student };
+
+    const infoRows = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:15px;">
+        <div style="background:#f8fafb;padding:10px;"><strong>Name:</strong> ${r.full_name}</div>
+        <div style="background:#ffffff;padding:10px;"><strong>Admission No:</strong> ${r.student_id}</div>
+        <div style="background:#f8fafb;padding:10px;"><strong>Class:</strong> ${student.class_name}</div>
+        <div style="background:#ffffff;padding:10px;"><strong>Session:</strong> ${student.session}</div>
+        <div style="background:#f8fafb;padding:10px;"><strong>Term:</strong> ${student.term}</div>
+        <div style="background:#ffffff;padding:10px;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
+        <div style="background:#f8fafb;padding:10px;"><strong>Attendance:</strong> ${r.attendance_percent}% (${r.attendance_present} days present out of ${r.attendance_total})</div>
+      
         </div>
-        <div class="bg-gradient-to-r from-emerald-700 to-teal-700 text-white p-10 rounded-3xl shadow-2xl mb-12">
-          <h2 class="text-5xl font-bold text-center mb-6">END OF TERM REPORT SHEET</h2>
-          <div class="grid grid-cols-3 gap-8 text-2xl">
-            <div><strong>Name:</strong> ${r.full_name}</div>
-            <div><strong>ID:</strong> ${r.student_id}</div>
-            <div><strong>Position:</strong> <span class="text-4xl font-bold text-yellow-300">${r.position_in_class || "N/A"}</span></div>
-            <div><strong>Class:</strong> ${student.class_name}</div>
-            <div><strong>Session:</strong> ${student.session}</div>
-            <div><strong>Term:</strong> ${student.term}</div>
+    `;
+
+    const subjectRows = (r.subjects || []).map((s, i) => {
+      const rowBg = i % 2 === 0 ? "#f8fafb" : "#fff";
+      const gradeComment = dailyGradeComments[s.grade] ?? "-"; // comment based on grade
+      return `
+        <tr style="background:${rowBg}">
+          <td>${s.subject_name}</td>
+          <td>${s.ca1 ?? "-"}</td>
+          <td>${s.ca2 ?? "-"}</td>
+          <td>${s.exam ?? "-"}</td>
+          <td>${s.total ?? "-"}</td>
+          <td>${s.grade ?? "-"}</td>
+          <td>${gradeComment}</td>
+        </tr>
+      `;
+    }).join("");
+
+    previewBody.innerHTML = `
+      <div style="max-width:980px;margin:auto;font-family:Inter;">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e6f4ef;padding-bottom:12px;margin-bottom:18px;">
+          <img src="${schoolInfo.logoSrc}" style="width:84px;height:84px;border-radius:50%;border:2px solid #e6eef0;">
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:#065f46">${schoolInfo.name}</div>
+            <div>${schoolInfo.address}</div>
+            <div>Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}</div>
           </div>
+          <div style="width:84px;"></div>
         </div>
-        <!-- Academic Results -->
-        <div class="mb-12">
-          <h3 class="text-4xl font-bold text-emerald-700 mb-6 text-center">ACADEMIC PERFORMANCE</h3>
-          <div class="overflow-x-auto rounded-3xl shadow-2xl">
-            <table class="w-full bg-white">
-              <thead class="bg-emerald-700 text-white text-xl">
-                <tr>
-                  <th class="py-6 px-8">Subject</th>
-                  <th class="py-6 px-8">CA1</th>
-                  <th class="py-6 px-8">CA2</th>
-                  <th class="py-6 px-8">Exam</th>
-                  <th class="py-6 px-8">Total</th>
-                  <th class="py-6 px-8">Grade</th>
-                  <th class="py-6 px-8">Pos</th>
-                </tr>
-              </thead>
-              <tbody>${subjectRows}</tbody>
-            </table>
-          </div>
-        </div>
-        <!-- Tahfiz & Attendance -->
-        <div class="grid grid-cols-2 gap-12 mb-12">
-          <div class="bg-gradient-to-br from-emerald-600 to-teal-600 text-white p-10 rounded-3xl shadow-2xl">
-            <h3 class="text-4xl font-bold mb-6">TAHFIZ RESULT</h3>
-            <div class="text-3xl space-y-4">
-              <div><strong>Grade:</strong> <span class="text-6xl font-bold">${r.tahfiz_grade || "N/A"}</span></div>
-              <div><strong>Total:</strong> ${r.tahfiz_total || "0"}%</div>
-            </div>
-          </div>
-          <div class="bg-gradient-to-br from-blue-600 to-indigo-600 text-white p-10 rounded-3xl shadow-2xl">
-            <h3 class="text-4xl font-bold mb-6">ATTENDANCE</h3>
-            <div class="text-3xl space-y-4">
-              <div><strong>Present:</strong> ${r.attendance_present || 0} days</div>
-              <div><strong>Total:</strong> ${r.attendance_total || 0} days</div>
-              <div><strong>Percentage:</strong> <span class="text-5xl font-bold">${r.attendance_percent || "0%"}</span></div>
-            </div>
-          </div>
-        </div>
-        <!-- Comments -->
-        <div class="grid grid-cols-2 gap-12 mb-12">
-          <div class="bg-yellow-50 border-4 border-yellow-400 rounded-3xl p-10">
-            <h3 class="text-3xl font-bold text-yellow-800 mb-6">Class Teacher's Comment</h3>
-            <p class="text-2xl italic">"${r.teacher_comment || "_________________________________________________"}"</p>
-          </div>
-          <div class="bg-blue-50 border-4 border-blue-400 rounded-3xl p-10">
-            <h3 class="text-3xl font-bold text-blue-800 mb-6">Form Master's Comment</h3>
-            <p class="text-2xl italic">"${r.form_master_comment || "_________________________________________________"}"</p>
-          </div>
-        </div>
-        <!-- Signature -->
-        <div class="text-center mt-20">
-          <div class="inline-block bg-gray-200 border-4 border-dashed rounded-xl w-64 h-32"></div>
-          <p class="text-2xl font-bold text-emerald-800 mt-4">Principal's Signature</p>
-        </div>
-        <div class="text-center mt-16 text-gray-600">
-          <p class="text-lg">Generated on: <strong>${new Date().toLocaleString("en-NG", { dateStyle: "full", timeStyle: "long" })}</strong></p>
-          <p class="text-sm">Ibadurrahman College • Kano, Nigeria • November 11, 2025 09:54 PM WAT</p>
+
+        ${infoRows}
+
+        <table style="width:100%;border:1px solid #ddd;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f3f4f6;font-weight:700">
+              <th>Subject</th><th>CA1</th><th>CA2</th><th>Exam</th><th>Total</th><th>Grade</th><th>Comment</th>
+            </tr>
+          </thead>
+          <tbody>${subjectRows}</tbody>
+        </table>
+        <div style="text-align:center;margin-top:18px;">
+          <div style="height:36px;"></div>
+          <div style="width:240px;margin:auto;border-top:2px solid #000;margin-bottom:8px"></div>
+          <div style="font-weight:700">Sadiku Muhammad Ahmad</div>
+          <div>Director</div>
         </div>
       </div>
     `;
   } catch (err) {
-    document.getElementById("completeReportPreviewBody").innerHTML = `
-      <div class="text-center py-40 text-red-600">
-        <p class="text-5xl font-bold">ERROR</p>
-        <p class="text-3xl mt-8">${err.message}</p>
-      </div>`;
+    previewBody.innerHTML = `<div style="color:red;text-align:center;padding:50px">${err.message}</div>`;
   }
 };
-// DOWNLOAD TAHFIZ REPORT AS PDF (PERFECT QUALITY)
+// =====================================================================
+// DOWNLOAD TAHFIZ PDF
+// =====================================================================
 window.downloadCurrentTahfizPdf = async () => {
-  if (!currentTahfizData) return alert("Generate preview first!");
+  const data = window.currentTahfizData;
+  if (!data) return alert("Generate the Tahfiz report first!");
+
   const element = document.getElementById("tahfizPreviewBody");
-  const modal = document.getElementById("tahfizPreviewModal");
-  modal.style.background = "white"; // Prevent dark overlay in PDF
-  try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false,
-      windowWidth: 1200
-    });
-    const imgData = canvas.toDataURL("image/png");
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF("p", "mm", "a4");
-    const imgWidth = 210;
-    const pageHeight = 297;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-    // Add first page
-    doc.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-    // Add new pages if content overflows
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      doc.addPage();
-      doc.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
-    // Footer on every page
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(9);
-      doc.setTextColor(100);
-      doc.text(`Generated: ${new Date().toLocaleString("en-NG", { dateStyle: "full", timeStyle: "long" })}`, 105, 290, { align: "center" });
-      doc.text(`Ibadurrahman College • Kano, Nigeria • Page ${i} of ${pageCount}`, 105, 295, { align: "center" });
-    }
-    doc.save(`${currentTahfizData.full_name}_Tahfiz_Report_${currentTahfizData.student.term}_${currentTahfizData.student.session}.pdf`);
-   
-    // Success feedback
-    modal.style.background = "";
-    alert(`Tahfiz Report saved successfully!\n${currentTahfizData.full_name}`);
-  } catch (err) {
-    console.error(err);
-    alert("PDF generation failed. Please try again.");
+  const canvas = await html2canvas(element, { scale: 1.5, useCORS: true });
+  const imgData = canvas.toDataURL("image/jpeg", 0.75);
+  const pdf = new jspdf.jsPDF("p", "mm", "a4");
+
+  const width = 190;
+  const ratio = canvas.height / canvas.width;
+  let height = width * ratio;
+  let y = 10;
+
+  pdf.addImage(imgData, "JPEG", 10, y, width, height);
+  while (height > 277) {
+    height -= 277;
+    pdf.addPage();
+    pdf.addImage(imgData, "JPEG", 10, -height + 10, width, width * ratio);
   }
+
+  pdf.save(`${data.full_name}_tahfiz.pdf`);
 };
-// DOWNLOAD COMPLETE REPORT AS PDF (HIGH QUALITY, FULL SCREEN)
+
+// =====================================================================
+// DOWNLOAD COMPLETE REPORT PDF
+// =====================================================================
 window.downloadCurrentCompletePdf = async () => {
-  if (!currentCompleteReportData) return alert("Generate preview first!");
+  const data = window.currentCompleteReportData;
+  if (!data) return alert("Generate complete report first!");
+
   const element = document.getElementById("completeReportPreviewBody");
-  const modal = document.getElementById("completeReportPreviewModal");
-  modal.style.background = "white";
-  try {
-    const canvas = await html2canvas(element, {
-      scale: 2.5,
-      useCORS: true,
-      backgroundColor: "#ffffff",
-      logging: false,
-      windowWidth: 1400,
-      height: element.scrollHeight + 1000
-    });
-    const imgData = canvas.toDataURL("image/png");
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF("p", "mm", "a4");
-    const imgWidth = 210;
-    const pageHeight = 297;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-    doc.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      doc.addPage();
-      doc.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-    }
-    // Professional footer
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(10);
-      doc.setTextColor(80);
-      doc.setFont("helvetica", "italic");
-      doc.text(`Official Report • Ibadurrahman College, Kano • ${new Date().toLocaleDateString("en-NG")}`, 105, 290, { align: "center" });
-      doc.setFontSize(9);
-      doc.text(`Page ${i} of ${pageCount} • Generated at ${new Date().toLocaleTimeString("en-NG")}`, 105, 295, { align: "center" });
-    }
-    const fileName = `${currentCompleteReportData.full_name}_Complete_Report_${currentCompleteReportData.student.term}_${currentCompleteReportData.student.session}.pdf`;
-    doc.save(fileName);
-    modal.style.background = "";
-    alert(`Complete Report saved!\n${currentCompleteReportData.full_name}\n\nReady for printing or WhatsApp sharing`);
-  } catch (err) {
-    console.error(err);
-    alert("Failed to generate PDF. Check internet & try again.");
+  const canvas = await html2canvas(element, { scale: 1.5, useCORS: true });
+  const imgData = canvas.toDataURL("image/jpeg", 0.75);
+  const pdf = new jspdf.jsPDF("p", "mm", "a4");
+
+  const width = 190;
+  const ratio = canvas.height / canvas.width;
+  let height = width * ratio;
+  let y = 10;
+
+  pdf.addImage(imgData, "JPEG", 10, y, width, height);
+  while (height > 277) {
+    height -= 277;
+    pdf.addPage();
+    pdf.addImage(imgData, "JPEG", 10, -height + 10, width, width * ratio);
   }
+
+  pdf.save(`${data.full_name}_complete_report.pdf`);
 };
+
+
 // Upload video
 async function uploadVideo(e) {
   e.preventDefault()
