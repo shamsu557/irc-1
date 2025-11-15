@@ -57,7 +57,6 @@ function switchTahfizTab(tab) {
   if (tab === 'overall') loadClasses("overallClassSelect");
 }
 document.getElementById('gradingBtn').addEventListener('click', () => switchTahfizTab('grading'));
-document.getElementById('dailyResultBtn').addEventListener('click', () => switchTahfizTab('daily'));
 document.getElementById('overallResultBtn').addEventListener('click', () => switchTahfizTab('overall'));
 // === SUBJECTS: TAB SWITCHING ===
 const subjectTabs = {
@@ -785,33 +784,44 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 // 1. LOAD CLASSES INTO DROPDOWN (Call this on page load)
+// SUPER FAST: Load classes for Reports tab (uses direct endpoint)
 async function loadReportClasses() {
   const select = document.getElementById("reportClassSelect");
   select.innerHTML = '<option value="">Loading classes...</option>';
+
   try {
     const sessionRes = await fetch("/api/staff-session");
     const sessionData = await sessionRes.json();
     if (!sessionData.success) {
-      select.innerHTML = '<option value="">Login required</option>';
+      select.innerHTML = '<option value="">Session expired</option>';
       return;
     }
+
     const staffId = sessionData.data.staff_id;
-    const res = await fetch(`/api/staff-classes/${staffId}`);
+
+    // THIS IS THE WINNER → direct, clean, fast query
+    const res = await fetch(`/api/staff-classes/${staffId}`, {
+      credentials: "include"
+    });
+
     const result = await res.json();
+
     if (result.success && result.data.length > 0) {
       select.innerHTML = '<option value="">Select Class</option>';
       result.data.forEach(cls => {
         const option = document.createElement("option");
-        option.value = `${cls.section_id}:${cls.class_id}`;
-        option.textContent = `${cls.section_name} - ${cls.class_name}`;
+        // Use section_id:class_id or western_class_id depending on section
+        const classId = cls.section_id === 1 ? cls.class_id : cls.western_class_id;
+        option.value = `${cls.section_id}:${classId || ''}`;
+        option.textContent = cls.class_name;
         select.appendChild(option);
       });
     } else {
       select.innerHTML = '<option value="">No classes assigned</option>';
     }
   } catch (err) {
-    console.error(err);
-    select.innerHTML = '<option value="">Error loading classes</option>';
+    console.error("Error loading report classes:", err);
+    select.innerHTML = '<option value="">Error loading</option>';
   }
 }
 // 2. LOAD SESSIONS INTO DROPDOWN
@@ -915,43 +925,23 @@ async function loadReportStudents() {
   }
 }
 // =====================================================================
-// DAILY GRADE COMMENTS
+// DAILY & FINAL GRADE COMMENTS
 // =====================================================================
-const dailyGradeComments = {
-  A: "Excellent",
-  B: "Very good",
-  C: "Good",
-  D: "Pass",
-  E: "Fair",
-  F: "Fail"
-};
-
-// =====================================================================
-// FINAL GRADE COMMENTS
-// =====================================================================
+const dailyGradeComments = { A: "Excellent", B: "Very good", C: "Good", D: "Pass", E: "Fair", F: "Fail" };
 const finalGradeComments = {
-  A: "Excellent performance",
-  B: "Very good performance",
-  C: "Good performance",
-  D: "Pass – Warning",
-  E: "Probation",
-  F: "Fail"
+  A: "Excellent performance", B: "Very good performance", C: "Good performance",
+  D: "Pass – Warning", E: "Probation", F: "Fail"
 };
 
 // =====================================================================
-// TAHFIZ REPORT (PREVIEW)
+// TAHFIZ REPORT – CONTENT MOVED UP
 // =====================================================================
 window.generateTahfizReport = async (studentId) => {
   const student = currentReportStudentsData.find(s => s.student_id === studentId);
   if (!student) return alert("Student not loaded.");
 
   const previewBody = document.getElementById("tahfizPreviewBody");
-  previewBody.innerHTML = `
-    <div class="text-center py-32">
-      <div class="spinner-border text-emerald-600 w-24 h-24"></div>
-      <p class="mt-8 text-3xl font-bold text-emerald-700">Generating Tahfiz Report...</p>
-    </div>
-  `;
+  previewBody.innerHTML = `<div class="text-center py-40"><div class="spinner-border text-emerald-600 w-32 h-32"></div><p class="mt-10 text-4xl font-bold text-emerald-700">Generating Tahfiz Report...</p></div>`;
   new bootstrap.Modal(document.getElementById("tahfizPreviewModal")).show();
 
   try {
@@ -962,118 +952,89 @@ window.generateTahfizReport = async (studentId) => {
     const t = data.data;
     window.currentTahfizData = { ...t, student };
 
-    const dailyScoreValue = t.daily_score ?? t.daily_score_percent ?? t.daily_score_value ?? "-";
-    const examScoreValue  = t.exam_score  ?? t.exam_score_percent  ?? t.exam_mark ?? "-";
-    const finalScoreValue = t.total_score ?? t.total_mark ?? t.final_score ?? "-";
-    const finalGradeValue = t.final_grade ?? t.finalGrade ?? t.grade ?? "-";
+    const dailyScore = t.daily_score ?? t.daily_score_percent ?? t.daily_score_value ?? "-";
+    const examScore  = t.exam_score  ?? t.exam_score_percent  ?? t.exam_mark ?? "-";
+    const totalScore = t.total_score ?? t.total_mark ?? t.final_score ?? "-";
+    const finalGrade = (t.final_grade ?? t.finalGrade ?? t.grade ?? "-").toUpperCase();
+    const finalComment = t.final_grade_comment ?? t.final_comment ?? finalGradeComments[finalGrade] ?? "No comment";
 
-    const finalCommentFromApi = t.final_grade_comment ?? t.final_comment ?? null;
-    const finalComment = finalCommentFromApi ?? finalGradeComments[finalGradeValue?.toUpperCase()] ?? "-";
+    const rows = (t.daily_records || []).map((r, i) => `
+      <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};">
+        <td style="padding:10px 8px; font-size:14px;">${r.week ? "Week " + r.week + " - " : ""}${r.assessed_day || r.day || "N/A"}</td>
+        <td style="padding:10px 8px; font-size:14px;">${r.from_surah_ayah ?? r.from_ayah ?? "-"}</td>
+        <td style="padding:10px 8px; font-size:14px;">${r.to_surah_ayah ?? r.to_ayah ?? "-"}</td>
+        <td style="padding:10px 8px; text-align:center; font-size:16px; font-weight:bold; color:#065f46;">${r.daily_grade ?? "-"}</td>
+        <td style="padding:10px 8px; font-size:14px; color:#555;">${dailyGradeComments[r.daily_grade] ?? "-"}</td>
+      </tr>`).join("");
 
-    const rows = (t.daily_records || []).map((r, idx) => {
-      const rowBgClass = idx % 2 === 0 ? "bg-gray-50" : "bg-white";
-      const assessedDay = r.assessed_day || r.assessed_day_arabic || r.day || "N/A";
-      const fromAyah = r.from_surah_ayah ?? r.from_ayah ?? "-";
-      const toAyah = r.to_surah_ayah ?? r.to_ayah ?? "-";
-      const dailyGrade = r.daily_grade ?? "-";
-      const dailyComment = dailyGradeComments[dailyGrade] ?? "-";
-      return `
-        <tr class="${rowBgClass}">
-          <td class="py-3 px-4 border">${r.week ? "Week " + r.week + " - " : ""}${assessedDay}</td>
-          <td class="py-3 px-4 border">${fromAyah}</td>
-          <td class="py-3 px-4 border">${toAyah}</td>
-          <td class="py-3 px-4 border text-center font-bold">${dailyGrade}</td>
-          <td class="py-3 px-4 border italic">${dailyComment}</td>
-        </tr>
-      `;
-    }).join("");
-
- const infoRows = `
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:15px;">
-    <div style="background:#f8fafb;padding:10px;"><strong>Student:</strong> ${t.full_name || student.full_name}</div>
-    <div style="background:#ffffff;padding:10px;"><strong>Admission No:</strong> ${t.student_id || student.student_id}</div>
-    <div style="background:#f8fafb;padding:10px;"><strong>Class:</strong> ${student.class_name}</div>
-    <div style="background:#ffffff;padding:10px;"><strong>Session:</strong> ${student.session}</div>
-    <div style="background:#f8fafb;padding:10px;"><strong>Term:</strong> ${student.term}</div>
-    <div style="background:#ffffff;padding:10px;"><strong>Date:</strong> ${new Date().toLocaleDateString("en-NG")}</div>
-    <div style="background:#f8fafb;padding:10px;"><strong>Attendance:</strong> ${t.attendance?.percentage ?? "-"} (${t.attendance?.present ?? 0} of ${t.attendance?.total ?? 0} days)</div>
-    <div style="background:#ffffff;padding:10px;"><strong>Status:</strong> ${finalComment}</div>
-  </div>
-`;
-
+    const infoGrid = `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0; font-size:15px;">
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Student:</strong> ${t.full_name || student.full_name}</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Adm No:</strong> ${t.student_id || student.student_id}</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Class:</strong> ${student.class_name}</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Session:</strong> ${student.session}</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Term:</strong> ${student.term}</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Attendance:</strong> ${t.attendance?.percentage ?? "-"} (${t.attendance?.present ?? 0} out of ${t.attendance?.total ?? 0} days present)</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Daily Score:</strong> ${dailyScore}%</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Exam Score:</strong> ${examScore}%</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Total Score:</strong> ${totalScore}%</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Final Grade:</strong> ${finalGrade}</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px; grid-column: span 2;"><strong>Final Comment:</strong> ${finalComment}</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Date:</strong> ${new Date().toLocaleDateString("en-NG")}</div>
+      </div>`;
 
     previewBody.innerHTML = `
-      <div style="max-width:920px;margin:0 auto;font-family:Inter;">
-        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e6f4ef;padding-bottom:12px;margin-bottom:18px;">
-          <img src="${schoolInfo.logoSrc}" style="width:84px;height:84px;border-radius:50%;border:2px solid #e6eef0;object-fit:cover;">
-          <div style="text-align:center;flex:1;">
-            <div style="font-size:20px;font-weight:700;color:#065f46">${schoolInfo.name}</div>
-            <div style="color:#374151;margin-top:6px">${schoolInfo.address}</div>
-            <div style="color:#6b7280;margin-top:4px">Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}</div>
+      <div style="max-width:960px; margin:0 auto; font-family:Arial,sans-serif; padding:8px 20px 20px; background:white; line-height:1.4;">
+        <!-- MOVED UP: Less top padding -->
+        <div style="text-align:center; border-bottom:3px solid #065f46; padding:10px 0 12px; margin-bottom:15px;">
+          <div style="display:inline-block; width:100%;">
+            <img src="${schoolInfo.logoSrc}" style="width:90px; height:90px; border-radius:50%; border:3px solid #e6f4ef; display:block; margin:0 auto;">
           </div>
-          <div style="width:84px;"></div>
+          <div style="font-size:26px; font-weight:bold; color:#065f46; margin-top:12px;">${schoolInfo.name}</div>
+          <div style="font-size:14px; color:#555; margin-top:4px;">${schoolInfo.address} • Tel: ${schoolInfo.phone}</div>
         </div>
 
-        ${infoRows}
-
-        <div style="overflow-x:auto;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:14px;">
-          <table style="width:100%;border-collapse:collapse;font-size:14px;">
-            <thead>
-              <tr style="background:#f3f4f6;font-weight:600;">
-                <th>Week & Day</th><th>From Ayah</th><th>To Ayah</th><th>Grade</th><th>Comment</th>
-              </tr>
-            </thead>
-            <tbody>${rows || `<tr><td colspan="5">No data</td></tr>`}</tbody>
-          </table>
+        <div style="text-align:center; margin-bottom:20px;">
+          <h2 style="font-size:26px; font-weight:bold; color:#065f46; margin:0; text-transform:uppercase; letter-spacing:2px;">
+            Tahfiz Report
+          </h2>
         </div>
 
-        <div style="padding:12px;background:#fafafa;text-align:center;">
-          <div style="display:flex;justify-content:space-around;max-width:680px;margin:auto;font-size:15px;">
-            <div><strong>Daily (80%):</strong> ${dailyScoreValue}%</div>
-            <div><strong>Exam (20%):</strong> ${examScoreValue}%</div>
-            <div><strong>Total:</strong> ${finalScoreValue}%</div>
-          </div>
+        ${infoGrid}
 
-          <div style="margin-top:14px;">
-            <div style="display:inline-block;padding:18px 28px;border-radius:8px;border:1px solid #f59e0b;font-weight:700;font-size:32px;background:#fff;">
-              ${finalGradeValue}
-            </div>
-            <div style="margin-top:10px;font-size:16px;font-weight:600;color:#111827">${finalComment}</div>
-            <div style="font-size:13px;color:#6b7280;margin-top:6px">FINAL GRADE</div>
+        <table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:14px;">
+          <thead>
+            <tr style="background:#ecfdf5; color:#065f46;">
+              <th style="padding:10px; border-bottom:2px solid #065f46;">Week & Day</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">From</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">To</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">Grade</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">Comment</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+
+        <div style="text-align:center; margin-top:50px; font-size:14px;">
+          <div style="width:250px; margin:0 auto; border-top:3px solid #000; padding-top:10px;">
+            <strong>Sadiku Muhammad Ahmad</strong><br>Director
           </div>
         </div>
-
-        <div style="text-align:center;margin-top:18px;">
-          <div style="height:36px;"></div>
-          <div style="width:240px;margin:auto;border-top:2px solid #1f2937;margin-bottom:8px"></div>
-          <div style="font-weight:700;color:#111827">Sadiku Muhammad Ahmad</div>
-          <div style="color:#374151">Director</div>
-        </div>
-
-        <div style="text-align:center;color:#6b7280;font-size:12px;margin-top:12px;">
-          Generated on: <strong>${new Date().toLocaleString()}</strong>
-        </div>
-      </div>
-    `;
+      </div>`;
   } catch (err) {
-    previewBody.innerHTML = `<div style="color:red;text-align:center;padding:50px">${err.message}</div>`;
+    previewBody.innerHTML = `<div style="color:red; text-align:center; padding:80px; font-size:20px;">${err.message}</div>`;
   }
 };
 
 // =====================================================================
-// COMPLETE REPORT (PREVIEW)
+// COMPLETE REPORT – CONTENT MOVED UP
 // =====================================================================
 window.generateCompleteReport = async (studentId) => {
   const student = currentReportStudentsData.find(s => s.student_id === studentId);
   if (!student) return alert("Student not loaded.");
 
   const previewBody = document.getElementById("completeReportPreviewBody");
-  previewBody.innerHTML = `
-    <div class="text-center py-40">
-      <div class="spinner-border text-emerald-600 w-32 h-32"></div>
-      <p class="mt-10 text-4xl font-bold text-emerald-700">Generating Report...</p>
-    </div>
-  `;
+  previewBody.innerHTML = `<div class="text-center py-40"><div class="spinner-border text-emerald-600 w cote-32 h-32"></div><p class="mt-10 text-4xl font-bold text-emerald-700">Generating Report...</p></div>`;
   new bootstrap.Modal(document.getElementById("completeReportPreviewModal")).show();
 
   try {
@@ -1084,124 +1045,124 @@ window.generateCompleteReport = async (studentId) => {
     const r = data.data;
     window.currentCompleteReportData = { ...r, student };
 
-    const infoRows = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;font-size:15px;">
-        <div style="background:#f8fafb;padding:10px;"><strong>Name:</strong> ${r.full_name}</div>
-        <div style="background:#ffffff;padding:10px;"><strong>Admission No:</strong> ${r.student_id}</div>
-        <div style="background:#f8fafb;padding:10px;"><strong>Class:</strong> ${student.class_name}</div>
-        <div style="background:#ffffff;padding:10px;"><strong>Session:</strong> ${student.session}</div>
-        <div style="background:#f8fafb;padding:10px;"><strong>Term:</strong> ${student.term}</div>
-        <div style="background:#ffffff;padding:10px;"><strong>Date:</strong> ${new Date().toLocaleDateString()}</div>
-        <div style="background:#f8fafb;padding:10px;"><strong>Attendance:</strong> ${r.attendance_percent}% (${r.attendance_present} days present out of ${r.attendance_total})</div>
-      
-        </div>
-    `;
+    const infoGrid = `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0; font-size:15px;">
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Student:</strong> ${r.full_name}</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Adm No:</strong> ${r.student_id}</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Class:</strong> ${student.class_name}</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Session:</strong> ${student.session}</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Term:</strong> ${student.term}</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Attendance:</strong> ${r.attendance_percent} (${r.attendance_present} out of ${r.attendance_total} days present)</div>
+        <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Date:</strong> ${new Date().toLocaleDateString("en-NG")}</div>
+      </div>`;
 
-    const subjectRows = (r.subjects || []).map((s, i) => {
-      const rowBg = i % 2 === 0 ? "#f8fafb" : "#fff";
-      const gradeComment = dailyGradeComments[s.grade] ?? "-"; // comment based on grade
-      return `
-        <tr style="background:${rowBg}">
-          <td>${s.subject_name}</td>
-          <td>${s.ca1 ?? "-"}</td>
-          <td>${s.ca2 ?? "-"}</td>
-          <td>${s.exam ?? "-"}</td>
-          <td>${s.total ?? "-"}</td>
-          <td>${s.grade ?? "-"}</td>
-          <td>${gradeComment}</td>
-        </tr>
-      `;
-    }).join("");
+    const subjectRows = (r.subjects || []).map((s, i) => `
+      <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};">
+        <td style="padding:10px 8px; font-size:14px;">${s.subject_name}</td>
+        <td style="padding:10px 8px; text-align:center; font-size:14px;">${s.ca1 ?? "-"}</td>
+        <td style="padding:10px 8px; text-align:center; font-size:14px;">${s.ca2 ?? "-"}</td>
+        <td style="padding:10px 8px; text-align:center; font-size:14px;">${s.exam ?? "-"}</td>
+        <td style="padding:10px 8px; text-align:center; font-weight:bold; color:#065f46;">${s.total ?? "-"}</td>
+        <td style="padding:10px 8px; text-align:center; font-size:16px; font-weight:bold; color:${s.grade === "A" ? "#065f46" : s.grade === "F" ? "#c00" : "#000"};">${s.grade ?? "-"}</td>
+        <td style="padding:10px 8px; font-size:14px; color:#555;">${dailyGradeComments[s.grade] ?? "-"}</td>
+      </tr>`).join("");
 
     previewBody.innerHTML = `
-      <div style="max-width:980px;margin:auto;font-family:Inter;">
-        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e6f4ef;padding-bottom:12px;margin-bottom:18px;">
-          <img src="${schoolInfo.logoSrc}" style="width:84px;height:84px;border-radius:50%;border:2px solid #e6eef0;">
-          <div style="flex:1;text-align:center;">
-            <div style="font-size:20px;font-weight:700;color:#065f46">${schoolInfo.name}</div>
-            <div>${schoolInfo.address}</div>
-            <div>Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}</div>
+      <div style="max-width:960px; margin:0 auto; font-family:Arial,sans-serif; padding:8px 20px 20px; background:white; line-height:1.4;">
+        <!-- MOVED UP: Less top padding -->
+        <div style="text-align:center; border-bottom:3px solid #065f46; padding:10px 0 12px; margin-bottom:15px;">
+          <div style="display:inline-block; width:100%;">
+            <img src="${schoolInfo.logoSrc}" style="width:90px; height:90px; border-radius:50%; border:3px solid #e6f4ef; display:block; margin:0 auto;">
           </div>
-          <div style="width:84px;"></div>
+          <div style="font-size:26px; font-weight:bold; color:#065f46; margin-top:12px;">${schoolInfo.name}</div>
+          <div style="font-size:14px; color:#555; margin-top:4px;">${schoolInfo.address} • Tel: ${schoolInfo.phone}</div>
         </div>
 
-        ${infoRows}
+        <div style="text-align:center; margin-bottom:20px;">
+          <h2 style="font-size:26px; font-weight:bold; color:#065f46; margin:0; text-transform:uppercase; letter-spacing:2px;">
+            Report Sheet
+          </h2>
+        </div>
 
-        <table style="width:100%;border:1px solid #ddd;border-collapse:collapse;">
+        ${infoGrid}
+
+        <table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:14px;">
           <thead>
-            <tr style="background:#f3f4f6;font-weight:700">
-              <th>Subject</th><th>CA1</th><th>CA2</th><th>Exam</th><th>Total</th><th>Grade</th><th>Comment</th>
+            <tr style="background:#ecfdf5; color:#065f46;">
+              <th style="padding:10px; border-bottom:2px solid #065f46; text-align:left;">Subject</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">CA1</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">CA2</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">Exam</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">Total</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46;">Grade</th>
+              <th style="padding:10px; border-bottom:2px solid #065f46; text-align:left;">Comment</th>
             </tr>
           </thead>
           <tbody>${subjectRows}</tbody>
         </table>
-        <div style="text-align:center;margin-top:18px;">
-          <div style="height:36px;"></div>
-          <div style="width:240px;margin:auto;border-top:2px solid #000;margin-bottom:8px"></div>
-          <div style="font-weight:700">Sadiku Muhammad Ahmad</div>
-          <div>Director</div>
+
+        <div style="text-align:center; margin-top:50px; font-size:14px;">
+          <div style="width:250px; margin:0 auto; border-top:3px solid #000; padding-top:10px;">
+            <strong>Sadiku Muhammad Ahmad</strong><br>Director
+          </div>
         </div>
-      </div>
-    `;
+      </div>`;
   } catch (err) {
-    previewBody.innerHTML = `<div style="color:red;text-align:center;padding:50px">${err.message}</div>`;
+    previewBody.innerHTML = `<div style="color:red; text-align:center; padding:80px; font-size:20px;">${err.message}</div>`;
   }
 };
-// =====================================================================
-// DOWNLOAD TAHFIZ PDF
-// =====================================================================
-window.downloadCurrentTahfizPdf = async () => {
-  const data = window.currentTahfizData;
-  if (!data) return alert("Generate the Tahfiz report first!");
 
-  const element = document.getElementById("tahfizPreviewBody");
-  const canvas = await html2canvas(element, { scale: 1.5, useCORS: true });
-  const imgData = canvas.toDataURL("image/jpeg", 0.75);
+// =====================================================================
+// PDF GENERATOR – IMAGE STARTS HIGHER ON PAGE
+// =====================================================================
+const generatePDF = async (elementId, filename) => {
+  const element = document.getElementById(elementId);
+  if (!element) return alert("Content not ready");
+  const clone = element.cloneNode(true);
+  clone.style.cssText = "position:absolute; left:-9999px; width:210mm; padding:8px 15mm 20mm; background:white; font-size:13px; line-height:1.4;";
+  document.body.appendChild(clone);
+
+  const canvas = await html2canvas(clone, {
+    scale: 1.8,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    windowWidth: 1000
+  });
+  document.body.removeChild(clone);
+
+  const imgData = canvas.toDataURL("image/jpeg", 0.85);
   const pdf = new jspdf.jsPDF("p", "mm", "a4");
+  const imgWidth = 190;
+  const pageHeight = 280;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  let heightLeft = imgHeight;
+  let position = 2; // ← MOVED UP from 10 to 2!
 
-  const width = 190;
-  const ratio = canvas.height / canvas.width;
-  let height = width * ratio;
-  let y = 10;
+  pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
 
-  pdf.addImage(imgData, "JPEG", 10, y, width, height);
-  while (height > 277) {
-    height -= 277;
+  while (heightLeft > 0) {
     pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 10, -height + 10, width, width * ratio);
+    position = 2 - pageHeight;
+    pdf.addImage(imgData, "JPEG", 10, position + 10, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
   }
 
-  pdf.save(`${data.full_name}_tahfiz.pdf`);
+  pdf.save(filename);
 };
 
 // =====================================================================
-// DOWNLOAD COMPLETE REPORT PDF
+// DOWNLOAD FUNCTIONS – UNCHANGED
 // =====================================================================
-window.downloadCurrentCompletePdf = async () => {
-  const data = window.currentCompleteReportData;
-  if (!data) return alert("Generate complete report first!");
-
-  const element = document.getElementById("completeReportPreviewBody");
-  const canvas = await html2canvas(element, { scale: 1.5, useCORS: true });
-  const imgData = canvas.toDataURL("image/jpeg", 0.75);
-  const pdf = new jspdf.jsPDF("p", "mm", "a4");
-
-  const width = 190;
-  const ratio = canvas.height / canvas.width;
-  let height = width * ratio;
-  let y = 10;
-
-  pdf.addImage(imgData, "JPEG", 10, y, width, height);
-  while (height > 277) {
-    height -= 277;
-    pdf.addPage();
-    pdf.addImage(imgData, "JPEG", 10, -height + 10, width, width * ratio);
-  }
-
-  pdf.save(`${data.full_name}_complete_report.pdf`);
+window.downloadCurrentTahfizPdf = () => {
+  if (!window.currentTahfizData) return alert("Generate Tahfiz report first!");
+  generatePDF("tahfizPreviewBody", `${window.currentTahfizData.student?.full_name || "Student"}_Tahfiz_Report.pdf`);
 };
 
-
+window.downloadCurrentCompletePdf = () => {
+  if (!window.currentCompleteReportData) return alert("Generate complete report first!");
+  generatePDF("completeReportPreviewBody", `${window.currentCompleteReportData.student?.full_name || "Student"}_Report_Sheet.pdf`);
+};
 // Upload video
 async function uploadVideo(e) {
   e.preventDefault()

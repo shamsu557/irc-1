@@ -3510,59 +3510,31 @@ async function verifyStaffSession(req, res, next) {
   }
 }
 
-// GET STAFF'S CLASSES (FIXED JOIN LOGIC)
-app.get("/api/staff-classes/:staff_id", verifyStaffSession, async (req, res) => {
-  const { staff_id } = req.params;
+// BEST & FINAL VERSION — USE ONLY THIS ONE
+app.get("/api/staff-classes/:staffId", verifyStaffSession, async (req, res) => {
+  const staffId = req.params.staffId;
+
   try {
     const [rows] = await pool.query(`
-      SELECT DISTINCT 
-        c.section_id, 
-        c.class_id, 
-        c.name AS class_name, 
-        s.name AS section_name
-      FROM class_assignments ca
-      JOIN classes c ON ca.class_id = c.class_id AND ca.section_id = c.section_id
-      JOIN sections s ON c.section_id = s.id
-      WHERE ca.staff_id = ?
-      ORDER BY s.name, c.name
-    `, [staff_id]);
+      SELECT 
+        sc.section_id,
+        COALESCE(c.class_name, wc.class_name) AS class_name,
+        sc.class_id,
+        sc.western_class_id
+      FROM staff_classes sc
+      LEFT JOIN Classes c ON sc.section_id = 1 AND sc.class_id = c.class_id
+      LEFT JOIN Western_Classes wc ON sc.section_id = 2 AND sc.western_class_id = wc.western_class_id
+      WHERE sc.staff_id = ?
+      GROUP BY sc.section_id, sc.class_id, sc.western_class_id, class_name
+      ORDER BY sc.section_id, class_name
+    `, [staffId]);
 
     res.json({ success: true, data: rows });
   } catch (err) {
-    console.error("Staff Classes Error:", err);
+    console.error("Error in /api/staff-classes (final):", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
-// ──────────────────────────────────────────────────────────────
-// 1. STAFF CLASSES
-// ──────────────────────────────────────────────────────────────
-app.get("/api/staff-classes/:staffId", verifyStaffSession, async (req, res) => {
-  const { staffId } = req.params;
-  log(`Fetching classes for staff ${staffId}`);
-
-  try {
-    const [rows] = await pool.query(
-      `SELECT c.id AS class_id, c.name AS class_name, s.id AS section_id, s.name AS section_name
-       FROM Staff_Classes sc
-       JOIN classes c ON sc.class_id = c.id
-       JOIN sections s ON c.section_id = s.id
-       WHERE sc.staff_id = ?`,
-      [staffId]
-    );
-
-    if (!rows.length) {
-      log(`No classes for staff ${staffId}`);
-      return res.status(404).json({ success: false, message: "No classes assigned" });
-    }
-
-    res.json({ success: true, data: rows });
-  } catch (err) {
-    log(`staff-classes error`, err);
-    res.status(500).json({ success: false, message: "DB error" });
-  }
-});
-
 // ──────────────────────────────────────────────────────────────
 // 2. DASHBOARD STATS (FIX 404 + JSON)
 // ──────────────────────────────────────────────────────────────
@@ -3795,8 +3767,6 @@ app.get("/api/student-report", (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   });
 });
-//server
 app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-
+  console.log(`Server running on http://localhost:${port}`);
 });
