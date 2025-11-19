@@ -38,6 +38,29 @@ const upload = multer({
         cb(null, true);
     }
 });
+// NEW: For memorization videos/audio only (MP4, MP3, etc.)
+const uploadVideo = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, 'public/uploads'),
+        filename: (req, file, cb) => {
+            const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, `video-${unique}${path.extname(file.originalname)}`);
+        }
+    }),
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+    fileFilter: (req, file, cb) => {
+        const allowed = [
+            'video/mp4', 'video/webm', 'video/quicktime', 'video/mpeg',
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg'
+        ];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only video and audio files allowed'));
+        }
+    }
+});
+
 
 // Middleware
 app.use(cors());
@@ -3767,6 +3790,120 @@ app.get("/api/student-report", (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   });
 });
+// =============================================
+// MEMORIZATION VIDEOS – FULL BACKEND (FINAL)
+// =============================================
+
+// GET: All videos for a staff (gallery + filters)
+app.get("/api/memorization-videos/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const staffId = req.params.staffId;
+
+  const sql = `
+    SELECT 
+      v.id,
+      v.video_url,
+      v.session,
+      v.term,
+      v.week,
+      v.from_ayah,
+      v.to_ayah,
+      v.class_id,
+      v.section_id,
+      COALESCE(c.class_name, wc.class_name) AS class_name,
+      v.uploaded_at
+    FROM Memorization_Videos v
+    LEFT JOIN Classes c ON v.section_id = 1 AND v.class_id = c.class_id
+    LEFT JOIN Western_Classes wc ON v.section_id = 2 AND v.class_id = wc.western_class_id
+    WHERE v.staff_id = ?
+    ORDER BY v.uploaded_at DESC
+  `;
+
+  db.query(sql, [staffId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching videos:", err);
+      return res.status(500).json({ success: false });
+    }
+    res.json({ success: true, data: rows });
+  });
+});
+
+// POST: Upload memorization video – FIXED VERSION
+app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No video file uploaded" });
+  }
+
+  const {
+    class_id,
+    section_id,
+    session,
+    term,
+    week,
+    from_ayah,
+    to_ayah
+  } = req.body;
+
+  if (!class_id || !section_id || !session || !term || !week || !from_ayah || !to_ayah) {
+    return res.status(400).json({ success: false, message: "All fields are required" });
+  }
+
+  const video_url = `/uploads/${req.file.filename}`;
+
+  const sql = `
+    INSERT INTO Memorization_Videos 
+    (staff_id, class_id, section_id, session, term, week, from_ayah, to_ayah, video_url, uploaded_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+
+  // ← FIXED: Use req.session.staffId instead of currentStaffId
+  db.query(sql, [
+    req.session.staffId,  // ← THIS IS CORRECT
+    class_id,
+    section_id,
+    session,
+    term,
+    week,
+    from_ayah,
+    to_ayah,
+    video_url
+  ], (err, result) => {
+    if (err) {
+      console.error("Upload error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    res.json({ success: true, message: "Video uploaded successfully" });
+  });
+});
+app.delete("/api/delete-memorization-video/:id", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false });
+  }
+
+  const videoId = req.params.id;
+
+  db.query("SELECT video_url FROM Memorization_Videos WHERE id = ? AND staff_id = ?", [videoId, req.session.staffId], (err, rows) => {
+    if (err || rows.length === 0) {
+      return res.status(404).json({ success: false });
+    }
+
+    const filePath = path.join(__dirname, 'public', rows[0].video_url);
+    fs.unlink(filePath, () => {});
+
+    db.query("DELETE FROM Memorization_Videos WHERE id = ? AND staff_id = ?", [videoId, req.session.staffId], (err) => {
+      if (err) return res.status(500).json({ success: false });
+      res.json({ success: true });
+    });
+  });
+});
+//server listen to port 5000
 app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+  console.log(`Ser ver running on http://localhost:${port}`);
 });

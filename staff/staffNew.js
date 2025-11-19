@@ -1727,3 +1727,220 @@ async function exportAttendanceExcel() {
   XLSX.utils.book_append_sheet(wb, ws, "Attendance");
   XLSX.writeFile(wb, `Attendance_${className.replace(/ /g, "_")}_Week${week}_${term}_${session}.xlsx`);
 }
+// =============================================
+// MEMORIZATION VIDEOS – UPLOAD + GALLERY (FINAL & PERFECT)
+// =============================================
+let allVideos = [];
+let visibleCount = 4;
+
+// Load all videos when Videos tab opens
+async function loadAllVideos() {
+  try {
+    const resp = await fetch(`/api/memorization-videos/${currentStaffId}`);
+    const result = await resp.json();
+    if (result.success && result.data.length > 0) {
+      allVideos = result.data.sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
+      populateFilters();
+      renderVideos();
+    } else {
+      document.getElementById("videoGrid").innerHTML = '<p class="text-center text-gray-500 col-span-4 py-20 text-xl">No videos uploaded yet.</p>';
+      document.getElementById("loadMoreBtn").classList.add("hidden");
+    }
+  } catch (e) {
+    console.error("Error loading videos:", e);
+  }
+}
+
+// Populate Session & Class filters
+function populateFilters() {
+  const sessionSelect = document.getElementById("filterSession");
+  const classSelect = document.getElementById("filterClass");
+
+  const sessions = [...new Set(allVideos.map(v => v.session))].sort((a, b) => b.localeCompare(a));
+  const classes = [...new Set(allVideos.map(v => `${v.section_id}:${v.class_id}|${v.class_name}`))];
+
+  sessionSelect.innerHTML = '<option value="">All Sessions</option>';
+  sessions.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s;
+    opt.textContent = s;
+    sessionSelect.appendChild(opt);
+  });
+
+  classSelect.innerHTML = '<option value="">All Classes</option>';
+  classes.forEach(c => {
+    const [value, name] = c.split('|');
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = name;
+    classSelect.appendChild(opt);
+  });
+}
+
+// Render videos in gallery
+function renderVideos() {
+  const grid = document.getElementById("videoGrid");
+  grid.innerHTML = "";
+
+  const sessionFilter = document.getElementById("filterSession").value;
+  const termFilter = document.getElementById("filterTerm").value;
+  const weekFilter = document.getElementById("filterWeek").value;
+  const classFilter = document.getElementById("filterClass").value;
+
+  let filtered = allVideos;
+  if (sessionFilter) filtered = filtered.filter(v => v.session === sessionFilter);
+  if (termFilter) filtered = filtered.filter(v => v.term == termFilter);
+  if (weekFilter) filtered = filtered.filter(v => v.week == weekFilter);
+  if (classFilter) {
+    const [section_id, class_id] = classFilter.split(':');
+    filtered = filtered.filter(v => v.section_id == section_id && v.class_id == class_id);
+  }
+
+  const toShow = filtered.slice(0, visibleCount);
+
+  if (toShow.length === 0) {
+    grid.innerHTML = '<p class="text-center text-gray-500 col-span-4 py-20 text-xl">No videos found for this filter.</p>';
+    document.getElementById("loadMoreBtn").classList.add("hidden");
+    document.getElementById("showLessBtn").classList.add("hidden");
+    return;
+  }
+
+  toShow.forEach(video => {
+    const card = document.createElement("div");
+    card.className = "bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl transition";
+    card.onclick = () => openVideoModal(video);
+    card.innerHTML = `
+      <video class="w-full h-56 object-cover">
+        <source src="${video.video_url}" type="video/mp4">
+      </video>
+      <div class="p-4 text-center">
+        <p class="font-bold text-emerald-700 text-lg">${video.class_name}</p>
+        <p class="text-sm text-gray-700">${video.session}</p>
+        <p class="text-sm text-gray-600">Term ${video.term} • Week ${video.week}</p>
+        <p class="text-sm font-semibold text-emerald-600 mt-2">${video.from_ayah} → ${video.to_ayah}</p>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  const hasMore = visibleCount < filtered.length;
+  document.getElementById("loadMoreBtn").classList.toggle("hidden", !hasMore);
+  document.getElementById("showLessBtn").classList.toggle("hidden", visibleCount <= 4);
+}
+
+// Open video in modal
+function openVideoModal(video) {
+  document.getElementById("videoSessionInfo").textContent = video.session;
+  document.getElementById("videoTermInfo").textContent = `Term ${video.term}`;
+  document.getElementById("videoWeekInfo").textContent = `Week ${video.week}`;
+  document.getElementById("videoClassInfo").textContent = video.class_name;
+  document.getElementById("videoAyatInfo").textContent = `${video.from_ayah} → ${video.to_ayah}`;
+
+  const player = document.getElementById("modalVideoPlayer");
+  player.querySelector("source").src = video.video_url;
+  player.load();
+
+  document.getElementById("deleteVideoBtn").onclick = () => deleteVideo(video.id);
+
+  new bootstrap.Modal(document.getElementById("videoModal")).show();
+}
+
+// Delete video
+async function deleteVideo(id) {
+  if (!confirm("Are you sure you want to delete this video permanently?")) return;
+  try {
+    const resp = await fetch(`/api/delete-memorization-video/${id}`, { method: "DELETE" });
+    const res = await resp.json();
+    if (res.success) {
+      alert("Video deleted successfully");
+      bootstrap.Modal.getInstance(document.getElementById("videoModal")).hide();
+      visibleCount = 4;
+      loadAllVideos();
+    } else {
+      alert("Delete failed: " + res.message);
+    }
+  } catch (e) {
+    alert("Error deleting video");
+  }
+}
+
+// VIDEO UPLOAD — SENDS SESSION, TERM, CLASS, WEEK, FROM AYAH, TO AYAH
+document.getElementById("videoUploadForm")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const classVal = document.getElementById("videoClassSelect").value;
+  const session = document.getElementById("videoSessionSelect").value;
+  const term = document.getElementById("videoTermSelect").value;
+  const week = document.getElementById("videoWeekSelect").value;
+  const file = document.getElementById("videoFile").files[0];
+  const ayatText = document.getElementById("videoAyatRangeDisplay").textContent.trim();
+
+  if (!classVal || !session || !term || !week || !file) {
+    alert("Please fill all fields");
+    return;
+  }
+
+  if (!ayatText || ayatText.includes("No ayat") || !ayatText.includes("→")) {
+    alert("Please select a valid ayat range (Week + Day)");
+    return;
+  }
+
+  const [section_id, class_id] = classVal.split(":");
+  const [from_ayah, to_ayah] = ayatText.split(" → ").map(s => s.trim());
+
+  const formData = new FormData();
+  formData.append("class_id", class_id);
+  formData.append("section_id", section_id);
+  formData.append("session", session);
+  formData.append("term", term);
+  formData.append("week", week);
+  formData.append("from_ayah", from_ayah);
+  formData.append("to_ayah", to_ayah);
+  formData.append("video", file);
+
+  try {
+    const resp = await fetch("/api/upload-memorization-video", {
+      method: "POST",
+      body: formData
+    });
+    const res = await resp.json();
+
+    if (res.success) {
+      alert("Video uploaded successfully!");
+      document.getElementById("videoUploadForm").reset();
+      document.getElementById("videoAyatRangeSection").style.display = "none";
+      visibleCount = 4;
+      loadAllVideos(); // Refresh gallery
+    } else {
+      alert("Upload failed: " + (res.message || "Unknown error"));
+    }
+  } catch (err) {
+    console.error("Upload error:", err);
+    alert("Network error — please try again");
+  }
+});
+
+// Buttons
+document.getElementById("loadMoreBtn")?.addEventListener("click", () => {
+  visibleCount += 8;
+  renderVideos();
+});
+
+document.getElementById("showLessBtn")?.addEventListener("click", () => {
+  visibleCount = 4;
+  renderVideos();
+});
+
+document.getElementById("applyFilterBtn")?.addEventListener("click", () => {
+  visibleCount = 4;
+  renderVideos();
+});
+
+// Load videos when Videos tab opens
+const originalSwitchView = switchView;
+function switchView(view) {
+  originalSwitchView(view);
+  if (view === "videos") {
+    loadAllVideos();
+  }
+}
