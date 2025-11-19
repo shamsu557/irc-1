@@ -3793,8 +3793,7 @@ app.get("/api/student-report", (req, res) => {
 // =============================================
 // MEMORIZATION VIDEOS – FULL BACKEND (FINAL)
 // =============================================
-
-// GET: All videos for a staff (gallery + filters)
+// GET: All videos for staff's classes (no staff_id in table)
 app.get("/api/memorization-videos/:staffId", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -3816,9 +3815,12 @@ app.get("/api/memorization-videos/:staffId", (req, res) => {
       COALESCE(c.class_name, wc.class_name) AS class_name,
       v.uploaded_at
     FROM Memorization_Videos v
+    JOIN staff_classes sc ON v.section_id = sc.section_id 
+      AND ((sc.section_id = 1 AND v.class_id = sc.class_id) 
+        OR (sc.section_id = 2 AND v.class_id = sc.western_class_id))
     LEFT JOIN Classes c ON v.section_id = 1 AND v.class_id = c.class_id
     LEFT JOIN Western_Classes wc ON v.section_id = 2 AND v.class_id = wc.western_class_id
-    WHERE v.staff_id = ?
+    WHERE sc.staff_id = ?
     ORDER BY v.uploaded_at DESC
   `;
 
@@ -3831,7 +3833,7 @@ app.get("/api/memorization-videos/:staffId", (req, res) => {
   });
 });
 
-// POST: Upload memorization video – FIXED VERSION
+// POST: Upload memorization video – NO staff_id
 app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -3859,13 +3861,11 @@ app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, re
 
   const sql = `
     INSERT INTO Memorization_Videos 
-    (staff_id, class_id, section_id, session, term, week, from_ayah, to_ayah, video_url, uploaded_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    (class_id, section_id, session, term, week, from_ayah, to_ayah, video_url, uploaded_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
 
-  // ← FIXED: Use req.session.staffId instead of currentStaffId
   db.query(sql, [
-    req.session.staffId,  // ← THIS IS CORRECT
     class_id,
     section_id,
     session,
@@ -3882,6 +3882,8 @@ app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, re
     res.json({ success: true, message: "Video uploaded successfully" });
   });
 });
+
+// DELETE: Only staff who teaches the class can delete
 app.delete("/api/delete-memorization-video/:id", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false });
@@ -3889,18 +3891,19 @@ app.delete("/api/delete-memorization-video/:id", (req, res) => {
 
   const videoId = req.params.id;
 
-  db.query("SELECT video_url FROM Memorization_Videos WHERE id = ? AND staff_id = ?", [videoId, req.session.staffId], (err, rows) => {
-    if (err || rows.length === 0) {
+  const sql = `
+    DELETE v FROM Memorization_Videos v
+    JOIN staff_classes sc ON v.section_id = sc.section_id 
+      AND ((sc.section_id = 1 AND v.class_id = sc.class_id) 
+        OR (sc.section_id = 2 AND v.class_id = sc.western_class_id))
+    WHERE v.id = ? AND sc.staff_id = ?
+  `;
+
+  db.query(sql, [videoId, req.session.staffId], (err, result) => {
+    if (err || result.affectedRows === 0) {
       return res.status(404).json({ success: false });
     }
-
-    const filePath = path.join(__dirname, 'public', rows[0].video_url);
-    fs.unlink(filePath, () => {});
-
-    db.query("DELETE FROM Memorization_Videos WHERE id = ? AND staff_id = ?", [videoId, req.session.staffId], (err) => {
-      if (err) return res.status(500).json({ success: false });
-      res.json({ success: true });
-    });
+    res.json({ success: true });
   });
 });
 //server listen to port 5000
