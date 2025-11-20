@@ -676,19 +676,28 @@
 <div id="videos-view" style="display:none;">
   <h2 class="text-2xl font-semibold mb-6 text-emerald-700">Memorization Videos</h2>
 
-  <!-- Upload Form (your original – unchanged) -->
+  <!-- Upload Form -->
   <div class="bg-white p-6 rounded-xl shadow-lg mb-8 border border-emerald-100">
     <h4 class="text-lg font-bold mb-4 text-emerald-600">Upload New Video</h4>
+
     <form id="videoUploadForm" enctype="multipart/form-data">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-        <select class="form-select" id="videoClassSelect" required><option value="">Select Class</option></select>
-        <select class="form-select" id="videoSessionSelect" required><option value="">Select Session</option></select>
+
+        <select class="form-select" id="videoClassSelect" required>
+          <option value="">Select Class</option>
+        </select>
+
+        <select class="form-select" id="videoSessionSelect" required>
+          <option value="">Select Session</option>
+        </select>
+
         <select class="form-select" id="videoTermSelect" required>
           <option value="">Select Term</option>
           <option value="1">1st Term</option>
           <option value="2">2nd Term</option>
           <option value="3">3rd Term</option>
         </select>
+
         <select class="form-select" id="videoWeekSelect" required>
           <option value="">Select Week</option>
           <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
@@ -697,19 +706,30 @@
           <option value="10">Week 10</option><option value="11">Week 11</option><option value="12">Week 12</option>
           <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
         </select>
-        <select class="form-select" id="videoDaySelect" style="display:none;" required>
+
+        <!-- Day: optional but required in your form -->
+        <select name="day" class="form-select" id="videoDaySelect" style="display:none;" required>
           <option value="">Select Day</option>
           <option value="السبت">السبت (Saturday)</option>
           <option value="الأحد">الأحد (Sunday)</option>
         </select>
       </div>
+
+      <!-- Ayat Range Display -->
       <div id="videoAyatRangeSection" class="mb-4 p-4 bg-emerald-50 rounded-lg hidden">
-        <strong>Ayat Range:</strong> <span id="videoAyatRangeDisplay" class="font-bold text-emerald-700"></span>
+        <strong>Ayat Range:</strong> 
+        <span id="videoAyatRangeDisplay" class="font-bold text-emerald-700"></span>
       </div>
+
+      <!-- REQUIRED Hidden inputs for backend -->
+      <input type="hidden" id="from_ayah">
+      <input type="hidden" id="to_ayah">
+
       <div class="mb-4">
         <label class="form-label font-semibold">Video File</label>
         <input type="file" class="form-control" id="videoFile" accept="video/*" required>
       </div>
+
       <button type="submit" class="btn btn-success px-6">Upload Video</button>
     </form>
   </div>
@@ -719,12 +739,14 @@
     <h4 class="text-lg font-bold mb-4 text-emerald-600">Filter Videos</h4>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <select id="filterSession" class="form-select"><option value="">All Sessions</option></select>
+
       <select id="filterTerm" class="form-select">
         <option value="">All Terms</option>
         <option value="1">1st Term</option>
         <option value="2">2nd Term</option>
         <option value="3">3rd Term</option>
       </select>
+
       <select id="filterWeek" class="form-select">
         <option value="">All Weeks</option>
         <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
@@ -733,12 +755,14 @@
         <option value="10">Week 10</option><option value="11">Week 11</option><option value="12">Week 12</option>
         <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
       </select>
+
       <select id="filterClass" class="form-select"><option value="">All Classes</option></select>
+
       <button id="applyFilterBtn" class="btn btn-primary">Apply Filter</button>
     </div>
   </div>
 
-  <!-- GALLERY GRID — ALL VIDEOS SAME SIZE -->
+  <!-- GALLERY GRID -->
   <div id="videoGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
     <!-- Videos appear here -->
   </div>
@@ -749,19 +773,22 @@
     <button id="showLessBtn" class="btn btn-outline-secondary px-10 py-3 text-lg hidden">Show Less</button>
   </div>
 
-  <!-- Video Modal — SHOWS ONLY SESSION, TERM, WEEK, CLASS, AYAT RANGE -->
+  <!-- Video Modal -->
   <div class="modal fade" id="videoModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered">
       <div class="modal-content rounded-xl overflow-hidden">
+
         <div class="modal-header bg-emerald-700 text-white">
           <h5 class="modal-title">Memorization Video</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
+
         <div class="modal-body p-0 bg-black">
           <video id="modalVideoPlayer" controls controlsList="nodownload" class="w-100" style="height:70vh;">
             <source src="" type="video/mp4">
           </video>
         </div>
+
         <div class="modal-footer bg-emerald-50 flex-col items-start">
           <div class="text-left">
             <p class="mb-1"><strong>Session:</strong> <span id="videoSessionInfo"></span></p>
@@ -770,15 +797,19 @@
             <p class="mb-1"><strong>Class:</strong> <span id="videoClassInfo"></span></p>
             <p class="mb-1 text-emerald-700 font-bold text-lg" id="videoAyatInfo"></p>
           </div>
+
           <div class="mt-4">
             <button type="button" class="btn btn-danger btn-sm" id="deleteVideoBtn">Delete Video</button>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           </div>
+
         </div>
       </div>
     </div>
   </div>
+
 </div>
+
         <!-- Daily Result Modal -->
         <div class="modal fade" id="dailyResultModal" tabindex="-1">
             <div class="modal-dialog modal-lg">
