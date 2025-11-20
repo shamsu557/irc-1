@@ -6,6 +6,9 @@ let currentTahfizData = null;
 let currentCompleteReportData = null;
 const termMap = { "First Term": 1, "Second Term": 2, "Third Term": 3 };
 let currentReportStudentsData = null; // stores the full list after “Load Students”
+let allVideos = [];
+let visibleCount = 4;
+let filtersApplied = false; // Controls if filtering is active
 
 // Initialize dashboard — FIXED: ALL CLASSES & SESSIONS LOAD INSTANTLY
 document.addEventListener("DOMContentLoaded", async () => {
@@ -33,13 +36,13 @@ async function cacheAndPopulateAllClassDropdowns() {
     const assigned = staffData.data.classes;
     const allClasses = classesData.data;
 
-    const ids = [
+        const ids = [
       "attendanceClassSelect","viewAttendanceClassSelect",
       "memorizationClassSelect","dailyClassSelect","overallClassSelect",
       "subjectClassSelect","viewSubjectClassSelect",
-      "reportClassSelect","videoClassSelect"
+      "reportClassSelect","videoClassSelect",
+      "filterClass"  // ← ADD THIS LINE
     ];
-
     ids.forEach(id => {
       const select = document.getElementById(id);
       if (!select) return;
@@ -72,7 +75,8 @@ async function loadSessions() {
         document.getElementById("overallSessionSelect"),
         document.getElementById("subjectSessionSelect"),
         document.getElementById("viewSubjectSessionSelect"),
-        document.getElementById("videoSessionSelect")   // ← ADDED!
+        document.getElementById("videoSessionSelect"),
+        document.getElementById("filterSession")   // ← ADD THIS LINE ONLY
       ];
       sessionSelects.forEach((select) => {
         if (select) {
@@ -355,20 +359,33 @@ function setupEventListeners() {
   document.getElementById("exportSubjectPdfBtn")?.addEventListener("click", exportSubjectPdf);
   document.getElementById("exportSubjectExcelBtn")?.addEventListener("click", exportSubjectExcel);
 }
-// Switch view
+// FINAL SWITCHVIEW — ONLY ONE FUNCTION (DELETE BOTH OLD ONES, USE THIS)
+const originalSwitchView = function(view) {
+  document.querySelectorAll('[id$="-view"]').forEach((v) => v.style.display = "none");
+  document.getElementById(`${view}-view`).style.display = "block";
+  document.querySelectorAll(".nav-link").forEach((link) => link.classList.remove("active"));
+  document.querySelector(`[data-view="${view}"]`)?.classList.add("active");
+
+  if (view === "attendance") {
+    loadClasses("attendanceClassSelect");
+    loadClasses("viewAttendanceClassSelect");
+  }
+  if (view === "memorization") loadClasses("memorizationClassSelect");
+  if (view === "subjects") switchSubjectTab('add');
+  if (view === "reports") loadClasses("reportClassSelect");
+  // No need for videos — handled below
+};
+
+// MAIN SWITCHVIEW — THIS IS THE ONLY ONE YOU KEEP
 function switchView(view) {
-  document.querySelectorAll('[id$="-view"]').forEach((v) => (v.style.display = "none"))
-  document.getElementById(`${view}-view`).style.display = "block"
-  document.querySelectorAll(".nav-link").forEach((link) => link.classList.remove("active"))
-  document.querySelector(`[data-view="${view}"]`).classList.add("active")
- if (view === "attendance") {
-  loadClasses("attendanceClassSelect");
-  loadClasses("viewAttendanceClassSelect");
-}
-  if (view === "memorization") loadClasses("memorizationClassSelect")
-  if (view === "subjects") switchSubjectTab('add')
-  if (view === "reports") loadClasses("reportClassSelect")
-  if (view === "videos") loadClasses("videoClassSelect")
+  originalSwitchView(view);  // Does all the normal tab switching
+
+  if (view === "videos") {
+    visibleCount = 4;
+    filtersApplied = false;
+    loadAllVideos();         // ← Loads videos every time
+    // loadStaffFilters();  // ← Already called on page load, no need here
+  }
 }
 // Load classes
 async function loadClasses(selectId) {
@@ -1727,118 +1744,155 @@ async function exportAttendanceExcel() {
   XLSX.utils.book_append_sheet(wb, ws, "Attendance");
   XLSX.writeFile(wb, `Attendance_${className.replace(/ /g, "_")}_Week${week}_${term}_${session}.xlsx`);
 }
-// =============================================
-// MEMORIZATION VIDEOS – UPLOAD + GALLERY (FINAL & PERFECT)
-// =============================================
-let allVideos = [];
-let visibleCount = 4;
 
-// Load all videos when Videos tab opens
+// =============================================
+// MEMORIZATION VIDEOS – FINAL & PERFECT (FULL CODE)
+// No filter by default | Shows 4 latest videos instantly | Optional filtering
+// =============================================
+
+
+// Load all uploaded videos for this staff
 async function loadAllVideos() {
   try {
     const resp = await fetch(`/api/memorization-videos/${currentStaffId}`);
     const result = await resp.json();
-    if (result.success && result.data.length > 0) {
+
+    if (result.success && result.data) {
       allVideos = result.data.sort((a, b) => new Date(b.uploaded_at) - new Date(a.uploaded_at));
-      populateFilters();
-      renderVideos();
     } else {
-      document.getElementById("videoGrid").innerHTML = '<p class="text-center text-gray-500 col-span-4 py-20 text-xl">No videos uploaded yet.</p>';
-      document.getElementById("loadMoreBtn").classList.add("hidden");
+      allVideos = [];
     }
+    renderVideos();
   } catch (e) {
     console.error("Error loading videos:", e);
+    document.getElementById("videoGrid").innerHTML = '<p class="text-center text-red-600">Failed to load videos</p>';
   }
 }
 
-// Populate Session & Class filters
-function populateFilters() {
-  const sessionSelect = document.getElementById("filterSession");
-  const classSelect = document.getElementById("filterClass");
+// Load Session & Class dropdowns for filters — SAME DATA AS UPLOAD FORM
+async function loadStaffFilters() {
+  try {
+    const resp = await fetch(`/api/staff-classes-sessions/${currentStaffId}`);
+    const result = await resp.json();
 
-  const sessions = [...new Set(allVideos.map(v => v.session))].sort((a, b) => b.localeCompare(a));
-  const classes = [...new Set(allVideos.map(v => `${v.section_id}:${v.class_id}|${v.class_name}`))];
+    if (!result.success || !result.sessions || !result.classes) {
+      console.warn("No classes/sessions returned for filters");
+      return;
+    }
 
-  sessionSelect.innerHTML = '<option value="">All Sessions</option>';
-  sessions.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s;
-    opt.textContent = s;
-    sessionSelect.appendChild(opt);
-  });
+    const sessionSelect = document.getElementById("filterSession");
+    const classSelect = document.getElementById("filterClass");
 
-  classSelect.innerHTML = '<option value="">All Classes</option>';
-  classes.forEach(c => {
-    const [value, name] = c.split('|');
-    const opt = document.createElement("option");
-    opt.value = value;
-    opt.textContent = name;
-    classSelect.appendChild(opt);
-  });
+    // Populate Sessions
+    sessionSelect.innerHTML = '<option value="">All Sessions</option>';
+    result.sessions.forEach(s => {
+      const opt = document.createElement("option");
+      opt.value = s;
+      opt.textContent = s;
+      sessionSelect.appendChild(opt);
+    });
+
+    // Populate Classes
+    classSelect.innerHTML = '<option value="">All Classes</option>';
+    result.classes.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c.value;
+      opt.textContent = c.name;
+      classSelect.appendChild(opt);
+    });
+
+  } catch (err) {
+    console.error("Failed to load filter dropdowns:", err);
+  }
 }
 
-// Render videos in gallery
+// Render gallery — filtering ONLY when user clicks "Apply Filter"
 function renderVideos() {
   const grid = document.getElementById("videoGrid");
   grid.innerHTML = "";
 
-  const sessionFilter = document.getElementById("filterSession").value;
-  const termFilter = document.getElementById("filterTerm").value;
-  const weekFilter = document.getElementById("filterWeek").value;
-  const classFilter = document.getElementById("filterClass").value;
+  let videosToShow = allVideos;
 
-  let filtered = allVideos;
-  if (sessionFilter) filtered = filtered.filter(v => v.session === sessionFilter);
-  if (termFilter) filtered = filtered.filter(v => v.term == termFilter);
-  if (weekFilter) filtered = filtered.filter(v => v.week == weekFilter);
-  if (classFilter) {
-    const [section_id, class_id] = classFilter.split(':');
-    filtered = filtered.filter(v => v.section_id == section_id && v.class_id == class_id);
+  // Apply filters only if user has clicked "Apply Filter"
+  if (filtersApplied) {
+    const sessionF = document.getElementById("filterSession").value;
+    const termF = document.getElementById("filterTerm").value;
+    const weekF = document.getElementById("filterWeek").value;
+    const classF = document.getElementById("filterClass").value;
+
+    if (sessionF) videosToShow = videosToShow.filter(v => v.session === sessionF);
+    if (termF) videosToShow = videosToShow.filter(v => v.term == termF);
+    if (weekF) videosToShow = videosToShow.filter(v => v.week == weekF);
+    if (classF) {
+      const [section_id, class_id] = classF.split(':');
+      videosToShow = videosToShow.filter(v => 
+        v.section_id == section_id && String(v.class_id) === class_id
+      );
+    }
   }
 
-  const toShow = filtered.slice(0, visibleCount);
+  const toShow = videosToShow.slice(0, visibleCount);
 
   if (toShow.length === 0) {
-    grid.innerHTML = '<p class="text-center text-gray-500 col-span-4 py-20 text-xl">No videos found for this filter.</p>';
+    const message = filtersApplied 
+      ? "No videos match the selected filters."
+      : "No videos uploaded yet.";
+    grid.innerHTML = `<p class="text-center text-gray-500 col-span-4 py-20 text-xl">${message}</p>`;
     document.getElementById("loadMoreBtn").classList.add("hidden");
     document.getElementById("showLessBtn").classList.add("hidden");
     return;
   }
 
   toShow.forEach(video => {
+    const videoDay = video.day || "N/A";
     const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl transition";
-    card.onclick = () => openVideoModal(video);
+    card.className = "bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl transition relative";
+
     card.innerHTML = `
-      <video class="w-full h-56 object-cover">
+      <video class="w-full h-56 object-cover" controls preload="metadata" playsinline>
         <source src="${video.video_url}" type="video/mp4">
+        Your browser does not support HTML5 video.
       </video>
       <div class="p-4 text-center">
         <p class="font-bold text-emerald-700 text-lg">${video.class_name}</p>
         <p class="text-sm text-gray-700">${video.session}</p>
-        <p class="text-sm text-gray-600">Term ${video.term} • Week ${video.week}</p>
+        <p class="text-sm text-gray-600">Term ${video.term} • Week ${video.week} • Day ${videoDay}</p>
         <p class="text-sm font-semibold text-emerald-600 mt-2">${video.from_ayah} → ${video.to_ayah}</p>
+        <button class="btn btn-danger btn-sm mt-2 delete-btn">Delete</button>
       </div>
     `;
+
+    card.addEventListener("click", (e) => {
+      if (!e.target.classList.contains("delete-btn")) openVideoModal(video);
+    });
+
+    card.querySelector(".delete-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteVideo(video.id);
+    });
+
     grid.appendChild(card);
   });
 
-  const hasMore = visibleCount < filtered.length;
+  const hasMore = visibleCount < videosToShow.length;
   document.getElementById("loadMoreBtn").classList.toggle("hidden", !hasMore);
   document.getElementById("showLessBtn").classList.toggle("hidden", visibleCount <= 4);
 }
 
-// Open video in modal
+// Open video modal
 function openVideoModal(video) {
+  const videoDay = video.day || "N/A";
+
   document.getElementById("videoSessionInfo").textContent = video.session;
   document.getElementById("videoTermInfo").textContent = `Term ${video.term}`;
-  document.getElementById("videoWeekInfo").textContent = `Week ${video.week}`;
+  document.getElementById("videoWeekInfo").textContent = `Week ${video.week} • Day ${videoDay}`;
   document.getElementById("videoClassInfo").textContent = video.class_name;
   document.getElementById("videoAyatInfo").textContent = `${video.from_ayah} → ${video.to_ayah}`;
 
   const player = document.getElementById("modalVideoPlayer");
-  player.querySelector("source").src = video.video_url;
+  player.src = video.video_url;
   player.load();
+  player.pause();
 
   document.getElementById("deleteVideoBtn").onclick = () => deleteVideo(video.id);
 
@@ -1848,23 +1902,31 @@ function openVideoModal(video) {
 // Delete video
 async function deleteVideo(id) {
   if (!confirm("Are you sure you want to delete this video permanently?")) return;
+
   try {
-    const resp = await fetch(`/api/delete-memorization-video/${id}`, { method: "DELETE" });
+    const resp = await fetch(`/api/delete-memorization-video/${id}/${currentStaffId}`, {
+      method: "DELETE"
+    });
     const res = await resp.json();
+
     if (res.success) {
       alert("Video deleted successfully");
-      bootstrap.Modal.getInstance(document.getElementById("videoModal")).hide();
       visibleCount = 4;
-      loadAllVideos();
+      filtersApplied = false;
+      await loadAllVideos();
+      const modalEl = document.getElementById("videoModal");
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
+      if (modalInstance) modalInstance.hide();
     } else {
-      alert("Delete failed: " + res.message);
+      alert("Delete failed: " + (res.message || "Unknown error"));
     }
-  } catch (e) {
+  } catch (err) {
+    console.error("Delete error:", err);
     alert("Error deleting video");
   }
 }
 
-// VIDEO UPLOAD — SENDS SESSION, TERM, CLASS, WEEK, FROM AYAH, TO AYAH
+// Upload form — your original working code
 document.getElementById("videoUploadForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
 
@@ -1872,10 +1934,11 @@ document.getElementById("videoUploadForm")?.addEventListener("submit", async (e)
   const session = document.getElementById("videoSessionSelect").value;
   const term = document.getElementById("videoTermSelect").value;
   const week = document.getElementById("videoWeekSelect").value;
+  const day = document.getElementById("videoDaySelect").value;
   const file = document.getElementById("videoFile").files[0];
   const ayatText = document.getElementById("videoAyatRangeDisplay").textContent.trim();
 
-  if (!classVal || !session || !term || !week || !file) {
+  if (!classVal || !session || !term || !week || !day || !file) {
     alert("Please fill all fields");
     return;
   }
@@ -1894,6 +1957,7 @@ document.getElementById("videoUploadForm")?.addEventListener("submit", async (e)
   formData.append("session", session);
   formData.append("term", term);
   formData.append("week", week);
+  formData.append("day", day);
   formData.append("from_ayah", from_ayah);
   formData.append("to_ayah", to_ayah);
   formData.append("video", file);
@@ -1910,7 +1974,8 @@ document.getElementById("videoUploadForm")?.addEventListener("submit", async (e)
       document.getElementById("videoUploadForm").reset();
       document.getElementById("videoAyatRangeSection").style.display = "none";
       visibleCount = 4;
-      loadAllVideos(); // Refresh gallery
+      filtersApplied = false;
+      await loadAllVideos();
     } else {
       alert("Upload failed: " + (res.message || "Unknown error"));
     }
@@ -1920,7 +1985,7 @@ document.getElementById("videoUploadForm")?.addEventListener("submit", async (e)
   }
 });
 
-// Buttons
+// Load More / Show Less
 document.getElementById("loadMoreBtn")?.addEventListener("click", () => {
   visibleCount += 8;
   renderVideos();
@@ -1931,16 +1996,10 @@ document.getElementById("showLessBtn")?.addEventListener("click", () => {
   renderVideos();
 });
 
+// Apply Filter — turns filtering ON
 document.getElementById("applyFilterBtn")?.addEventListener("click", () => {
   visibleCount = 4;
+  filtersApplied = true;
   renderVideos();
 });
 
-// Load videos when Videos tab opens
-const originalSwitchView = switchView;
-function switchView(view) {
-  originalSwitchView(view);
-  if (view === "videos") {
-    loadAllVideos();
-  }
-}

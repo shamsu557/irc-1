@@ -1736,24 +1736,25 @@ CREATE TABLE IF NOT EXISTS Sessions (
 
 
 DROP TABLE IF EXISTS Memorization_Videos;
+
 CREATE TABLE Memorization_Videos (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    staff_id INT NOT NULL,
-    class_id INT NOT NULL,
     section_id TINYINT NOT NULL CHECK (section_id IN (1,2)),
-    session VARCHAR(9) NOT NULL,
+    class_id INT NOT NULL,                -- class_id or western_class_id
+    session VARCHAR(9) NOT NULL,          -- 2024/2025
     term TINYINT NOT NULL CHECK (term IN (1,2,3)),
     week TINYINT NOT NULL CHECK (week BETWEEN 1 AND 15),
+    day VARCHAR(20) NOT NULL,             -- Day of the week (e.g., السبت, الأحد)
     from_ayah VARCHAR(50) NOT NULL,
     to_ayah VARCHAR(50) NOT NULL,
     video_url VARCHAR(500) NOT NULL,
     uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_staff (staff_id),
-    INDEX idx_session_term_week (session, term, week),
+
     INDEX idx_class (section_id, class_id),
+    INDEX idx_session_term_week_day (session, term, week, day),
     INDEX idx_uploaded (uploaded_at DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Insert sample sessions (already provided, included for reference)
 INSERT INTO Sessions (session_year, start_date, end_date, is_current) VALUES
 ('2023/2024', '2023-09-01', '2024-08-31', FALSE),

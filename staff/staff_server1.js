@@ -3791,9 +3791,10 @@ app.get("/api/student-report", (req, res) => {
   });
 });
 // =============================================
-// MEMORIZATION VIDEOS – FULL BACKEND (FINAL)
+// MEMORIZATION VIDEOS – ULTIMATE FINAL BACKEND (DELETE + FILTERS FIXED)
 // =============================================
-// GET: All videos for staff's classes (no staff_id in table)
+
+// GET: All videos for staff's classes
 app.get("/api/memorization-videos/:staffId", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -3808,6 +3809,7 @@ app.get("/api/memorization-videos/:staffId", (req, res) => {
       v.session,
       v.term,
       v.week,
+      v.day,  
       v.from_ayah,
       v.to_ayah,
       v.class_id,
@@ -3833,7 +3835,44 @@ app.get("/api/memorization-videos/:staffId", (req, res) => {
   });
 });
 
-// POST: Upload memorization video – NO staff_id
+// NEW ENDPOINT: Get staff's sessions & classes for filters AND upload form
+app.get("/api/staff-classes-sessions/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const staffId = req.params.staffId;
+
+  const sql = `
+    SELECT DISTINCT
+      sc.section_id,
+      COALESCE(c.class_id, wc.western_class_id) AS class_id,
+      COALESCE(c.class_name, wc.class_name) AS class_name,
+      sc.session
+    FROM staff_classes sc
+    LEFT JOIN Classes c ON sc.section_id = 1 AND sc.class_id = c.class_id
+    LEFT JOIN Western_Classes wc ON sc.section_id = 2 AND sc.western_class_id = wc.western_class_id
+    WHERE sc.staff_id = ?
+    ORDER BY sc.session DESC, class_name
+  `;
+
+  db.query(sql, [staffId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching staff classes/sessions:", err);
+      return res.status(500).json({ success: false });
+    }
+
+    const sessions = [...new Set(rows.map(r => r.session))].sort((a, b) => b.localeCompare(a));
+    const classes = rows.map(r => ({
+      value: `${r.section_id}:${r.class_id}`,
+      name: `${r.class_name} - ${r.session}`
+    }));
+
+    res.json({ success: true, sessions, classes });
+  });
+});
+
+// POST: Upload memorization video – replace if same class/session/term/week/day
 app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false, message: "Unauthorized" });
@@ -3849,61 +3888,96 @@ app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, re
     session,
     term,
     week,
+    day,
     from_ayah,
     to_ayah
   } = req.body;
 
-  if (!class_id || !section_id || !session || !term || !week || !from_ayah || !to_ayah) {
+  if (!class_id || !section_id || !session || !term || !week || !day || !from_ayah || !to_ayah) {
     return res.status(400).json({ success: false, message: "All fields are required" });
   }
 
   const video_url = `/uploads/${req.file.filename}`;
 
-  const sql = `
-    INSERT INTO Memorization_Videos 
-    (class_id, section_id, session, term, week, from_ayah, to_ayah, video_url, uploaded_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  const checkSql = `
+    SELECT id, video_url FROM Memorization_Videos
+    WHERE class_id=? AND section_id=? AND session=? AND term=? AND week=? AND day=?
   `;
 
-  db.query(sql, [
-    class_id,
-    section_id,
-    session,
-    term,
-    week,
-    from_ayah,
-    to_ayah,
-    video_url
-  ], (err, result) => {
+  db.query(checkSql, [class_id, section_id, session, term, week, day], (err, rows) => {
     if (err) {
-      console.error("Upload error:", err);
+      console.error("Check error:", err);
       return res.status(500).json({ success: false, message: "Database error" });
     }
-    res.json({ success: true, message: "Video uploaded successfully" });
+
+    if (rows.length > 0) {
+      const oldVideo = rows[0];
+      const oldFilePath = path.join(process.cwd(), 'public', 'uploads', path.basename(oldVideo.video_url));
+
+      fs.unlink(oldFilePath, (err) => {
+        if (err && err.code !== 'ENOENT') console.warn("Failed to delete old video:", err);
+      });
+
+      db.query("DELETE FROM Memorization_Videos WHERE id=?", [oldVideo.id], (err) => {
+        if (err) console.error("Failed to delete old record:", err);
+      });
+    }
+
+    const insertSql = `
+      INSERT INTO Memorization_Videos 
+      (class_id, section_id, session, term, week, day, from_ayah, to_ayah, video_url, uploaded_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+
+    db.query(insertSql, [class_id, section_id, session, term, week, day, from_ayah, to_ayah, video_url], (err) => {
+      if (err) {
+        console.error("Upload error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      res.json({ success: true, message: "Video uploaded successfully" });
+    });
   });
 });
 
-// DELETE: Only staff who teaches the class can delete
-app.delete("/api/delete-memorization-video/:id", (req, res) => {
+// DELETE: Fixed with staffId in URL
+app.delete("/api/delete-memorization-video/:id/:staffId", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "staff") {
     return res.status(401).json({ success: false });
   }
 
   const videoId = req.params.id;
+  const staffId = req.params.staffId;
 
-  const sql = `
-    DELETE v FROM Memorization_Videos v
-    JOIN staff_classes sc ON v.section_id = sc.section_id 
-      AND ((sc.section_id = 1 AND v.class_id = sc.class_id) 
+  const getSql = `
+    SELECT v.video_url FROM Memorization_Videos v
+    JOIN staff_classes sc ON v.section_id = sc.section_id
+      AND ((sc.section_id = 1 AND v.class_id = sc.class_id)
         OR (sc.section_id = 2 AND v.class_id = sc.western_class_id))
     WHERE v.id = ? AND sc.staff_id = ?
   `;
 
-  db.query(sql, [videoId, req.session.staffId], (err, result) => {
-    if (err || result.affectedRows === 0) {
-      return res.status(404).json({ success: false });
+  db.query(getSql, [videoId, staffId], (err, rows) => {
+    if (err || rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Video not found or unauthorized" });
     }
-    res.json({ success: true });
+
+    const video_url = rows[0].video_url;
+
+    db.query("DELETE FROM Memorization_Videos WHERE id=?", [videoId], (err) => {
+      if (err) {
+        console.error("Delete error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      const filePath = path.join(process.cwd(), 'public', 'uploads', path.basename(video_url));
+      fs.unlink(filePath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+          console.warn("Failed to delete video file:", err);
+        }
+      });
+
+      res.json({ success: true, message: "Video deleted successfully" });
+    });
   });
 });
 //server listen to port 5000
