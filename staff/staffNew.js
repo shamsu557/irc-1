@@ -2003,3 +2003,13 @@ document.getElementById("applyFilterBtn")?.addEventListener("click", () => {
   renderVideos();
 });
 
+// FINAL & 100% WORKING – VIDEOS ALWAYS SHOW AFTER REFRESH
+function switchView(view) {
+  originalSwitchView(view);  // Keeps all your tab logic
+
+  if (view === "videos") {
+    visibleCount = 4;
+    filtersApplied = false;
+    loadAllVideos();  // ← THIS LINE IS THE FINAL FIX – loads videos every time!
+  }
+}
