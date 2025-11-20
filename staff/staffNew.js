@@ -1844,36 +1844,35 @@ function renderVideos() {
   }
 
   toShow.forEach(video => {
-    const videoDay = video.day || "N/A";
-    const card = document.createElement("div");
-    card.className = "bg-white rounded-xl shadow-lg overflow-hidden cursor-pointer hover:shadow-2xl transition relative";
+  const videoDay = video.day || "N/A";
+  const card = document.createElement("div");
+  card.className = "bg-black rounded-xl shadow-2xl overflow-hidden cursor-pointer hover:shadow-2xl transition relative"; // ← Black background + better shadow
 
-    card.innerHTML = `
-      <video class="w-full h-56 object-cover" controls preload="metadata" playsinline>
-        <source src="${video.video_url}" type="video/mp4">
-        Your browser does not support HTML5 video.
-      </video>
-      <div class="p-4 text-center">
-        <p class="font-bold text-emerald-700 text-lg">${video.class_name}</p>
-        <p class="text-sm text-gray-700">${video.session}</p>
-        <p class="text-sm text-gray-600">Term ${video.term} • Week ${video.week} • Day ${videoDay}</p>
-        <p class="text-sm font-semibold text-emerald-600 mt-2">${video.from_ayah} → ${video.to_ayah}</p>
-        <button class="btn btn-danger btn-sm mt-2 delete-btn">Delete</button>
-      </div>
-    `;
+  card.innerHTML = `
+    <video class="w-full h-56 object-cover" controls preload="metadata" playsinline>
+      <source src="${video.video_url}" type="video/mp4">
+      Your browser does not support HTML5 video.
+    </video>
+    <div class="p-4 bg-gradient-to-t from-black/90 to-transparent text-white"> <!-- ← Dark overlay for text -->
+      <p class="font-bold text-emerald-400 text-lg">${video.class_name}</p>
+      <p class="text-sm opacity-90">${video.session}</p>
+      <p class="text-xs opacity-80">Term ${video.term} • Week ${video.week} • Day ${videoDay}</p>
+      <p class="text-sm font-semibold text-emerald-300 mt-2">${video.from_ayah} → ${video.to_ayah}</p>
+      <button class="btn btn-danger btn-sm mt-3 delete-btn">Delete</button>
+    </div>
+  `;
 
-    card.addEventListener("click", (e) => {
-      if (!e.target.classList.contains("delete-btn")) openVideoModal(video);
-    });
-
-    card.querySelector(".delete-btn").addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteVideo(video.id);
-    });
-
-    grid.appendChild(card);
+  card.addEventListener("click", (e) => {
+    if (!e.target.classList.contains("delete-btn")) openVideoModal(video);
   });
 
+  card.querySelector(".delete-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteVideo(video.id);
+  });
+
+  grid.appendChild(card);
+});
   const hasMore = visibleCount < videosToShow.length;
   document.getElementById("loadMoreBtn").classList.toggle("hidden", !hasMore);
   document.getElementById("showLessBtn").classList.toggle("hidden", visibleCount <= 4);
