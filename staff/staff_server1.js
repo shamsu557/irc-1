@@ -3980,6 +3980,223 @@ app.delete("/api/delete-memorization-video/:id/:staffId", (req, res) => {
     });
   });
 });
+// ADMIN: Get ALL classes (Islamic + Western)
+app.get("/api/admin-classes", (req, res) => {
+  const query = `
+    SELECT 'Islamic' AS type, class_id AS value, class_name AS name FROM Classes WHERE section_id = 1
+    UNION ALL
+    SELECT 'Western' AS type, western_class_id AS value, class_name AS name FROM Western_Classes WHERE section_id = 2
+    ORDER BY name
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ success: false });
+    res.json({ success: true, data: results });
+  });
+});
+
+// ADMIN: Get all sessions (from Sessions table)
+app.get("/api/admin-sessions", (req, res) => {
+  const query = `SELECT session_year FROM Sessions ORDER BY session_year DESC`;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ success: false });
+    res.json({ success: true, data: results });
+  });
+});
+
+// ==============================
+// ADMIN: Weekly Attendance – FINAL VERSION (7 Days + Full Words + Smart 5-Day %)
+// ==============================
+app.get("/api/admin-attendance-weekly", (req, res) => {
+  const { class_id, session, term, week } = req.query;
+
+  if (!class_id || !session || !term || !week) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  // Step 1: Find section_id and class_ref
+  const findClassQuery = `
+    SELECT section_id, class_id AS class_ref FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id, western_class_id AS class_ref FROM Western_Classes WHERE western_class_id = ?
+  `;
+
+  db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
+    if (err || classResult.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const { section_id } = classResult[0];
+
+    // Step 2: Fetch raw attendance (same as staff)
+    const attendanceQuery = `
+      SELECT 
+        sa.student_id,
+        s.full_name AS student_name,
+        sa.attendance_status,
+        sa.day_name
+      FROM Student_Attendance sa
+      JOIN Students s ON sa.student_id = s.student_id
+      WHERE sa.section_id = ?
+        AND sa.session_year = ?
+        AND sa.term = ?
+        AND sa.week_number = ?
+        AND sa.is_active = 1
+      ORDER BY s.full_name, sa.day_name
+    `;
+
+    db.query(attendanceQuery, [section_id, session, term, week], (err, results) => {
+      if (err) {
+        console.error("Error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (results.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      // Group by student
+      const grouped = {};
+      results.forEach(r => {
+        if (!grouped[r.student_id]) {
+          grouped[r.student_id] = {
+            student_id: r.student_id,
+            student_name: r.student_name,
+            days: {}
+          };
+        }
+        // FULL WORDS: Present or Absent
+        grouped[r.student_id].days[r.day_name] = r.attendance_status;
+      });
+
+      const allDays = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+      const finalData = Object.values(grouped).map(student => {
+        let presentCount = 0;
+        let markedDays = 0;  // Only count days that were actually marked (not -)
+
+        allDays.forEach(day => {
+          const status = student.days[day];
+          if (status === "Present" || status === "Absent") {
+            markedDays++;
+            if (status === "Present") presentCount++;
+          }
+          // Fill missing days with "-"
+          if (!student.days[day]) student.days[day] = "-";
+        });
+
+        const percentage = markedDays > 0 
+          ? ((presentCount / markedDays) * 100).toFixed(1) + "%" 
+          : "0%";
+
+        const total = `${presentCount}/${markedDays || 0}`;
+
+        return {
+          student_id: student.student_id,
+          student_name: student.student_name,
+          Saturday: student.days.Saturday,
+          Sunday: student.days.Sunday,
+          Monday: student.days.Monday,
+          Tuesday: student.days.Tuesday,
+          Wednesday: student.days.Wednesday,
+          Thursday: student.days.Thursday,
+          Friday: student.days.Friday,
+          total,
+          percentage
+        };
+      });
+
+      res.json({ success: true, data: finalData });
+    });
+  });
+});
+// ==============================
+// ADMIN: CUMULATIVE Attendance up to selected week
+// ==============================
+app.get("/api/admin-cumulative-attendance", (req, res) => {
+  const { class_id, session, term, up_to_week } = req.query;
+
+  if (!class_id || !session || !term || !up_to_week) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  const findClassQuery = `
+    SELECT section_id, class_id AS class_ref FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id, western_class_id AS class_ref FROM Western_Classes WHERE western_class_id = ?
+  `;
+
+  db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
+    if (err || classResult.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const { section_id } = classResult[0];
+
+    const query = `
+      SELECT 
+        sa.student_id,
+        s.full_name AS student_name,
+        sa.attendance_status,
+        sa.week_number,
+        sa.day_name
+      FROM Student_Attendance sa
+      JOIN Students s ON sa.student_id = s.student_id
+      WHERE sa.section_id = ?
+        AND sa.session_year = ?
+        AND sa.term = ?
+        AND sa.week_number <= ?
+        AND sa.is_active = 1
+      ORDER BY s.full_name, sa.week_number, sa.day_name
+    `;
+
+    db.query(query, [section_id, session, term, up_to_week], (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (results.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      const grouped = {};
+      results.forEach(r => {
+        if (!grouped[r.student_id]) {
+          grouped[r.student_id] = {
+            student_id: r.student_id,
+            student_name: r.student_name,
+            present: 0,
+            total_days: 0
+          };
+        }
+        // Only count actual marked days (not -)
+        if (r.attendance_status === "Present" || r.attendance_status === "Absent") {
+          grouped[r.student_id].total_days++;
+          if (r.attendance_status === "Present") {
+            grouped[r.student_id].present++;
+          }
+        }
+      });
+
+      const finalData = Object.values(grouped).map(s => {
+        const percentage = s.total_days > 0 
+          ? ((s.present / s.total_days) * 100).toFixed(1) + "%" 
+          : "0%";
+
+        return {
+          student_id: s.student_id,
+          student_name: s.student_name,
+          total_present: s.present,
+          total_days: s.total_days,
+          percentage
+        };
+      });
+
+      res.json({ success: true, data: finalData });
+    });
+  });
+});
 //server listen to port 5000
 app.listen(port, () => {
   console.log(`Ser ver running on http://localhost:${port}`);
