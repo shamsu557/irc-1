@@ -1079,8 +1079,15 @@ const finalGradeComments = {
 };
 
 // =====================================================================
-// TAHFIZ REPORT – CONTENT MOVED UP
+// TAHFIZ REPORT – FIXED ALIGNMENT WITH COLUMN WIDTHS
 // =====================================================================
+
+// Helper to fix RTL brackets in PDF
+function processRtlText(text) {
+  // Wrap (number) in <span dir="ltr"> to fix bracket rendering
+  return text.replace(/:\s*\((\d+)\)/g, ': <span dir="ltr">($1)</span>');
+}
+
 window.generateTahfizReport = async (studentId) => {
   const student = currentReportStudentsData.find(s => s.student_id === studentId);
   if (!student) return alert("Student not loaded.");
@@ -1109,8 +1116,8 @@ window.generateTahfizReport = async (studentId) => {
     const rows = (t.daily_records || []).map((r, i) => `
       <tr style="background:${i % 2 === 0 ? '#f9f9f9' : '#fff'};">
         <td style="padding:10px 8px; font-size:14px;">${r.week ? "Week " + r.week + " - " : ""}${r.assessed_day || r.day || "N/A"}</td>
-        <td style="padding:10px 8px; font-size:14px;">${r.from_surah_ayah ?? r.from_ayah ?? "-"}</td>
-        <td style="padding:10px 8px; font-size:14px;">${r.to_surah_ayah ?? r.to_ayah ?? "-"}</td>
+        <td style="padding:10px 8px; font-size:14px; direction: rtl; text-align: right;">${processRtlText(r.from_surah_ayah ?? r.from_ayah ?? "-")}</td>
+        <td style="padding:10px 8px; font-size:14px; direction: rtl; text-align: right;">${processRtlText(r.to_surah_ayah ?? r.to_ayah ?? "-")}</td>
         <td style="padding:10px 8px; text-align:center; font-size:16px; font-weight:bold; color:#065f46;">${r.daily_grade ?? "-"}</td>
         <td style="padding:10px 8px; font-size:14px; color:#555;">${dailyGradeComments[r.daily_grade] ?? "-"}</td>
       </tr>`).join("");
@@ -1150,18 +1157,18 @@ window.generateTahfizReport = async (studentId) => {
 
         ${infoGrid}
 
-        <table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:14px;">
-          <thead>
-            <tr style="background:#ecfdf5; color:#065f46;">
-              <th style="padding:10px; border-bottom:2px solid #065f46;">Week & Day</th>
-              <th style="padding:10px; border-bottom:2px solid #065f46;">From</th>
-              <th style="padding:10px; border-bottom:2px solid #065f46;">To</th>
-              <th style="padding:10px; border-bottom:2px solid #065f46;">Grade</th>
-              <th style="padding:10px; border-bottom:2px solid #065f46;">Comment</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
+       <table style="width:100%; border-collapse:collapse; margin:20px 0; font-size:14px; table-layout: fixed;">
+  <thead>
+    <tr style="background:#ecfdf5; color:#065f46;">
+      <th style="padding:10px; border-bottom:2px solid #065f46; width: 20%; text-align: left;">Week & Day</th>
+      <th style="padding:10px 6px; border-bottom:2px solid #065f46; width: 25%; text-align: center;">From</th>
+      <th style="padding:10px 6px; border-bottom:2px solid #065f46; width: 25%; text-align: center;">To</th>
+      <th style="padding:10px; border-bottom:2px solid #065f46; width: 15%; text-align: center;">Grade</th>
+      <th style="padding:10px; border-bottom:2px solid #065f46; width: 15%; text-align: left;">Comment</th>
+    </tr>
+  </thead>
+  <tbody>${rows}</tbody>
+</table>
 
         <div style="text-align:center; margin-top:50px; font-size:14px;">
           <div style="width:250px; margin:0 auto; border-top:3px solid #000; padding-top:10px;">
@@ -1174,7 +1181,7 @@ window.generateTahfizReport = async (studentId) => {
   }
 };
 // =====================================================================
-// COMPLETE REPORT – CONTENT MOVED UP
+// COMPLETE REPORT – NO CHANGE NEEDED (NO ARABIC)
 // =====================================================================
 window.generateCompleteReport = async (studentId) => {
   const student = currentReportStudentsData.find(s => s.student_id === studentId);
@@ -1260,7 +1267,6 @@ window.generateCompleteReport = async (studentId) => {
     previewBody.innerHTML = `<div style="color:red; text-align:center; padding:80px; font-size:20px;">${err.message}</div>`;
   }
 };
-
 // =====================================================================
 // PDF GENERATOR – IMAGE STARTS HIGHER ON PAGE
 // =====================================================================
