@@ -1012,6 +1012,63 @@ async function loadReportStudents() {
     alert("Failed to load students");
   }
 }
+
+// ──────────────────────────────────────────────────────────────
+// FINAL RE-USABLE: Get cumulative attendance for reports (100% working)
+// ──────────────────────────────────────────────────────────────
+async function getCumulativeAttendance(studentId, session, term, upToWeek = null) {
+  try {
+    // 1. Get the selected class from Reports tab
+    const classSelect = document.getElementById("reportClassSelect");
+    if (!classSelect || !classSelect.value) {
+      console.warn("No class selected in reportClassSelect");
+      return { percentage: "N/A", present: 0, total: 0 };
+    }
+
+    const classVal = classSelect.value;
+    const [sectionId, classId] = classVal.split(":");
+
+    if (!classId) {
+      console.warn("Invalid class value:", classVal);
+      return { percentage: "N/A", present: 0, total: 0 };
+    }
+
+    // 2. Build URL (upToWeek optional — not needed for full term)
+    const weekParam = upToWeek ? `&up_to_week=${upToWeek}` : "";
+    const url = `/api/staff-cumulative-attendance/${currentStaffId}?` +
+                `class_id=${encodeURIComponent(classId)}&` +
+                `session=${encodeURIComponent(session)}&` +
+                `term=${encodeURIComponent(term)}${weekParam}`;
+
+    const res = await fetch(url);
+
+    // 3. Check if request succeeded
+    if (!res.ok) {
+      console.warn("Cumulative attendance API failed:", res.status);
+      return { percentage: "Error", present: 0, total: 0 };
+    }
+
+    const json = await res.json();
+
+    if (json.success && json.data && Array.isArray(json.data)) {
+      const stu = json.data.find(s => s.student_id === studentId);
+      if (stu) {
+        return {
+          percentage: stu.percentage || "0%",
+          present: stu.total_present || 0,
+          total: stu.total_days || 0
+        };
+      }
+    }
+
+    // Student not found in attendance records yet
+    return { percentage: "0%", present: 0, total: 0 };
+
+  } catch (e) {
+    console.error("getCumulativeAttendance error:", e);
+    return { percentage: "Error", present: 0, total: 0 };
+  }
+}
 // =====================================================================
 // DAILY & FINAL GRADE COMMENTS
 // =====================================================================
@@ -1033,12 +1090,15 @@ window.generateTahfizReport = async (studentId) => {
   new bootstrap.Modal(document.getElementById("tahfizPreviewModal")).show();
 
   try {
+    // 1. Get Tahfiz data (unchanged)
     const res = await fetch(`/api/tahfiz-report?student_id=${studentId}&session=${student.session}&term=${student.term}&section_id=${student.sectionId}&class_id=${student.classId}`);
     const data = await res.json();
     if (!data.success) throw new Error(data.message || "No Tahfiz data");
-
     const t = data.data;
     window.currentTahfizData = { ...t, student };
+
+    // 2. Get REAL cumulative attendance (same logic as Cumulative tab)
+    const attendance = await getCumulativeAttendance(studentId, student.session, student.term);
 
     const dailyScore = t.daily_score ?? t.daily_score_percent ?? t.daily_score_value ?? "-";
     const examScore  = t.exam_score  ?? t.exam_score_percent  ?? t.exam_mark ?? "-";
@@ -1055,6 +1115,7 @@ window.generateTahfizReport = async (studentId) => {
         <td style="padding:10px 8px; font-size:14px; color:#555;">${dailyGradeComments[r.daily_grade] ?? "-"}</td>
       </tr>`).join("");
 
+    // UPDATED: Attendance now shows real cumulative value
     const infoGrid = `
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0; font-size:15px;">
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Student:</strong> ${t.full_name || student.full_name}</div>
@@ -1062,7 +1123,7 @@ window.generateTahfizReport = async (studentId) => {
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Class:</strong> ${student.class_name}</div>
         <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Session:</strong> ${student.session}</div>
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Term:</strong> ${student.term}</div>
-        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Attendance:</strong> ${t.attendance?.percentage ?? "-"} (${t.attendance?.present ?? 0} out of ${t.attendance?.total ?? 0} days present)</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Cumulative Attendance:</strong> ${attendance.percentage} (${attendance.present} out of ${attendance.total} days present)</div>
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Daily Score:</strong> ${dailyScore}%</div>
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Exam Score:</strong> ${examScore}%</div>
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Total Score:</strong> ${totalScore}%</div>
@@ -1073,7 +1134,6 @@ window.generateTahfizReport = async (studentId) => {
 
     previewBody.innerHTML = `
       <div style="max-width:960px; margin:0 auto; font-family:Arial,sans-serif; padding:8px 20px 20px; background:white; line-height:1.4;">
-        <!-- MOVED UP: Less top padding -->
         <div style="text-align:center; border-bottom:3px solid #065f46; padding:10px 0 12px; margin-bottom:15px;">
           <div style="display:inline-block; width:100%;">
             <img src="${schoolInfo.logoSrc}" style="width:90px; height:90px; border-radius:50%; border:3px solid #e6f4ef; display:block; margin:0 auto;">
@@ -1113,7 +1173,6 @@ window.generateTahfizReport = async (studentId) => {
     previewBody.innerHTML = `<div style="color:red; text-align:center; padding:80px; font-size:20px;">${err.message}</div>`;
   }
 };
-
 // =====================================================================
 // COMPLETE REPORT – CONTENT MOVED UP
 // =====================================================================
@@ -1122,7 +1181,7 @@ window.generateCompleteReport = async (studentId) => {
   if (!student) return alert("Student not loaded.");
 
   const previewBody = document.getElementById("completeReportPreviewBody");
-  previewBody.innerHTML = `<div class="text-center py-40"><div class="spinner-border text-emerald-600 w cote-32 h-32"></div><p class="mt-10 text-4xl font-bold text-emerald-700">Generating Report...</p></div>`;
+  previewBody.innerHTML = `<div class="text-center py-40"><div class="spinner-border text-emerald-600 w-32 h-32"></div><p class="mt-10 text-4xl font-bold text-emerald-700">Generating Report...</p></div>`;
   new bootstrap.Modal(document.getElementById("completeReportPreviewModal")).show();
 
   try {
@@ -1133,6 +1192,9 @@ window.generateCompleteReport = async (studentId) => {
     const r = data.data;
     window.currentCompleteReportData = { ...r, student };
 
+    // NEW: Get real cumulative attendance (same as Cumulative tab)
+    const attendance = await getCumulativeAttendance(studentId, student.session, student.term);
+
     const infoGrid = `
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0; font-size:15px;">
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Student:</strong> ${r.full_name}</div>
@@ -1140,7 +1202,7 @@ window.generateCompleteReport = async (studentId) => {
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Class:</strong> ${student.class_name}</div>
         <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Session:</strong> ${student.session}</div>
         <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Term:</strong> ${student.term}</div>
-        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Attendance:</strong> ${r.attendance_percent} (${r.attendance_present} out of ${r.attendance_total} days present)</div>
+        <div style="background:#f0fdf4; padding:10px; border-radius:6px;"><strong>Cumulative Attendance:</strong> ${attendance.percentage} (${attendance.present} out of ${attendance.total} days present)</div>
         <div style="background:#fff; padding:10px; border:1px solid #ddd; border-radius:6px;"><strong>Date:</strong> ${new Date().toLocaleDateString("en-NG")}</div>
       </div>`;
 
@@ -1157,7 +1219,6 @@ window.generateCompleteReport = async (studentId) => {
 
     previewBody.innerHTML = `
       <div style="max-width:960px; margin:0 auto; font-family:Arial,sans-serif; padding:8px 20px 20px; background:white; line-height:1.4;">
-        <!-- MOVED UP: Less top padding -->
         <div style="text-align:center; border-bottom:3px solid #065f46; padding:10px 0 12px; margin-bottom:15px;">
           <div style="display:inline-block; width:100%;">
             <img src="${schoolInfo.logoSrc}" style="width:90px; height:90px; border-radius:50%; border:3px solid #e6f4ef; display:block; margin:0 auto;">
@@ -1419,6 +1480,8 @@ async function loadOverallStudents() {
     alert("Error loading assessments");
   }
 }
+
+
 // ──────────────────────────────────────────────────────────────
 // School Information (used for PDF / Excel export)
 const schoolInfo = {

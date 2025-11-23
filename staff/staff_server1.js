@@ -4203,20 +4203,22 @@ app.get("/api/admin-cumulative-attendance", (req, res) => {
 // No staff-class assignment check
 // ==============================
 app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
-  const { staffId } = req.params; // can be external like IRC001
+  const { staffId } = req.params;
   const { class_id, session, term, up_to_week } = req.query;
 
-  if (!class_id || !session || !term || !up_to_week) {
-    return res.status(400).json({ success: false, message: "Missing parameters" });
+  if (!class_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing required parameters" });
   }
 
-  // 1️⃣ Get section_id from class
+  const effectiveUpToWeek = up_to_week ? parseInt(up_to_week) : 999;
+
   const findClassQuery = `
     SELECT section_id FROM Classes WHERE class_id = ?
     UNION ALL
     SELECT section_id FROM Western_Classes WHERE western_class_id = ?
     LIMIT 1
   `;
+
   db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
     if (err || classResult.length === 0) {
       return res.status(404).json({ success: false, message: "Class not found" });
@@ -4224,14 +4226,12 @@ app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
 
     const section_id = classResult[0].section_id;
 
-    // 2️⃣ Fetch cumulative attendance
     const query = `
       SELECT 
         sa.student_id,
         s.full_name AS student_name,
         sa.attendance_status,
-        sa.week_number,
-        sa.day_name
+        sa.week_number
       FROM Student_Attendance sa
       JOIN Students s ON sa.student_id = s.student_id
       WHERE sa.section_id = ?
@@ -4239,10 +4239,10 @@ app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
         AND sa.term = ?
         AND sa.week_number <= ?
         AND sa.is_active = 1
-      ORDER BY s.full_name, sa.week_number, sa.day_name
+      ORDER BY s.full_name, sa.week_number
     `;
 
-    db.query(query, [section_id, session, term, up_to_week], (err, results) => {
+    db.query(query, [section_id, session, term, effectiveUpToWeek], (err, results) => {
       if (err) {
         console.error("Cumulative Error:", err);
         return res.status(500).json({ success: false });
@@ -4250,7 +4250,6 @@ app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
 
       if (!results.length) return res.json({ success: true, data: [] });
 
-      // 3️⃣ Group and calculate
       const grouped = {};
       results.forEach(r => {
         if (!grouped[r.student_id]) {
@@ -4274,8 +4273,6 @@ app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
     });
   });
 });
-
-
 //server listen to port 5000
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
