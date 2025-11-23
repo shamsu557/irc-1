@@ -14,8 +14,9 @@ let filtersApplied = false; // Controls if filtering is active
 document.addEventListener("DOMContentLoaded", async () => {
   await loadStaffInfo()
   await loadDashboardStats()
-  await loadSessions()                       // Now includes videoSessionSelect
-  await cacheAndPopulateAllClassDropdowns()  // ONE CALL FOR ALL DROPDOWNS (fixes lag!)
+  await loadSessions()                       
+  await cacheAndPopulateAllClassDropdowns()  
+  await loadStaffCumulativeDropdowns()   // ← ADD THIS LINE HERE
 
   setupEventListeners()
 })
@@ -1541,21 +1542,47 @@ function exportOverallExcel() {
   XLSX.utils.book_append_sheet(wb, ws, "Overall Results");
   XLSX.writeFile(wb, "overall_tahfiz_results.xlsx");
 }
-// === ATTENDANCE TAB SWITCHING ===
+// === ATTENDANCE TAB SWITCHING (with Cumulative) ===
 const attendanceTabs = {
   take: document.getElementById('attendance-take-section'),
-  view: document.getElementById('attendance-view-section')
+  view: document.getElementById('attendance-view-section'),
+  cumulative: document.getElementById('cumulativeAttendanceSection') // must exist in DOM
 };
+
+// Unified tab switcher — supports 'take', 'view', 'cumulative'
 function switchAttendanceTab(tab) {
-  Object.values(attendanceTabs).forEach(t => t.style.display = 'none');
-  attendanceTabs[tab].style.display = 'block';
-  document.getElementById('attendanceTakeBtn').classList.remove('active');
-  document.getElementById('attendanceViewBtn').classList.remove('active');
-  if (tab === 'take') document.getElementById('attendanceTakeBtn').classList.add('active');
-  if (tab === 'view') document.getElementById('attendanceViewBtn').classList.add('active');
+  // hide all
+  Object.values(attendanceTabs).forEach(el => {
+    if (el) el.style.display = 'none';
+  });
+
+  // show requested
+  if (attendanceTabs[tab]) attendanceTabs[tab].style.display = 'block';
+
+  // clear active classes on the 3 buttons (if present)
+  document.getElementById('attendanceTakeBtn')?.classList.remove('active');
+  document.getElementById('attendanceViewBtn')?.classList.remove('active');
+  document.getElementById('btnShowCumulativeAttendance')?.classList.remove('active');
+
+  // set active for the selected one
+  if (tab === 'take') document.getElementById('attendanceTakeBtn')?.classList.add('active');
+  if (tab === 'view') document.getElementById('attendanceViewBtn')?.classList.add('active');
+  if (tab === 'cumulative') document.getElementById('btnShowCumulativeAttendance')?.classList.add('active');
+
+  // If showing cumulative, load dropdowns (non-blocking)
+  if (tab === 'cumulative') {
+    // load dropdowns; wrapped in try/catch to avoid breaking UI if function missing
+    try { loadStaffCumulativeDropdowns?.(); } catch (e) { console.warn("loadStaffCumulativeDropdowns failed", e); }
+  }
 }
-document.getElementById('attendanceTakeBtn').addEventListener('click', () => switchAttendanceTab('take'));
-document.getElementById('attendanceViewBtn').addEventListener('click', () => switchAttendanceTab('view'));
+
+// Attach click listeners (safe guard addEventListener only if button exists)
+document.getElementById('attendanceTakeBtn')?.addEventListener('click', () => switchAttendanceTab('take'));
+document.getElementById('attendanceViewBtn')?.addEventListener('click', () => switchAttendanceTab('view'));
+
+// New cumulative button listener — shows cumulative and hides others
+document.getElementById('btnShowCumulativeAttendance')?.addEventListener('click', () => switchAttendanceTab('cumulative'));
+
 // === LOAD WEEKLY ATTENDANCE ===
 // Load weekly attendance + store the data globally for export
 document.getElementById('loadViewAttendanceBtn').addEventListener('click', async () => {
@@ -2011,4 +2038,193 @@ function switchView(view) {
     filtersApplied = false;
     loadAllVideos();  // ← THIS LINE IS THE FINAL FIX – loads videos every time!
   }
+}// =============================================
+// STAFF CUMULATIVE ATTENDANCE — UPDATED & WORKING
+// Handles staff access, avoids 403/404, mirrors admin behavior
+// =============================================
+let cumulativeAttendanceData = [];
+
+// Load dropdown copies from existing session/class selects
+async function loadStaffCumulativeDropdowns() {
+  try {
+    const sourceSession = document.getElementById("attendanceSessionSelect") ||
+                          document.getElementById("viewAttendanceSessionSelect");
+    const targetSession = document.getElementById("cumulativeSessionSelect");
+    if (sourceSession && targetSession) targetSession.innerHTML = sourceSession.innerHTML;
+
+    const sourceClass = document.getElementById("attendanceClassSelect") ||
+                        document.getElementById("viewAttendanceClassSelect");
+    const targetClass = document.getElementById("cumulativeClassSelect");
+    if (sourceClass && targetClass) targetClass.innerHTML = sourceClass.innerHTML;
+
+    // Preserve current selected session if any
+    try {
+      const curSel = sourceSession?.querySelector("option[selected]")?.value || sourceSession?.value;
+      if (curSel && targetSession) targetSession.value = curSel;
+    } catch (e) { /* ignore */ }
+
+    console.log("Cumulative dropdowns loaded.");
+  } catch (err) {
+    console.error("Error loading cumulative dropdowns:", err);
+  }
+}
+
+// Helper to get cleaned class name for exports
+function getCleanClassName(selectId) {
+  const sel = document.getElementById(selectId);
+  return sel?.selectedOptions?.[0]?.textContent?.trim() || "Unknown_Class";
+}
+
+// Load cumulative attendance for the current staff
+async function loadCumulativeAttendance() {
+  const classSelect = document.getElementById("cumulativeClassSelect");
+  const sessionSelect = document.getElementById("cumulativeSessionSelect");
+  const termSelect = document.getElementById("cumulativeTermSelect");
+  const weekSelect = document.getElementById("cumulativeUpToWeekSelect");
+
+  const classValue = classSelect?.value;
+  const session = sessionSelect?.value;
+  const term = termSelect?.value;
+  const upToWeek = weekSelect?.value;
+
+  if (!classValue || !session || !term || !upToWeek) {
+    return alert("Please select Class, Session, Term, and Week.");
+  }
+
+  const actualClassId = (classValue.includes(':') ? classValue.split(':')[1] : classValue);
+  if (!actualClassId) return alert("Invalid class selected.");
+
+  const tbody = document.getElementById("cumulativeTableBody");
+  if (!tbody) return console.warn("Missing cumulativeTableBody in DOM.");
+
+  tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4"><div class="spinner-border"></div> Loading...</td></tr>`;
+
+  try {
+    if (!currentStaffId) throw new Error("Staff ID not found. Please login again.");
+
+    const res = await fetch(
+      `/api/staff-cumulative-attendance/${currentStaffId}?class_id=${encodeURIComponent(actualClassId)}&session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}&up_to_week=${encodeURIComponent(upToWeek)}`
+    );
+
+    if (!res.ok) {
+      if (res.status === 403) throw new Error("You are not assigned to this class.");
+      else throw new Error(`Server returned ${res.status}`);
+    }
+
+    const json = await res.json();
+    if (!json.success || !json.data || json.data.length === 0) {
+      cumulativeAttendanceData = [];
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-8">No attendance available up to Week ${upToWeek}</td></tr>`;
+      return;
+    }
+
+    cumulativeAttendanceData = json.data;
+    tbody.innerHTML = "";
+
+    cumulativeAttendanceData.forEach(s => {
+      const studentName = s.student_name || "N/A";
+      const studentId = s.student_id || "N/A";
+      const totalDays = s.total_days || 0;
+      const totalPresent = s.total_present || 0;
+      const percentage = s.percentage || "0%";
+
+      tbody.innerHTML += `
+        <tr>
+          <td class="font-medium">${escapeHtml(studentName)}</td>
+          <td>${escapeHtml(studentId)}</td>
+          <td>${totalDays}</td>
+          <td class="text-green-600 font-bold">${totalPresent}</td>
+          <td class="font-bold text-blue-600">${percentage}</td>
+        </tr>`;
+    });
+
+  } catch (err) {
+    console.error("Failed to load cumulative attendance:", err);
+    cumulativeAttendanceData = [];
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error loading data: ${escapeHtml(err.message || String(err))}</td></tr>`;
+  }
+}
+
+// Export to Excel
+function exportCumulativeExcel() {
+  if (!cumulativeAttendanceData.length) return alert("Load data first!");
+  const className = getCleanClassName("cumulativeClassSelect");
+  const session = document.getElementById("cumulativeSessionSelect")?.value || "";
+  const term = document.getElementById("cumulativeTermSelect")?.selectedOptions?.[0]?.textContent || "";
+  const upToWeek = document.getElementById("cumulativeUpToWeekSelect")?.value || "";
+
+  const header = [
+    [schoolInfo.name],
+    [schoolInfo.address],
+    [`Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}`],
+    [""],
+    ["CUMULATIVE ATTENDANCE REPORT"],
+    [`Class: ${className} | Up to Week ${upToWeek} | Term: ${term} | Session: ${session}`],
+    [""],
+    ["Student Name", "Student ID", "Total Days", "Present", "Percentage"]
+  ];
+
+  const rows = cumulativeAttendanceData.map(s => [s.student_name, s.student_id, s.total_days, s.total_present, s.percentage]);
+
+  const ws = XLSX.utils.aoa_to_sheet([...header, ...rows]);
+  ws["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Cumulative");
+  XLSX.writeFile(wb, `Cumulative_Attendance_${className.replace(/\s+/g,'_')}_Week${upToWeek}_${term}_${session}.xlsx`);
+}
+
+// Export to PDF
+function exportCumulativePdf() {
+  if (!cumulativeAttendanceData.length) return alert("Load data first!");
+  const className = getCleanClassName("cumulativeClassSelect");
+  const session = document.getElementById("cumulativeSessionSelect")?.value || "";
+  const term = document.getElementById("cumulativeTermSelect")?.selectedOptions?.[0]?.textContent || "";
+  const upToWeek = document.getElementById("cumulativeUpToWeekSelect")?.value || "";
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  const logo = new Image();
+  logo.src = schoolInfo.logoSrc || "";
+
+  const draw = () => {
+    try { if (logo.src) doc.addImage(logo, "JPEG", pageWidth/2 - 15, 10, 30, 30); } catch (e) {}
+    doc.setFontSize(18).setFont("helvetica", "bold").text(schoolInfo.name, pageWidth/2, 48, { align: "center" });
+    doc.setFontSize(10).text(schoolInfo.address, pageWidth/2, 56, { align: "center" });
+    doc.text(`Tel: ${schoolInfo.phone} | Email: ${schoolInfo.email}`, pageWidth/2, 62, { align: "center" });
+    doc.setFontSize(14).setFont("helvetica", "bold").text("CUMULATIVE ATTENDANCE REPORT", pageWidth/2, 76, { align: "center" });
+    doc.setFontSize(11).text(`Class: ${className} | Week ${upToWeek} | ${term}, ${session}`, pageWidth/2, 84, { align: "center" });
+
+    const head = [["Name", "ID", "Total Days", "Present", "Percentage"]];
+    const body = cumulativeAttendanceData.map(s => [s.student_name, s.student_id, s.total_days, s.total_present, s.percentage]);
+
+    doc.autoTable({ startY: 95, head, body, theme: "grid" });
+    doc.save(`Cumulative_Attendance_${className.replace(/\s+/g,'_')}_Week${upToWeek}_${term}_${session}.pdf`);
+  };
+
+  logo.onload = draw;
+  logo.onerror = draw;
+}
+
+// Escape HTML utility
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"'`=\/]/g, function (s) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;', '=': '&#x3D;', '`': '&#x60;' })[s];
+  });
+}
+
+// Initialize cumulative events
+function initCumulativeAttendance() {
+  document.getElementById("loadCumulativeBtn")?.addEventListener("click", loadCumulativeAttendance);
+  document.getElementById("exportCumulativeExcel")?.addEventListener("click", exportCumulativeExcel);
+  document.getElementById("exportCumulativePdf")?.addEventListener("click", exportCumulativePdf);
+  document.getElementById("btnShowCumulativeAttendance")?.addEventListener("click", () => switchAttendanceTab('cumulative'));
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCumulativeAttendance);
+} else {
+  initCumulativeAttendance();
 }

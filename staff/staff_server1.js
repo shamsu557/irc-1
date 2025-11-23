@@ -4197,7 +4197,86 @@ app.get("/api/admin-cumulative-attendance", (req, res) => {
     });
   });
 });
+
+// ==============================
+// STAFF: CUMULATIVE Attendance up to selected week
+// No staff-class assignment check
+// ==============================
+app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
+  const { staffId } = req.params; // can be external like IRC001
+  const { class_id, session, term, up_to_week } = req.query;
+
+  if (!class_id || !session || !term || !up_to_week) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  // 1️⃣ Get section_id from class
+  const findClassQuery = `
+    SELECT section_id FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id FROM Western_Classes WHERE western_class_id = ?
+    LIMIT 1
+  `;
+  db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
+    if (err || classResult.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const section_id = classResult[0].section_id;
+
+    // 2️⃣ Fetch cumulative attendance
+    const query = `
+      SELECT 
+        sa.student_id,
+        s.full_name AS student_name,
+        sa.attendance_status,
+        sa.week_number,
+        sa.day_name
+      FROM Student_Attendance sa
+      JOIN Students s ON sa.student_id = s.student_id
+      WHERE sa.section_id = ?
+        AND sa.session_year = ?
+        AND sa.term = ?
+        AND sa.week_number <= ?
+        AND sa.is_active = 1
+      ORDER BY s.full_name, sa.week_number, sa.day_name
+    `;
+
+    db.query(query, [section_id, session, term, up_to_week], (err, results) => {
+      if (err) {
+        console.error("Cumulative Error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (!results.length) return res.json({ success: true, data: [] });
+
+      // 3️⃣ Group and calculate
+      const grouped = {};
+      results.forEach(r => {
+        if (!grouped[r.student_id]) {
+          grouped[r.student_id] = { student_id: r.student_id, student_name: r.student_name, present: 0, total_days: 0 };
+        }
+        if (r.attendance_status === "Present" || r.attendance_status === "Absent") {
+          grouped[r.student_id].total_days++;
+          if (r.attendance_status === "Present") grouped[r.student_id].present++;
+        }
+      });
+
+      const finalData = Object.values(grouped).map(s => ({
+        student_id: s.student_id,
+        student_name: s.student_name,
+        total_present: s.present,
+        total_days: s.total_days,
+        percentage: s.total_days > 0 ? ((s.present / s.total_days) * 100).toFixed(1) + "%" : "0%"
+      }));
+
+      res.json({ success: true, data: finalData });
+    });
+  });
+});
+
+
 //server listen to port 5000
 app.listen(port, () => {
-  console.log(`Ser ver running on http://localhost:${port}`);
+  console.log(`Server running on http://localhost:${port}`);
 });
