@@ -299,15 +299,21 @@
             <li class="nav-item" id="adminManagementNavItem">
                 <a href="#" class="nav-link" data-view="admin-management"><i class="fas fa-user-shield"></i> <span data-translate="admins">Admins</span></a>
             </li>
-            <li class="nav-item" id="academicManagementNavItem">
-                <a href="#" class="nav-link" data-view="academic-management"><i class="fas fa-calendar-alt"></i> <span data-translate="academic">Academic</span></a>
-            </li>
+            
             <li class="nav-item">
                 <a href="#" class="nav-link" data-view="generate"><i class="fas fa-id-card"></i> <span data-translate="generate">ID/Report Generator</span></a>
             </li>
+            
             <li class="nav-item">
-                <a href="#" class="nav-link" data-view="demographics"><i class="fas fa-chart-pie"></i> <span data-translate="demographics">Demographics</span></a>
-            </li>
+    <a href="#" class="nav-link" data-view="tahfiz-overall">
+        <i class="fas fa-book-quran"></i> <span>Tahfiz Overall Results</span>
+    </a>
+</li>
+<!--<li class="nav-item">
+    <a href="#" class="nav-link" data-view="admin-reports">
+        <i class="fas fa-file-alt"></i> <span>Student Reports Portal</span>
+    </a>
+</li>-->
         </ul>
         <div class="mt-auto p-4">
             <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -770,166 +776,326 @@
             </div>
         </div>
 
-        <!-- Academic Management View -->
-        <div id="academic-management-view" style="display: none;">
-            <h2 class="text-2xl font-semibold mb-4" data-translate="academicManagement">Academic Management</h2>
-            <div class="bg-white p-4 rounded-lg shadow mb-4">
-                <h3 class="text-xl font-semibold mb-3" data-translate="academicCalendar">Academic Calendar</h3>
-                <form id="academicCalendarForm">
-                    <div class="mb-3">
-                        <label for="termStartDate" class="form-label" data-translate="termStartDate">Term Start Date</label>
-                        <input type="date" class="form-control" id="termStartDate" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="termEndDate" class="form-label" data-translate="termEndDate">Term End Date</label>
-                        <input type="date" class="form-control" id="termEndDate" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" data-translate="saveDates">Save Dates</button>
-                </form>
-            </div>
-            <div class="bg-white p-4 rounded-lg shadow">
-                <h3 class="text-xl font-semibold mb-3" data-translate="reportsheets">Reportsheets</h3>
-                <button class="btn btn-secondary" id="generateReportSheetsBtn" data-translate="generateReportSheets">Generate Report Sheets</button>
-            </div>
-        </div>
-<!-- REPORTS GENERATOR - FINAL PERFECT VERSION WITH 5 BUTTONS -->
+        
+<!-- ======================== REPORTS GENERATOR - FINAL PERFECT VERSION ======================== -->
 <div id="generate-view" style="display: none;">
+    <div class="container-fluid px-6 py-8">
+        <h2 class="text-4xl font-extrabold text-center mb-10 text-emerald-700">
+            Reports Generator
+        </h2>
 
-    <h2 class="text-3xl font-bold text-center mb-8 text-emerald-700">Reports Generator</h2>
+        <!-- 5 TOP BUTTONS - CLEAN & EQUAL -->
+        <div class="flex flex-wrap justify-center gap-6 mb-12">
+            <button id="btnShowWeeklyAttendance" class="btn btn-primary btn-lg px-10 py-5 text-xl font-bold rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition flex items-center gap-3">
+                <i class="fas fa-calendar-week"></i> Weekly Attendance
+            </button>
+            <button id="btnShowCumulativeAttendance" class="btn btn-success btn-lg px-10 py-5 text-xl font-bold rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition flex items-center gap-3">
+                <i class="fas fa-chart-line"></i> Cumulative Attendance
+            </button>
+        </div>
 
-    <!-- 5 EQUAL TOP BUTTONS - ALL WORKING -->
-    <div class="flex flex-wrap justify-center gap-5 mb-10">
-        <button id="btnShowWeeklyAttendance" class="btn btn-lg btn-primary flex items-center gap-3 px-8 py-4 text-lg shadow-lg hover:shadow-xl transition">
-            <i class="fas fa-calendar-week"></i> Weekly Attendance
-        </button>
-        <button id="btnShowCumulativeAttendance" class="btn btn-lg btn-success flex items-center gap-3 px-8 py-4 text-lg shadow-lg hover:shadow-xl transition">
-            <i class="fas fa-chart-line"></i> Cumulative Attendance
-        </button>
-    </div>
+        <!-- ALL SECTIONS WRAPPER -->
+        <div id="sectionsWrapper" class="space-y-12">
 
-    <!-- ALL SECTIONS WRAPPER -->
-    <div id="sectionsWrapper" class="space-y-10">
+            <!-- WEEKLY ATTENDANCE SECTION -->
+            <div id="weeklyAttendanceSection" class="bg-white rounded-2xl shadow-2xl p-10 border border-emerald-100" style="display: none;">
+                <h3 class="text-3xl font-bold mb-8 text-emerald-700 text-center">
+                    Weekly Attendance Report
+                </h3>
 
-        <!-- 1. WEEKLY ATTENDANCE - FULLY PRESERVED -->
-        <div id="weeklyAttendanceSection" class="bg-white rounded-xl shadow-xl p-8" style="display: none;">
-            <h3 class="text-2xl font-bold mb-6 text-emerald-700">Weekly Attendance Report</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Class</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklyClassSelect">
+                            <option value="">Select Class</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Session</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklySessionSelect">
+                            <option value="">Select Session</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Term</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklyTermSelect">
+                            <option value="">Select Term</option>
+                            <option value="1">1st Term</option>
+                            <option value="2">2nd Term</option>
+                            <option value="3">3rd Term</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Week</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklyWeekSelect">
+                            <option value="">Select Week</option>
+                            <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
+                            <option value="4">Week 4</option><option value="5">Week 5</option><option value="6">Week 6</option>
+                            <option value="7">Week 7</option><option value="8">Week 8</option><option value="9">Week 9</option>
+                            <option value="10">Week 10</option><option value="11">Week 11</option><option value="12">Week 12</option>
+                            <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="loadAdminWeeklyAttendanceBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
+                            Load Report
+                        </button>
+                    </div>
+                </div>
 
-            <div class="mb-4 flex flex-wrap gap-3 items-end">
-                <select class="form-select w-full sm:w-auto" id="adminWeeklyClassSelect">
-                    <option value="">Select Class</option>
-                </select>
-                <select class="form-select w-full sm:w-auto" id="adminWeeklySessionSelect">
-                    <option value="">Select Session</option>
-                </select>
-                <select class="form-select w-full sm:w-auto" id="adminWeeklyTermSelect">
-                    <option value="">Select Term</option>
-                    <option value="1">1st Term</option>
-                    <option value="2">2nd Term</option>
-                    <option value="3">3rd Term</option>
-                </select>
-                <select class="form-select w-full sm:w-auto" id="adminWeeklyWeekSelect">
-                    <option value="">Select Week</option>
-                    <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
-                    <option value="4">Week 4</option><option value="5">Week 5</option><option value="6">Week 6</option>
-                    <option value="7">Week 7</option><option value="8">Week 8</option><option value="9">Week 9</option>
-                    <option value="10">Week 10</option><option value="11">Week 11</option><option value="12">Week 12</option>
-                    <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
-                </select>
-                <button class="btn btn-primary" id="loadAdminWeeklyAttendanceBtn">
-                    Load Weekly Attendance
+                <div class="table-responsive overflow-x-auto">
+                    <table class="table table-bordered table-hover text-center">
+                        <thead class="bg-emerald-600 text-white">
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Student ID</th>
+                                <th>Sat</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
+                                <th>Total</th><th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminWeeklyAttendanceTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="mt-8 flex justify-end gap-4">
+                    <button id="exportAdminWeeklyExcel" class="btn btn-success btn-lg px-8 py-4 rounded-xl shadow-lg">
+                        Export Excel
+                    </button>
+                    <button id="exportAdminWeeklyPdf" class="btn btn-danger btn-lg px-8 py-4 rounded-xl shadow-lg">
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- CUMULATIVE ATTENDANCE SECTION -->
+            <div id="cumulativeAttendanceSection" class="bg-white rounded-2xl shadow-2xl p-10 border border-emerald-100" style="display: none;">
+                <h3 class="text-3xl font-bold mb-8 text-emerald-700 text-center">
+                    Cumulative Attendance Report (Term-to-Date)
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Class</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeClassSelect">
+                            <option value="">Select Class</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Session</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeSessionSelect">
+                            <option value="">Select Session</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Term</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeTermSelect">
+                            <option value="">Select Term</option>
+                            <option value="1">1st Term</option>
+                            <option value="2">2nd Term</option>
+                            <option value="3">3rd Term</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Up to Week</label>
+                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeUpToWeekSelect">
+                            <option value="">Select Week</option>
+                            <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
+                            <option value="4">Week 4</option><option value="5">Week 5</option><option value="6">Week 6</option>
+                            <option value="7">Week 7</option><option value="8">Week 8</option><option value="9">Week 9</option>
+                            <option value="10">Week 10</option><option value="11">Week 11</option><option value="12">Week 12</option>
+                            <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button id="loadCumulativeBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
+                            Load Report
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-responsive overflow-x-auto">
+                    <table class="table table-bordered table-hover text-center">
+                        <thead class="bg-emerald-600 text-white">
+                            <tr>
+                                <th>Student Name</th>
+                                <th>Student ID</th>
+                                <th>Total Days</th>
+                                <th>Present</th>
+                                <th>Percentage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cumulativeTableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="mt-8 flex justify-end gap-4">
+                    <button id="exportCumulativeExcel" class="btn btn-success btn-lg px-8 py-4 rounded-xl shadow-lg">
+                        Export Excel
+                    </button>
+                    <button id="exportCumulativePdf" class="btn btn-danger btn-lg px-8 py-4 rounded-xl shadow-lg">
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div></div>
+
+<!-- End generate-view -->
+ 
+<!-- ======================== ADMIN: TAHFIZ OVERALL RESULTS ======================== -->
+<div id="tahfiz-overall" style="display:none;">
+    <div class="container-fluid px-6 py-10">
+        <h2 class="text-4xl font-extrabold text-center mb-10 text-emerald-700">
+            <i class="fas fa-book-quran me-3"></i>Tahfiz Overall Results
+        </h2>
+
+        <div class="bg-white rounded-3xl shadow-2xl p-10 border-4 border-emerald-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Class</label>
+                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="overallClassSelect">
+                        <option value="">Select Class</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Session</label>
+                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="overallSessionSelect">
+                        <option value="">Select Session</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Term</label>
+                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="overallTermSelect">
+                        <option value="">Select Term</option>
+                        <option value="1">1st Term</option>
+                        <option value="2">2nd Term</option>
+                        <option value="3">3rd Term</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="loadOverallStudentsBtn" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-5 px-10 rounded-xl shadow-2xl transform hover:scale-110 transition text-xl">
+                        Load Results
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive overflow-x-auto">
+                <table class="table table-hover table-bordered">
+                    <thead class="bg-gradient-to-r from-emerald-700 to-emerald-800 text-white text-lg">
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Student ID</th>
+                            <th>Avg Daily Mark</th>
+                            <th>Daily (/80)</th>
+                            <th>Exam Mark</th>
+                            <th>Exam (/20)</th>
+                            <th>Total (/100)</th>
+                            <th>Final Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overallStudentsTableBody" class="text-gray-800 font-medium"></tbody>
+                </table>
+            </div>
+
+            <div class="mt-10 text-center space-x-6">
+                <button id="exportOverallPdfBtn" class="btn btn-danger btn-lg px-12 py-5 rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition text-xl">
+                    Export PDF
+                </button>
+                <button id="exportOverallExcelBtn" class="btn btn-success btn-lg px-12 py-5 rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition text-xl">
+                    Export Excel
                 </button>
             </div>
-
-            <div class="table-responsive">
-                <table class="table table-bordered text-center">
-                    <thead class="table-success">
-                        <tr>
-                            <th>Student Name</th>
-                            <th>Student ID</th>
-                            <th>Sat</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
-                            <th>Total</th><th>%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="adminWeeklyAttendanceTableBody"></tbody>
-                </table>
-            </div>
-
-            <div class="mt-4 flex gap-3 justify-end">
-                <button class="btn btn-success" id="exportAdminWeeklyExcel">Export Excel</button>
-                <button class="btn btn-danger" id="exportAdminWeeklyPdf">Export PDF</button>
-            </div>
-        </div>
-
-        <!-- 2. CUMULATIVE ATTENDANCE - FULLY PRESERVED -->
-        <div id="cumulativeAttendanceSection" class="bg-white rounded-xl shadow-xl p-8" style="display: none;">
-            <h3 class="text-2xl font-bold mb-6 text-emerald-700">Cumulative Attendance Report (Term-to-Date)</h3>
-
-            <div class="mb-4 flex flex-wrap gap-3 items-end">
-                <select class="form-select w-full sm:w-auto" id="cumulativeClassSelect">
-                    <option value="">Select Class</option>
-                </select>
-                <select class="form-select w-full sm:w-auto" id="cumulativeSessionSelect">
-                    <option value="">Select Session</option>
-                </select>
-                <select class="form-select w-full sm:w-auto" id="cumulativeTermSelect">
-                    <option value="">Select Term</option>
-                    <option value="1">1st Term</option>
-                    <option value="2">2nd Term</option>
-                    <option value="3">3rd Term</option>
-                </select>
-                <select class="form-select w-full sm:w-auto" id="cumulativeUpToWeekSelect">
-                    <option value="">Up to Week</option>
-                    <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
-                    <option value="4">Week 4</option><option value="5">Week 5</option><option value="6">Week 6</option>
-                    <option value="7">Week 7</option><option value="8">Week 8</option><option value="9">Week 9</option>
-                    <option value="10">Week 10</option><option value="11">Week 11</option><option value="12">Week 12</option>
-                    <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
-                </select>
-                <button class="btn btn-primary" id="loadCumulativeBtn">Load Cumulative</button>
-            </div>
-
-            <div class="table-responsive">
-                <table class="table table-bordered">
-                    <thead class="table-success">
-                        <tr>
-                            <th>Student Name</th>
-                            <th>Student ID</th>
-                            <th>Total Days</th>
-                            <th>Present</th>
-                            <th>Percentage</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cumulativeTableBody"></tbody>
-                </table>
-            </div>
-
-            <div class="mt-4 flex gap-3 justify-end">
-                <button class="btn btn-success" id="exportCumulativeExcel">Export Excel</button>
-                <button class="btn btn-danger" id="exportCumulativePdf">Export PDF</button>
-            </div>
-        </div>
-            </div>
         </div>
     </div>
-
 </div>
-<!-- End generate-view -->
-        <!-- Demographics View -->
-        <div id="demographics-view" style="display: none;">
-            <h2 class="text-2xl font-semibold mb-4" data-translate="demographics">Demographic Data</h2>
-            <div class="grid grid-cols-1 gap-4">
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="text-xl font-semibold mb-3" data-translate="staffGenderDistribution">Staff Gender Distribution</h3>
-                    <div id="staffGenderChart" class="w-full h-64"></div>
+
+<!-- ======================== ADMIN: STUDENT REPORTS PORTAL ======================== -->
+<div id="admin-reports" style="display:none;">
+    <div class="container-fluid px-6 py-10">
+        <div class="text-center mb-12">
+            <h2 class="text-5xl font-extrabold text-emerald-700 mb-4">
+                Student Reports Portal (Admin)
+            </h2>
+            <p class="text-xl text-gray-600 max-w-4xl mx-auto">
+                Generate professional, parent-ready PDF reports with grades, Tahfiz progress, attendance, position & comments
+            </p>
+        </div>
+
+        <!-- Selection Panel -->
+        <div class="bg-white rounded-3xl shadow-2xl p-10 mb-10 border-4 border-emerald-200">
+            <h3 class="text-3xl font-bold mb-8 text-emerald-700 text-center">
+                Generate End-of-Term Reports
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Class</label>
+                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="reportClassSelect">
+                        <option value="">Select Class</option>
+                    </select>
                 </div>
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="text-xl font-semibold mb-3" data-translate="studentGenderDistribution">Student Gender Distribution</h3>
-                    <div id="studentGenderChart" class="w-full h-64"></div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Session</label>
+                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="reportSessionSelect">
+                        <option value="">Select Session</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-3">Term</label>
+                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="reportTermSelect">
+                        <option value="">Select Term</option>
+                        <option value="1">1st Term</option>
+                        <option value="2">2nd Term</option>
+                        <option value="3">3rd Term</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button id="loadReportStudentsBtn" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-5 px-10 rounded-xl shadow-2xl transform hover:scale-110 transition text-xl">
+                        Load Students
+                    </button>
                 </div>
             </div>
         </div>
-    </div>
 
+        <!-- Students Table -->
+        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-emerald-200">
+            <div class="bg-gradient-to-r from-emerald-700 to-emerald-800 text-white p-8">
+                <h3 class="text-3xl font-bold text-center">
+                    Student List & Report Generator
+                </h3>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="bg-emerald-100 text-emerald-800 font-bold text-lg">
+                        <tr>
+                            <th class="px-8 py-5">#</th>
+                            <th class="px-8 py-5">Student Name</th>
+                            <th class="px-8 py-5">Student ID</th>
+                            <th class="px-8 py-5 text-center">Report Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportStudentsTableBody" class="text-gray-800"></tbody>
+                </table>
+            </div>
+
+            <div id="reportEmpty" class="p-24 text-center bg-gray-50">
+                <p class="text-3xl font-bold text-gray-500 mb-4">No students loaded yet</p>
+                <p class="text-xl text-gray-600">Select class, session and term above → click "Load Students"</p>
+            </div>
+        </div>
+
+        <!-- Export All Button -->
+        <div class="text-center mt-16">
+            <button id="exportAllReportsBtn" class="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-6 px-16 rounded-3xl shadow-2xl text-2xl transform hover:scale-110 transition duration-300">
+                Download All Reports as ZIP
+            </button>
+            <p class="text-lg text-gray-600 mt-6">Generate and download all Complete Reports in one secure ZIP file</p>
+        </div>
+    </div>
+</div>
+</div>
     <!-- First Login Modal -->
     <div class="modal fade" id="firstLoginModal" tabindex="-1" aria-labelledby="firstLoginModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -1210,6 +1376,82 @@
             </div>
         </div>
     </div>
+    <!-- TAHFIZ REPORT PREVIEW MODAL – ADMIN -->
+<div class="modal fade" id="tahfizPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content rounded-3xl shadow-2xl border-4 border-emerald-600 overflow-hidden">
+            <div class="modal-header bg-gradient-to-r from-emerald-700 to-emerald-800 text-white border-b-4 border-emerald-500">
+                <h5 class="modal-title text-2xl font-bold flex items-center gap-3">
+                    <i class="fas fa-book-quran text-yellow-300"></i>
+                    TAHFIZ MEMORIZATION REPORT
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body p-8 bg-gradient-to-b from-emerald-50 via-white to-emerald-50 min-h-screen">
+                <div id="tahfizPreviewBody" class="max-w-5xl mx-auto bg-white rounded-2xl shadow-inner p-10 border border-emerald-200">
+                    <!-- Dynamic content injected here by JS -->
+                </div>
+            </div>
+
+            <div class="modal-footer bg-emerald-100 border-t-4 border-emerald-600 py-6 px-10 justify-content-between">
+                <div class="text-emerald-800 font-semibold">
+                    <i class="fas fa-shield-alt me-2"></i> Admin Preview • Ibadurrahman College
+                </div>
+                <div class="space-x-4">
+                    <button onclick="downloadCurrentTahfizPdf()" 
+                            class="btn bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-10 py-4 rounded-xl shadow-xl transform hover:scale-105 transition text-lg">
+                        <i class="fas fa-download me-2"></i> DOWNLOAD PDF
+                    </button>
+                    <button type="button" class="btn btn-outline-danger px-8 py-4 rounded-xl font-bold" data-bs-dismiss="modal">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- COMPLETE ACADEMIC REPORT PREVIEW MODAL – ADMIN FULLSCREEN -->
+<div class="modal fade" id="completeReportPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content border-8 border-emerald-700 rounded-none shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="modal-header bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white py-6 px-10 border-b-8 border-emerald-600">
+                <h5 class="modal-title text-4xl font-extrabold flex items-center gap-4">
+                    <i class="fas fa-graduation-cap text-yellow-300"></i>
+                    END-OF-TERM REPORT SHEET
+                </h5>
+                <button type="button" class="btn-close btn-close-white text-4xl" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Body -->
+            <div class="modal-body p-0 bg-gray-50">
+                <div id="completeReportPreviewBody" class="p-10 bg-white min-h-screen">
+                    <!-- Full report rendered here -->
+                </div>
+            </div>
+
+            <!-- Fixed Footer -->
+            <div class="modal-footer fixed bottom-0 left-0 right-0 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white py-6 px-10 border-t-8 border-emerald-600 shadow-2xl z-10">
+                <div class="container mx-auto flex flex-col lg:flex-row justify-between items-center">
+                    <div class="text-lg font-bold mb-3 lg:mb-0">
+                        <i class="fas fa-user-shield me-3"></i>
+                        Generated by Admin • <span id="reportGeneratedTime" class="text-yellow-300"></span>
+                    </div>
+                    <div class="space-x-6">
+                        <button onclick="downloadCurrentCompletePdf()"
+                                class="btn bg-yellow-500 hover:bg-yellow-600 text-emerald-900 font-bold px-12 py-5 rounded-2xl shadow-2xl transform hover:scale-110 transition text-xl">
+                            <i class="fas fa-file-pdf me-3"></i> DOWNLOAD PDF
+                        </button>
+                        <button type="button" class="btn btn-light btn-lg px-10 py-5 rounded-2xl font-bold border-2 border-white" data-bs-dismiss="modal">
+                            Close Preview
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
     <!-- Language Toggle -->
     <div class="text-center mt-4">

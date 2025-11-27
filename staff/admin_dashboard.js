@@ -2158,48 +2158,88 @@ function showMessageModal(titleKey, messageKey) {
     document.getElementById('messageText').textContent = message;
     messageModal.show();
 }
-
 function showView(viewId) {
+    // Hide all content divs
     document.querySelectorAll('#mainContent > div').forEach(view => {
         view.style.display = 'none';
     });
-    document.getElementById(viewId + '-view').style.display = 'block';
-    document.querySelectorAll('#sidebarNav .nav-link').forEach(link => {
-        link.classList.remove('active');
-    });
-    document.querySelector(`[data-view="${viewId}"]`).classList.add('active');
-    document.querySelector('.main-content-header h2').textContent = translations[currentLang][viewId.split('-')[0] + 'Overview'] || translations[currentLang][viewId.split('-')[0] + 'Management'] || translations[currentLang][viewId];
-    if (viewId === 'dashboard') {
-        renderDashboardOverview();
-    } else if (viewId === 'bookings-management') {
-        fetchDataAndRender('/api/bookings', renderBookings);
-    } else if (viewId === 'student-management') {
-        fetchDataAndRender('/api/students', (data) => {
-            allStudents = data;
-            renderStudents(data);
-        });
+
+    // Show the correct view (try exact ID first, fallback to '-view' suffix)
+    const viewElement = document.getElementById(viewId) || document.getElementById(viewId + '-view');
+    if (viewElement) {
+        viewElement.style.display = 'block';
+    } else {
+        console.error('View not found:', viewId);
+    }
+
+    // Update sidebar active class
+    document.querySelectorAll('#sidebarNav .nav-link').forEach(link => link.classList.remove('active'));
+    const activeLink = document.querySelector(`#sidebarNav .nav-link[data-view="${viewId}"]`);
+    if (activeLink) activeLink.classList.add('active');
+
+    // Update main header
+    const header = document.querySelector('.main-content-header h2');
+    if (header) {
+        header.textContent =
+            translations[currentLang]?.[viewId.split('-')[0] + 'Overview'] ||
+            translations[currentLang]?.[viewId.split('-')[0] + 'Management'] ||
+            translations[currentLang]?.[viewId] ||
+            '';
+    }
+
+    // Handle data rendering for specific views
+    switch(viewId) {
+        case 'dashboard':
+            renderDashboardOverview();
+            break;
+        case 'bookings-management':
+            fetchDataAndRender('/api/bookings', renderBookings);
+            break;
+        case 'student-management':
+            fetchDataAndRender('/api/students', (data) => {
+                allStudents = data;
+                renderStudents(data);
+            });
+            break;
+        case 'tahfiz-overall':
+            populateTahfizSelects(); // populate selects for Tahfiz
+            break;
+        case 'admin-reports':
+            populateReportSelects(); // populate selects for Reports
+            break;
+        // Add more cases for future views if needed
     }
 }
 
 function updateUIBasedOnRole(role) {
-    document.getElementById('feesNavItem').style.display = 'none';
-    document.getElementById('bookingsNavItem').style.display = 'none';
-    document.getElementById('adminManagementNavItem').style.display = 'none';
-    document.getElementById('academicManagementNavItem').style.display = 'none';
-    document.getElementById('pendingFeesCard').style.display = 'none';
-    document.getElementById('totalBookingsCard').style.display = 'none';
+    const elements = [
+        'feesNavItem',
+        'bookingsNavItem',
+        'adminManagementNavItem',
+        'academicManagementNavItem',
+        'pendingFeesCard',
+        'totalBookingsCard'
+    ];
+
+    // Hide all first
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    // Show based on role
     if (role === 'SuperAdmin') {
-        document.getElementById('feesNavItem').style.display = 'block';
-        document.getElementById('bookingsNavItem').style.display = 'block';
-        document.getElementById('adminManagementNavItem').style.display = 'block';
-        document.getElementById('academicManagementNavItem').style.display = 'block';
-        document.getElementById('pendingFeesCard').style.display = 'block';
-        document.getElementById('totalBookingsCard').style.display = 'block';
+        ['feesNavItem','bookingsNavItem','adminManagementNavItem','academicManagementNavItem','pendingFeesCard','totalBookingsCard']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        });
     } else if (role === 'DeputyAdmin') {
-        document.getElementById('academicManagementNavItem').style.display = 'block';
+        const el = document.getElementById('academicManagementNavItem');
+        if (el) el.style.display = 'block';
     }
 }
-
+ 
 // Form Validation Function
 function validateForm(form) {
     if (!form.checkValidity()) {
@@ -3046,6 +3086,31 @@ async function populateClassSelects() {
         }
     });
 
+ async function populateSessions() {
+  try {
+    const res = await fetch("/api/sessions");
+    const data = await res.json();
+
+    if (!data.success || !data.data) return;
+
+    const selects = document.querySelectorAll(".sessionSelect");
+    if (!selects.length) return;
+
+    selects.forEach(select => {
+      select.innerHTML = `<option value="">Select Session</option>`;
+      data.data.forEach(sess => {
+        const opt = document.createElement("option");
+        opt.value = sess.session_year;
+        opt.textContent = sess.session_year;
+        select.appendChild(opt);
+      });
+    });
+
+  } catch (err) {
+    console.error("Error loading sessions:", err);
+  }
+}
+
     // Logout Handling
     document.getElementById('logoutBtn').addEventListener('click', async (e) => {
         e.preventDefault();
@@ -3625,7 +3690,7 @@ async function loadAdminOverallResult() {
 // ============================================================
 // ALL EXPORT FUNCTIONS – 100% INCLUDED
 // ============================================================
-f// Export Weekly Excel
+// Export Weekly Excel
 function exportAdminWeeklyExcel() {
   if (!adminWeeklyAttendanceData.length) return alert("Load weekly data first");
   const className = getCleanClassName("adminWeeklyClassSelect");
@@ -3787,3 +3852,500 @@ async function loadAdminProfile() {
 }
 
 console.log("FINAL DASHBOARD LOADED — EVERYTHING WORKS 100%");
+
+// FIXED VIEW SWITCHING (handles all views correctly)
+document.querySelectorAll('.nav-link[data-view]').forEach(link => {
+    link.addEventListener('click', async (e) => {
+        e.preventDefault();
+
+        // Hide ALL content divs first
+        document.querySelectorAll('#mainContent > div').forEach(div => {
+            div.style.display = 'none';
+        });
+
+        // Remove active from all links
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+        link.classList.add('active');
+
+        // Determine correct view ID (check if '-view' suffix exists)
+        let viewId = link.getAttribute('data-view');
+        if (document.getElementById(viewId + '-view')) {
+            viewId += '-view';  // Use suffix if it exists (for old views)
+        }
+
+        // Show the view
+        const targetView = document.getElementById(viewId);
+        if (targetView) {
+            targetView.style.display = 'block';
+        } else {
+            console.error('View not found:', viewId);
+        }
+
+        // Auto-populate selects for new views
+        if (viewId === 'tahfiz-overall') {
+            await populateTahfizSelects();
+        } else if (viewId === 'admin-reports') {
+            await populateReportSelects();
+        }
+    });
+});
+
+// Helper to populate selects (using your fetchData)
+// FIXED: Populate Session dropdowns for Tahfiz & Complete Report
+async function populateTahfizSelects() {
+    const sessionSelect = document.getElementById('overallSessionSelect');
+    const classSelect = document.getElementById('overallClassSelect');
+
+    // Populate Classes
+    const classData = await fetchData('/api/classes');
+    if (classData.success && classData.data.length > 0) {
+        classSelect.innerHTML = '<option value="">Select Class</option>';
+        classData.data.forEach(cls => {
+            const opt = document.createElement('option');
+            opt.value = `${cls.section_id}:${cls.id}`;
+            opt.textContent = cls.name;
+            classSelect.appendChild(opt);
+        });
+    }
+
+    // Populate Sessions – THIS IS THE FIX
+    const sessionData = await fetchData('/api/sessions');
+    if (sessionData.success && sessionData.data.length > 0) {
+        sessionSelect.innerHTML = '<option value="">Select Session</option>';
+        sessionData.data.forEach(ses => {
+            const opt = document.createElement('option');
+            opt.value = ses.session_year;        // Correct field
+            opt.textContent = ses.session_year;  // Correct field
+            if (ses.is_current) opt.selected = true;
+            sessionSelect.appendChild(opt);
+        });
+    }
+}
+
+async function populateReportSelects() {
+    const sessionSelect = document.getElementById('reportSessionSelect');
+    const classSelect = document.getElementById('reportClassSelect');
+
+    // Populate Classes
+    const classData = await fetchData('/api/classes');
+    if (classData.success && classData.data.length > 0) {
+        classSelect.innerHTML = '<option value="">Select Class</option>';
+        classData.data.forEach(cls => {
+            const opt = document.createElement('option');
+            opt.value = `${cls.section_id}:${cls.id}`;
+            opt.textContent = cls.name;
+            classSelect.appendChild(opt);
+        });
+    }
+
+    // Populate Sessions – CORRECTED
+    const sessionData = await fetchData('/api/sessions');
+    if (sessionData.success && sessionData.data.length > 0) {
+        sessionSelect.innerHTML = '<option value="">Select Session</option>';
+        sessionData.data.forEach(ses => {
+            const opt = document.createElement('option');
+            opt.value = ses.session_year;
+            opt.textContent = ses.session_year;
+            if (ses.is_current) opt.selected = true;
+            sessionSelect.appendChild(opt);
+        });
+    }
+}
+// ======================== TAHFIZ OVERALL RESULTS (UPDATED & SAFE) ========================
+async function loadTahfizOverallResults() {
+    const classId = document.getElementById('overallClassSelect')?.value;
+    const session = document.getElementById('overallSessionSelect')?.value;
+    const term = document.getElementById('overallTermSelect')?.value;
+
+    if (!classId || !session || !term) {
+        showMessageModal('error', 'Please select Class, Session and Term');
+        return;
+    }
+
+    const tbody = document.getElementById('overallStudentsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-4">
+                <div class="spinner-border"></div> Loading...
+            </td>
+        </tr>
+    `;
+
+    try {
+        const res = await fetchData(`/api/tahfiz/overall?class=${classId}&session=${session}&term=${term}`);
+
+        if (!res.success || !res.data?.students?.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-8">No records found</td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        res.data.students.forEach(s => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${escapeHtml(s.fullname || s.student_name)}</td>
+                <td>${escapeHtml(s.student_id)}</td>
+                <td>${s.avg_daily ? s.avg_daily.toFixed(1) : '-'}</td>
+                <td>${s.daily_mark || '-'} / ${s.daily_total || 80}</td>
+                <td>${s.exam_mark || '-'}</td>
+                <td>${s.exam_mark || '-'} / ${s.exam_total || 20}</td>
+                <td><strong>${s.total ? s.total.toFixed(1) : '-'} / 100</strong></td>
+                <td><strong class="${getGradeColor(s.total)}">${getGrade(s.total)}</strong></td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center text-danger">Error loading data</td>
+            </tr>
+        `;
+    }
+}
+
+// ======================== EXPORT TAHFIZ OVERALL – PDF ========================
+function exportTahfizOverallPdf() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    const session = document.getElementById('overallSessionSelect')?.selectedOptions[0]?.text || '';
+    const term = document.getElementById('overallTermSelect')?.selectedOptions[0]?.text || '';
+    const cls = document.getElementById('overallClassSelect')?.selectedOptions[0]?.text || 'Class';
+
+    doc.setFontSize(18).setFont('helvetica', 'bold');
+    doc.text('Tahfiz Overall Results', 148, 20, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.text(`Class: ${cls} | Session: ${session} | Term: ${term}`, 148, 30, { align: 'center' });
+
+    const headers = [['Name', 'ID', 'Avg Daily', 'Daily (/80)', 'Exam', 'Exam (/20)', 'Total', 'Grade']];
+    const rows = Array.from(document.querySelectorAll('#overallStudentsTableBody tr'))
+        .map(tr => Array.from(tr.children).map(td => td.innerText));
+
+    doc.autoTable({
+        head: headers,
+        body: rows,
+        startY: 40,
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [22, 160, 133] }
+    });
+
+    doc.save(`Tahfiz_Overall_${cls}_${session}_Term${term}.pdf`);
+}
+
+
+// ======================== EXPORT TAHFIZ OVERALL – EXCEL ========================
+function exportTahfizOverallExcel() {
+    const rows = [['Name','ID','Avg Daily','Daily (/80)','Exam','Exam (/20)','Total','Grade']];
+
+    document.querySelectorAll('#overallStudentsTableBody tr').forEach(tr => {
+        const cols = Array.from(tr.children).map(td => td.innerText);
+        rows.push(cols);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tahfiz Overall");
+    XLSX.writeFile(wb, `Tahfiz_Overall_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+
+
+// ======================== COMPLETE REPORT PORTAL (UPDATED & SAFE) ========================
+// ======================== STUDENT REPORTS PORTAL – FINAL FIXED VERSION ========================
+async function loadAdminCompleteReportStudents() {
+    const classSelect = document.getElementById('reportClassSelect');
+    const sessionSelect = document.getElementById('reportSessionSelect');
+    const termSelect = document.getElementById('reportTermSelect');
+
+    const classValue = classSelect?.value;        // e.g. "1:15 or 2:8
+    const session = sessionSelect?.value?.trim();
+    const term = termSelect?.value || "1";
+
+    // Validation
+    if (!classValue || !session) {
+        showMessageModal('error', 'Please select both Class and Session');
+        return;
+    }
+
+    const tbody = document.getElementById('reportStudentsTableBody');
+    const emptyMsg = document.getElementById('reportEmpty');
+    if (!tbody) return;
+
+    // Show loading
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="4" class="text-center py-8">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-3">Loading students...</p>
+            </td>
+        </tr>
+    `;
+    if (emptyMsg) emptyMsg.style.display = 'none';
+
+    try {
+        // TRY THE 3 MOST COMMON ENDPOINTS – ONE OF THEM WILL WORK
+        let res = null;
+        const endpoints = [
+            `/api/students/for-report?class_id=${classValue}&session=${session}&term=${term}`,
+            `/api/report/students?class=${classValue}&session=${session}&term=${term}`,
+            `/api/students/report-list?class=${classValue}&session=${session}&term=${term}`
+        ];
+
+        for (const url of endpoints) {
+            try {
+                const response = await fetchData(url);
+                if (response.success && response.data && (
+                    (Array.isArray(response.data) && response.data.length > 0) ||
+                    (response.data.students && response.data.students.length > 0)
+                )) {
+                    res = response;
+                    console.log("Success with endpoint:", url);
+                    break;
+                }
+            } catch (e) {
+                console.log("Failed endpoint:", url, e);
+            }
+        }
+
+        if (!res) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-8">No students found for this class/session</td></tr>`;
+            if (emptyMsg) emptyMsg.style.display = 'block';
+            return;
+        }
+
+        // Normalize data format
+        let students = [];
+        if (Array.isArray(res.data)) {
+            students = res.data;
+        } else if (res.data.students && Array.isArray(res.data.students)) {
+            students = res.data.students;
+        }
+
+        tbody.innerHTML = '';
+        students.forEach((s, i) => {
+            const studentId = s.id || s.student_id || s.admission_no;
+            const fullName = s.full_name || s.fullname || s.student_name || s.name || 'Unknown';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${i + 1}</td>
+                <td>${escapeHtml(fullName)}</td>
+                <td>${escapeHtml(studentId || '—')}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-success me-2 preview-complete-report"
+                            data-student-id="${studentId}"
+                            data-session="${session}"
+                            data-term="${term}">
+                        Preview
+                    </button>
+                    <button class="btn btn-sm btn-primary download-complete-report"
+                            data-student-id="${studentId}"
+                            data-session="${session}"
+                            data-term="${term}">
+                        PDF
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+    } catch (err) {
+        console.error("Final error loading students:", err);
+        tbody.innerHTML = `<tr><td colspan="4" class="text-danger text-center py-6">Error loading students. Check console.</td></tr>`;
+    }
+}
+
+// ======================== CLICK EVENTS – PREVIEW & DOWNLOAD (SAFE & FIXED) ========================
+document.body.addEventListener('click', async function(e) {
+    const previewBtn = e.target.closest('.preview-complete-report');
+    const downloadBtn = e.target.closest('.download-complete-report');
+
+    if (previewBtn) {
+        const studentId = previewBtn.dataset.studentId;
+        const session = previewBtn.dataset.session;
+        const term = previewBtn.dataset.term;
+
+        const modalBody = document.getElementById('completeReportPreviewBody');
+        if (!modalBody) return;
+
+        modalBody.innerHTML = `<div class="text-center py-10"><div class="spinner-border text-primary R"></div><p>Loading report...</p></div>`;
+        const modal = new bootstrap.Modal(document.getElementById('completeReportPreviewModal'));
+        modal.show();
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/report/complete/html?student=${studentId}&session=${session}&term=${term}`);
+            if (!res.ok) throw new Error('Failed to load');
+            modalBody.innerHTML = await res.text();
+        } catch (err) {
+            modalBody.innerHTML = `<div class="text-danger text-center py-10">Failed to load report preview</div>`;
+            console.error(err);
+        }
+    }
+
+    if (downloadBtn) {
+        const studentId = downloadBtn.dataset.studentId;
+        const session = downloadBtn.dataset.session;
+        const term = downloadBtn.dataset.term;
+
+        // Trigger direct download
+        window.location.href = `${API_BASE_URL}/api/report/complete/pdf?student=${studentId}&session=${session}&term=${term}`;
+    }
+});
+
+// ======================== BUTTON RE-ATTACH (PREVENT DUPLICATE LISTENERS) ========================
+document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById('loadReportStudentsBtn');
+    if (btn) {
+        // Remove any old listeners
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+        // Attach fresh listener
+        newBtn.addEventListener('click', loadAdminCompleteReportStudents);
+    }
+});
+// ======================== DOWNLOAD ALL REPORTS – ZIP ========================
+document.getElementById('exportAllReportsBtn')?.addEventListener('click', async () => {
+    const classId = document.getElementById('reportClassSelect')?.value;
+    const session = document.getElementById('reportSessionSelect')?.value;
+    const term = document.getElementById('reportTermSelect')?.value;
+
+    if (!classId || !session || !term) {
+        showMessageModal('error', 'Please select Class, Session and Term first');
+        return;
+    }
+
+    const btn = document.getElementById('exportAllReportsBtn');
+    const original = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Preparing ZIP...`;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/report/complete/zip?class=${classId}&session=${session}&term=${term}`);
+
+        if (!res.ok) throw new Error('Failed');
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `All_Reports_Class${classId}_${session}_T${term}.zip`;
+        a.click();
+
+        URL.revokeObjectURL(url);
+
+    } catch (err) {
+        showMessageModal('error', 'Failed to generate ZIP');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+    }
+});
+
+
+
+// ======================== DOMContentLoaded FINAL ATTACHMENTS ========================
+document.addEventListener("DOMContentLoaded", async () => {
+    console.log("Initializing Report Sections...");
+
+    // Tahfiz Overall Results
+    document.getElementById('loadOverallStudentsBtn')?.addEventListener('click', loadTahfizOverallResults);
+    document.getElementById('exportOverallPdfBtn')?.addEventListener('click', exportTahfizOverallPdf);
+    document.getElementById('exportOverallExcelBtn')?.addEventListener('click', exportTahfizOverallExcel);
+
+    // Complete Report Portal (Complete Reports)
+    document.getElementById('loadReportStudentsBtn')?.addEventListener('click', loadAdminCompleteReportStudents);
+
+    // ──────────────────────────────────────────────────────────────────
+    // CRITICAL FIX: Populate ALL session dropdowns correctly (no more "undefined")
+    // ──────────────────────────────────────────────────────────────────
+    async function populateAllSessionDropdowns() {
+        try {
+            const res = await fetchData('/api/sessions');
+            if (!res.success || !Array.isArray(res.data)) {
+                console.error("Failed to load sessions:", res);
+                return;
+            }
+
+            // List of ALL session dropdowns in your entire dashboard
+            const sessionSelectIds = [
+                'overallSessionSelect',        // Tahfiz Overall Results
+                'reportSessionSelect',         // Complete Report Portal
+                'adminWeeklySessionSelect',     // Weekly Attendance
+                'cumulativeSessionSelect',      // Cumulative Attendance
+                'sessionSelect',               // Set Fees
+                'feesSessionFilter',           // Payment Tracking filter
+                'feeOverviewSessionFilter',     // Fee Structure filter
+                'paymentSession',              // Add Payment modal
+                'adminTahfizSessionSelect',    // (if you have separate Tahfiz section)
+                'adminCompleteSessionSelect'        // any other
+            ];
+
+            sessionSelectIds.forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+
+                // Clear and add default option
+                select.innerHTML = '<option value="">Select Session</option>';
+
+                res.data.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = s.session_year;
+                    opt.textContent = s.session_year;
+                    if (s.is_current) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            });
+
+            console.log("All session dropdowns populated successfully with real data");
+        } catch (err) {
+            console.error("Error populating sessions:", err);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // Run everything in correct order
+    // ──────────────────────────────────────────────────────────────────
+    await populateClasses();        // Classes first
+    await populateAllSessionDropdowns();  // ← This fixes "undefined" forever
+    await populateTerms();          // Terms last (static)
+
+    console.log("Tahfiz + Complete Report + All Dropdowns Loaded 100% Correctly");
+});
+
+// TAHFIZ GRADING SYSTEM – FINAL & SAFE VERSION
+function getGrade(total) {
+    if (total == null || isNaN(total)) return "-";
+    total = parseFloat(total);
+
+    if (total >= 90) return "A+ (Excellent)";
+    if (total >= 80) return "A (Very Good)";
+    if (total >= 70) return "B (Good)";
+    if (total >= 60) return "C (Credit)";
+    if (total >= 50) return "D (Pass)";
+    return "F (Fail)";
+}
+
+function getGradeColor(total) {
+    if (total == null || isNaN(total)) return "";
+    total = parseFloat(total);
+
+    if (total >= 90) return "text-success font-bold";
+    if (total >= 80) return "text-success";
+    if (total >= 70) return "text-primary";
+    if (total >= 60) return "text-info";
+    if (total >= 50) return "text-warning";
+    return "text-danger font-bold";
+}

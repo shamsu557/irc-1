@@ -4293,15 +4293,19 @@ app.get("/api/classes", (req, res) => {
   });
 });
 
-// GET ALL SESSIONS – Admin only (very common endpoint)
+// ============================================================
+// ADMIN: Get all sessions – Admin only
+// ============================================================
 app.get("/api/sessions", (req, res) => {
   if (!req.session?.isAuthenticated || req.session.userType !== "admin") {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  const sql = `SELECT session_year, is_current 
-               FROM Sessions 
-               ORDER BY session_year DESC`;
+  const sql = `
+    SELECT session_year, is_current 
+    FROM Sessions 
+    ORDER BY session_year DESC
+  `;
 
   db.query(sql, (err, rows) => {
     if (err) {
@@ -4311,228 +4315,193 @@ app.get("/api/sessions", (req, res) => {
     res.json({ success: true, data: rows });
   });
 });
-// =============================================
-// ADMIN TAHFIZ REPORT - DAILY (FOR A CLASS ON A SPECIFIC DAY)
-// =============================================
-app.get("/api/daily-tahfiz-results", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "admin") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
+
+// ============================================================
+// ADMIN: Get all students for report (Simplified, works like staff)
+// ============================================================
+app.get("/api/students/for-report", (req, res) => {
+  const { class: classId, session, term } = req.query;
+
+  if (!classId || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
   }
-  const { class_id, session, day } = req.query;
-  if (!class_id || !session || !day) {
-    return res.status(400).json({ success: false, message: "Missing parameters." });
-  }
+
+  // Fetch all students enrolled in the class (any type)
   const sql = `
-    SELECT 
-      s.full_name AS student_name,
-      sma.daily_grade AS grade,
-      sma.comments AS comment
-    FROM Student_Memorization_Assessments sma
-    JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
-    JOIN Students s ON se.student_id = s.id
-    WHERE se.class_ref = ? 
-      AND sma.session_year = ? 
-      AND sma.assessed_day = ?  // Adjust to 'date' if using actual date field
+    SELECT s.full_name, s.student_id, s.id AS internal_id
+    FROM Students s
+    JOIN Student_Enrollments se ON se.student_id = s.id
+    WHERE se.class_ref = ? OR se.class_ref = ?
     ORDER BY s.full_name
   `;
-  db.query(sql, [class_id, session, day], (err, rows) => {
+
+  db.query(sql, [classId, classId], (err, rows) => {
     if (err) {
-      console.error("Admin Daily Tahfiz Error:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
+      console.error("Error fetching students:", err);
+      return res.status(500).json({ success: false });
     }
-    res.json({ success: true, data: rows });
+
+    res.json({ success: true, data: { students: rows } });
   });
 });
 
+// ============================================================
+// ADMIN: Tahfiz Overall (Simplified, works like staff)
+// ============================================================
 // =============================================
-// ADMIN TAHFIZ REPORT - OVERALL (FOR A CLASS IN A SESSION)
+// ADMIN: Tahfiz OVERALL (Class + Session + Term) – Fixed
 // =============================================
-app.get("/api/overall-tahfiz-results", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "admin") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-  }
-  const { class_id, session } = req.query;
-  if (!class_id || !session) {
-    return res.status(400).json({ success: false, message: "Missing parameters." });
-  }
-  const sql = `
-    SELECT 
-      s.full_name AS student_name,
-      AVG(CASE 
-        WHEN sma.daily_grade = 'A' THEN 5
-        WHEN sma.daily_grade = 'B' THEN 4
-        WHEN sma.daily_grade = 'C' THEN 3
-        WHEN sma.daily_grade = 'D' THEN 2
-        WHEN sma.daily_grade = 'E' THEN 1
-        ELSE 0
-      END) AS average_grade,
-      GROUP_CONCAT(DISTINCT sma.comments SEPARATOR '; ') AS overall_comment
-    FROM Student_Memorization_Assessments sma
-    JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
-    JOIN Students s ON se.student_id = s.id
-    WHERE se.class_ref = ? 
-      AND sma.session_year = ?
-    GROUP BY s.id
-    ORDER BY average_grade DESC
-  `;
-  db.query(sql, [class_id, session], (err, rows) => {
-    if (err) {
-      console.error("Admin Overall Tahfiz Error:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
-    }
-    res.json({ success: true, data: rows });
-  });
-});
+app.get("/api/tahfiz/overall", (req, res) => {
+  const { class: classId, session, term } = req.query;
 
-// =============================================
-// ADMIN COMPLETE REPORT (FOR ANY STUDENT)
-// =============================================
-// This mirrors your /api/student-report but with admin auth (your existing one has no auth, so this secures it for admin use)
-app.get("/api/student-report-data", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "admin") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
+  if (!classId || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
   }
-  const { student_id, session, term } = req.query;
-  if (!student_id || !session || !term) {
-    return res.status(400).json({ success: false, message: "Missing parameters." });
-  }
-  const sqlSubjects = `
-    SELECT 
-      s.full_name,
-      s.student_id,
-      sub.subject_name,
-      ssa.ca1_score AS ca1,
-      ssa.ca2_score AS ca2,
-      ssa.exam_score AS exam,
-      (COALESCE(ssa.ca1_score,0) + COALESCE(ssa.ca2_score,0) + COALESCE(ssa.exam_score,0)) AS total
-    FROM Student_Enrollments se
-    JOIN Student_Subject_Assessments ssa ON ssa.enrollment_id = se.enrollment_id
-    JOIN Subjects sub ON sub.subject_id = ssa.subject_id
-    JOIN Students s ON s.id = se.student_id
-    WHERE s.student_id = ? 
-      AND ssa.session_year = ? 
-      AND ssa.term = ?
+
+  // Detect section_id
+  const classSql = `
+    SELECT section_id FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id FROM Western_Classes WHERE western_class_id = ?
   `;
-  const sqlAttendance = `
-    SELECT 
-      COUNT(*) AS total,
-      SUM(CASE WHEN attendance_status = 'Present' THEN 1 ELSE 0 END) AS present
-    FROM Student_Attendance
-    WHERE student_id = ? AND session_year = ? AND term = ?
-  `;
-  Promise.all([
-    new Promise((resolve, reject) => db.query(sqlSubjects, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows))),
-    new Promise((resolve, reject) => db.query(sqlAttendance, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows)))
-  ])
-  .then(([subjects, attRows]) => {
-    if (!subjects.length) {
-      return res.json({ success: false, message: "No academic records found" });
+
+  db.query(classSql, [classId, classId], (err, classRows) => {
+    if (err || classRows.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
     }
-    const full_name = subjects[0].full_name;
-    const sid = subjects[0].student_id;
-    subjects.forEach(s => {
-      const total = Number(s.total);
-      s.grade = total >= 70 ? "A" : total >= 60 ? "B" : total >= 50 ? "C" : total >= 40 ? "D" : "F";
-    });
-    const att = attRows[0] || { total: 0, present: 0 };
-    const attendancePercent = att.total > 0 ? ((att.present / att.total) * 100).toFixed(1) + "%" : "0%";
-    res.json({
-      success: true,
-      data: {
-        full_name,
-        student_id: sid,
-        subjects,
-        attendance_present: att.present,
-        attendance_total: att.total,
-        attendance_percent: attendancePercent,
+
+    const section_id = classRows[0].section_id;
+
+    // Get students in this class
+    const studentsSql = `
+      SELECT s.full_name, s.student_id, s.id AS internal_id
+      FROM Students s
+      JOIN Student_Enrollments se ON s.id = se.student_id
+      WHERE se.class_ref = ? AND se.section_id = ?
+      ORDER BY s.full_name
+    `;
+
+    db.query(studentsSql, [classId, section_id], (err, students) => {
+      if (err) return res.status(500).json({ success: false });
+
+      if (students.length === 0) {
+        return res.json({ success: true, data: { students: [] } });
       }
+
+      const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+
+      const tasks = students.map(std => {
+        return new Promise(resolve => {
+          const dailySql = `
+            SELECT daily_grade FROM Student_Memorization_Assessments sma
+            JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+            WHERE se.student_id = ? AND sma.session_year = ? AND sma.term = ?
+          `;
+
+          const examSql = `
+            SELECT exam_grade FROM Student_Memorization_Exam sme
+            JOIN Student_Enrollments se ON sme.enrollment_id = se.enrollment_id
+            WHERE se.student_id = ? AND sme.session_year = ? AND sme.term = ?
+          `;
+
+          Promise.all([
+            new Promise((res2, rej2) =>
+              db.query(dailySql, [std.internal_id, session, term], (e, r) => e ? rej2(e) : res2(r))
+            ),
+            new Promise((res2, rej2) =>
+              db.query(examSql, [std.internal_id, session, term], (e, r) => e ? rej2(e) : res2(r))
+            )
+          ])
+          .then(([dailyRows, examRows]) => {
+            const dailyPointsList = dailyRows.map(r => gradePoints[r.daily_grade] || 0);
+            const avgDailyPoint = dailyPointsList.length
+              ? dailyPointsList.reduce((a, b) => a + b, 0) / dailyPointsList.length
+              : 0;
+            const dailyScore = (avgDailyPoint / 5) * 80;
+
+            const examGrade = examRows[0]?.exam_grade || "F";
+            const examScore = ((gradePoints[examGrade] || 0) / 5) * 20;
+
+            const total = dailyScore + examScore;
+
+            let finalGrade = "F";
+            if (total >= 70) finalGrade = "A";
+            else if (total >= 60) finalGrade = "B";
+            else if (total >= 50) finalGrade = "C";
+            else if (total >= 40) finalGrade = "D";
+
+            // Return all numbers safely as proper numbers
+            resolve({
+              fullname: std.full_name,
+              student_id: std.student_id,
+              avg_daily: Number(avgDailyPoint.toFixed(1)) || 0,
+              daily_mark: Number(dailyScore.toFixed(1)) || 0,
+              daily_total: 80,
+              exam_mark: Number(examScore.toFixed(1)) || 0,
+              exam_total: 20,
+              total: Number(total.toFixed(1)) || 0,
+              grade: finalGrade
+            });
+          })
+          .catch(() => resolve({
+            fullname: std.full_name,
+            student_id: std.student_id,
+            avg_daily: 0,
+            daily_mark: 0,
+            daily_total: 80,
+            exam_mark: 0,
+            exam_total: 20,
+            total: 0,
+            grade: "F"
+          }));
+        });
+      });
+
+      Promise.all(tasks).then(list => {
+        res.json({ success: true, data: { students: list.filter(x => x) } });
+      });
     });
-  })
-  .catch(err => {
-    console.error("Admin Complete Report Error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
   });
 });
 
-// =============================================
-// ADMIN OVERALL RESULT (FOR ANY CLASS)
-// =============================================
-app.get("/api/admin-overall-result", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "admin") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-  }
-  const { class_id, session, term } = req.query;
-  if (!class_id || !session || !term) {
-    return res.status(400).json({ success: false, message: "Missing parameters." });
-  }
-  const sql = `
-    SELECT 
-      s.full_name AS student_name,
-      s.student_id,
-      SUM(ssa.ca1_score + ssa.ca2_score + ssa.exam_score) AS total_score,
-      AVG(ssa.ca1_score + ssa.ca2_score + ssa.exam_score) AS average,
-      AVG(CASE 
-        WHEN sma.daily_grade = 'A' THEN 5
-        WHEN sma.daily_grade = 'B' THEN 4
-        WHEN sma.daily_grade = 'C' THEN 3
-        WHEN sma.daily_grade = 'D' THEN 2
-        WHEN sma.daily_grade = 'E' THEN 1
-        ELSE 0
-      END) AS tahfiz_avg,
-      (SUM(CASE WHEN sa.attendance_status = 'Present' THEN 1 ELSE 0 END) / COUNT(sa.id) * 100) AS attendance_rate,
-      'Good' AS conduct  // Adjust if you have a real conduct field/table
-    FROM Students s
-    JOIN Student_Enrollments se ON s.id = se.student_id
-    LEFT JOIN Student_Subject_Assessments ssa ON se.enrollment_id = ssa.enrollment_id
-    LEFT JOIN Student_Memorization_Assessments sma ON se.enrollment_id = sma.enrollment_id
-    LEFT JOIN Student_Attendance sa ON s.student_id = sa.student_id
-    WHERE se.class_ref = ? 
-      AND se.session_year = ? 
-      AND se.term = ?
-      AND ssa.session_year = ? AND ssa.term = ?
-      AND sma.session_year = ? AND sma.term = ?
-      AND sa.session_year = ? AND sa.term = ?
-    GROUP BY s.id
-    ORDER BY total_score DESC
-  `;
-  db.query(sql, [class_id, session, term, session, term, session, term, session, term], (err, rows) => {
-    if (err) {
-      console.error("Admin Overall Result Error:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
-    }
-    res.json({ success: true, data: rows });
-  });
+// ============================================================
+// ADMIN: Complete Report HTML, PDF & ZIP (reuse existing functions)
+// ============================================================
+app.get("/api/report/complete/html", (req, res) => {
+  const { student, session, term } = req.query;
+  if (!student || !session || !term) return res.status(400).send("Missing required parameters");
+
+  generateCompleteReportHTML(student, session, term)
+    .then(html => {
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
+    })
+    .catch(err => {
+      console.error("Error generating HTML:", err);
+      res.status(500).send("Error generating complete report preview");
+    });
 });
 
-// =============================================
-// ADMIN: LOAD STUDENTS FOR COMPLETE REPORT (FOR ANY CLASS)
-// =============================================
-app.get("/api/admin-report-students", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "admin") {
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-  }
-  const { class_id, session } = req.query;
-  if (!class_id || !session) {
-    return res.status(400).json({ success: false, message: "Missing parameters." });
-  }
-  const sql = `
-    SELECT 
-      s.student_id,
-      s.full_name
-    FROM Students s
-    JOIN Student_Enrollments se ON s.id = se.student_id
-    WHERE se.class_ref = ? 
-      AND se.session_year = ?
-    ORDER BY s.full_name
-  `;
-  db.query(sql, [class_id, session], (err, rows) => {
-    if (err) {
-      console.error("Admin Report Students Error:", err);
-      return res.status(500).json({ success: false, message: "Database error." });
-    }
-    res.json({ success: true, data: rows });
-  });
+app.get("/api/report/complete/pdf", (req, res) => {
+  const { student, session, term } = req.query;
+  generateCompleteReportPDF(student, session, term)
+    .then(filePath => res.download(filePath))
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ success: false });
+    });
 });
+
+app.get("/api/report/complete/zip", (req, res) => {
+  const { class: classId, session, term } = req.query;
+  generateZipForCompleteReports(classId, session, term)
+    .then(filePath => res.download(filePath))
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ success: false });
+    });
+});
+
 //server listen to port 5000
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
