@@ -11,6 +11,9 @@ const moment = require('moment'); // install with: npm install moment
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+const fs = require('fs');
+const logDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
 
 const port = process.env.PORT || 5000;
 // Multer configuration for file uploads
@@ -35,6 +38,29 @@ const upload = multer({
         cb(null, true);
     }
 });
+// NEW: For memorization videos/audio only (MP4, MP3, etc.)
+const uploadVideo = multer({
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, 'public/uploads'),
+        filename: (req, file, cb) => {
+            const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, `video-${unique}${path.extname(file.originalname)}`);
+        }
+    }),
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+    fileFilter: (req, file, cb) => {
+        const allowed = [
+            'video/mp4', 'video/webm', 'video/quicktime', 'video/mpeg',
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg'
+        ];
+        if (allowed.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only video and audio files allowed'));
+        }
+    }
+});
+
 
 // Middleware
 app.use(cors());
@@ -48,6 +74,19 @@ app.use(session({
     cookie: { secure: false } // Set to true for HTTPS
 }));
 
+const errorLog = fs.createWriteStream(path.join(logDir, 'error.log'), { flags: 'a' });
+
+function log(msg, data = null) {
+  const line = `[${new Date().toISOString()}] ${msg}${data ? ' | ' + JSON.stringify(data) : ''}\n`;
+  console.log(line);
+  errorLog.write(line);
+}
+
+// Global error handler – NEVER return HTML
+app.use((err, req, res, next) => {
+  log(`UNHANDLED ERROR: ${req.method} ${req.url}`, err.stack);
+  res.status(500).json({ success: false, message: "Server error" });
+});
 // Initialize SuperAdmin if not exists
 function initializeSuperAdmin() {
     const checkSuperAdminQuery = 'SELECT COUNT(*) as count FROM admins WHERE role = "SuperAdmin"';
@@ -88,6 +127,9 @@ app.get('/staff-login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'staff_login.html'));
 });
 
+app.get('/public', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin_reports.html'));
+});
 app.get('/staff-dashboard', (req, res) => {
     if (!req.session.isAuthenticated) {
         return res.redirect('/staff-login');
@@ -2235,83 +2277,7 @@ app.post('/api/students/upload-profile-picture', upload.single('profile_picture'
     });
 });
 
-// Generate report sheets (bulk)
-app.post('/api/generate-report-sheets', (req, res) => {
-    if (!req.session.isAuthenticated || req.session.role !== 'SuperAdmin') {
-        return res.status(401).json({ success: false, message: 'Unauthorized.' });
-    }
 
-    const { reportType, term } = req.body;
-    if (!reportType) {
-        return res.status(400).json({ success: false, message: 'Report type is required.' });
-    }
-
-    if (reportType === 'terminal' && !term) {
-        return res.status(400).json({ success: false, message: 'Term is required for terminal reports.' });
-    }
-
-    if (!['terminal', 'sessional'].includes(reportType)) {
-        return res.status(400).json({ success: false, message: 'Invalid report type.' });
-    }
-
-    if (term && !['1st Term', '2nd Term', '3rd Term'].includes(term)) {
-        return res.status(400).json({ success: false, message: 'Invalid term.' });
-    }
-
-    const termCondition = reportType === 'terminal' ? 'AND e.term = ?' : '';
-    const queryParams = reportType === 'terminal' ? [term] : [];
-
-    const query = `
-        SELECT s.student_id, s.name, s.gender, e.term, e.level,
-               CASE WHEN e.section_id = 1 THEN c.class_name ELSE w.class_name END AS class_name,
-               sub.subject_name,
-               ssa.ca1_score, ssa.ca2_score, ssa.ca3_score, ssa.exam_score,
-               (ssa.ca1_score + ssa.ca2_score + ssa.ca3_score + ssa.exam_score) AS total_score,
-               ssa.comments
-        FROM Students s
-        JOIN Student_Enrollments e ON s.student_id = e.student_id
-        LEFT JOIN Classes c ON e.class_ref = c.class_id AND e.section_id = 1
-        LEFT JOIN Western_Classes w ON e.class_ref = w.western_class_id AND e.section_id = 2
-        JOIN Student_Subjects ss ON e.enrollment_id = ss.enrollment_id
-        JOIN Subjects sub ON ss.subject_id = sub.subject_id
-        LEFT JOIN Student_Subject_Assessments ssa ON ss.id = ssa.id
-        WHERE 1=1 ${termCondition}
-        ORDER BY s.student_id, sub.subject_name
-    `;
-    db.query(query, queryParams, (err, results) => {
-        if (err) {
-            console.error('Error generating bulk reports:', err);
-            return res.status(500).json({ success: false, message: 'Database error.' });
-        }
-
-        const reports = {};
-        results.forEach(row => {
-            const studentId = row.student_id;
-            if (!reports[studentId]) {
-                reports[studentId] = {
-                    student_id: studentId,
-                    name: row.name,
-                    gender: row.gender,
-                    class_name: row.class_name,
-                    level: row.level,
-                    term: reportType === 'terminal' ? row.term : 'Sessional',
-                    subjects: []
-                };
-            }
-            reports[studentId].subjects.push({
-                subject_name: row.subject_name,
-                ca1_score: row.ca1_score,
-                ca2_score: row.ca2_score,
-                ca3_score: row.ca3_score,
-                exam_score: row.exam_score,
-                total_score: row.total_score,
-                comments: row.comments
-            });
-        });
-
-        res.status(200).json({ success: true, message: 'Bulk report sheets generated successfully.', data: Object.values(reports) });
-    });
-});
 
 // Demographics route
 app.get('/api/demographics', (req, res) => {
@@ -3253,86 +3219,6 @@ app.post("/api/staff-memorization/:staffId", (req, res) => {
   });
 });
 
-// 5. GET: Tahfiz HTML report
-app.get("/api/tahfiz-report", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "staff")
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-
-  const { student_id, section_id, class_id, term, session } = req.query;
-  if (!student_id || !section_id || !class_id || !term || !session)
-    return res.status(400).json({ success: false, message: "Missing parameters." });
-
-  const sql = `
-    SELECT
-      s.full_name, s.student_id,
-      dms.week, dms.day,
-      dms.from_surah_ayah, dms.to_surah_ayah,
-      sma.daily_grade, sme.exam_grade, sma.comments
-    FROM Students s
-    JOIN Student_Enrollments se
-      ON s.id = se.student_id
-     AND se.section_id = ? AND se.class_ref = ? AND se.session_year = ?
-    JOIN Daily_Memorization_Scheme dms
-      ON dms.class_id = se.class_ref
-     AND dms.term = ? AND dms.session_year = ?
-    LEFT JOIN Student_Memorization_Assessments sma
-      ON sma.enrollment_id = se.enrollment_id
-     AND sma.scheme_id = dms.id
-     AND sma.session_year = ?
-    LEFT JOIN Student_Memorization_Exam sme
-      ON sme.enrollment_id = se.enrollment_id
-     AND sme.term = ?
-     AND sme.session_year = ?
-    WHERE s.id = ?
-    ORDER BY dms.week, dms.day`;
-
-  db.query(sql, [section_id, class_id, session, term, session, session, term, session, student_id], (err, rows) => {
-    if (err) return res.status(500).json({ success: false, message: "DB error." });
-
-    const termName = { "1": "الأول", "2": "الثاني", "3": "الثالث" }[term] || term;
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-      <style>body{font-family:Arial,sans-serif;padding:20px;direction:rtl}
-      table{width:100%;border-collapse:collapse;margin-top:20px}
-      th,td{border:1px solid #ddd;padding:10px;text-align:center}
-      th{background:#00897b;color:#fff}</style></head><body>
-      <img src="/uploads/logo.jpg" style="width:200px;display:block;margin:auto">
-      <h1 style="text-align:center">Al‑Hirz Institute</h1>
-      <h2 style="text-align:center">تقرير التحفيظ</h2>
-      <p style="text-align:center"><strong>الاسم:</strong> ${rows[0]?.full_name || "غير معروف"}</p>
-      <p style="text-align:center"><strong>رقم الطالب:</strong> ${rows[0]?.student_id || "غير معروف"}</p>
-      <p style="text-align:center"><strong>الفصل:</strong> ${termName}</p>
-      <p style="text-align:center"><strong>العام الدراسي:</strong> ${session}</p>
-      <table><thead><tr>
-        <th>الأسبوع</th><th>اليوم</th><th>من آية</th><th>إلى آية</th>
-        <th>تقييم يومي</th><th>تقييم نهائي</th><th>ملاحظات</th>
-      </tr></thead><tbody>`;
-
-    rows.forEach(r => {
-      html += `<tr>
-        <td>${r.week}</td><td>${r.day}</td>
-        <td>${r.from_surah_ayah}</td><td>${r.to_surah_ayah}</td>
-        <td>${r.daily_grade || "-"}</td>
-        <td>${r.exam_grade || "-"}</td>
-        <td>${r.comments || "-"}</td>
-      </tr>`;
-    });
-
-    html += `</tbody></table>
-      <div style="margin-top:50px;text-align:left">
-        <p>Director's Signature: _____________________</p>
-        <p>Form Master's Signature: _____________________</p>
-      </div></body></html>`;
-    res.send(html);
-  });
-});
-
-// 6. Redirect download
-app.get("/api/download-report", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "staff")
-    return res.status(401).json({ success: false, message: "Unauthorized." });
-  const { student_id, section_id, class_id, term, session } = req.query;
-  res.redirect(`/api/tahfiz-report?student_id=${student_id}&section_id=${section_id}&class_id=${class_id}&term=${term}&session=${session}`);
-});
 
 // 7. GET: All assessments for a class (overall result)
 app.get("/api/class-memorization-assessments", (req, res) => {
@@ -3402,99 +3288,6 @@ app.get("/api/staff-students/:staffId", (req, res) => {
     res.status(200).json({ success: true, data: results });
   });
 });
-
-
-app.get("/api/student-report", (req, res) => {
-  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
-    return res.status(401).json({ success: false, message: "Unauthorized." })
-  }
-  const { student_id, section_id, class_id, term, session } = req.query
-
-  const query = `
-        SELECT 
-            s.full_name,
-            s.student_id,
-            sub.subject_name,
-            ssa.ca1_score,
-            ssa.ca2_score,
-            ssa.ca3_score,
-            ssa.exam_score,
-            (COALESCE(ssa.ca1_score, 0) + COALESCE(ssa.ca2_score, 0) + 
-             COALESCE(ssa.ca3_score, 0) + COALESCE(ssa.exam_score, 0)) AS total_score,
-            ssa.comments
-        FROM Students s
-        JOIN Student_Enrollments se ON s.id = se.student_id
-        JOIN Student_Subject_Assessments ssa ON se.enrollment_id = ssa.enrollment_id
-        JOIN Subjects sub ON ssa.subject_id = sub.subject_id
-        WHERE s.id = ? AND se.section_id = ? AND se.class_ref = ? 
-            AND ssa.term = ? AND se.session_year = ?
-        ORDER BY sub.subject_name
-    `
-
-  db.query(query, [student_id, section_id, class_id, term, session], (err, results) => {
-    if (err) {
-      console.error("Error fetching student report:", err)
-      return res.status(500).json({ success: false, message: "Database error." })
-    }
-
-    // Generate HTML report
-    let html = `
-            <html>
-            <head>
-                <title>Student Report</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #00897b; color: white; }
-                    h1 { color: #2f4f4f; }
-                </style>
-            </head>
-            <body>
-                <h1>Student Report Sheet</h1>
-                <p><strong>Student Name:</strong> ${results[0]?.full_name || "N/A"}</p>
-                <p><strong>Student ID:</strong> ${results[0]?.student_id || "N/A"}</p>
-                <p><strong>Term:</strong> ${term}</p>
-                <p><strong>Session:</strong> ${session}</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>CA1</th>
-                            <th>CA2</th>
-                            <th>CA3</th>
-                            <th>Exam</th>
-                            <th>Total</th>
-                            <th>Comments</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `
-
-    results.forEach((row) => {
-      html += `
-                <tr>
-                    <td>${row.subject_name}</td>
-                    <td>${row.ca1_score || "-"}</td>
-                    <td>${row.ca2_score || "-"}</td>
-                    <td>${row.ca3_score || "-"}</td>
-                    <td>${row.exam_score || "-"}</td>
-                    <td>${row.total_score}</td>
-                    <td>${row.comments || "-"}</td>
-                </tr>
-            `
-    })
-
-    html += `
-                    </tbody>
-                </table>
-            </body>
-            </html>
-        `
-
-    res.send(html)
-  })
-})
 
 //load student for attendance
 app.get("/api/staff-students/:staffId", (req, res) => {
@@ -3722,8 +3515,1293 @@ app.get("/api/staff-attendance-weekly/:staffId", (req, res) => {
   });
 });
 
-//server
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
+// ──────────────────────────────────────────────────────────────
+// MIDDLEWARE: verifyStaffSession – RETURN JSON ONLY
+// ──────────────────────────────────────────────────────────────
+async function verifyStaffSession(req, res, next) {
+  try {
+    const sessionRes = await fetch("/api/staff-session", { credentials: "include" }); // or use cookie
+    const sessionData = await sessionRes.json();
 
+    if (!sessionData.success || !sessionData.data?.staff_id) {
+      logError(`Unauthorized access: ${req.method} ${req.originalUrl} | IP: ${req.ip}`);
+      return res.status(401).json({ success: false, message: "Unauthorized – login required" });
+    }
+
+    req.staff = sessionData.data;
+    next();
+  } catch (err) {
+    logError(`Session check failed: ${req.originalUrl}`, err);
+    return res.status(401).json({ success: false, message: "Session error" });
+  }
+}
+
+// BEST & FINAL VERSION — USE ONLY THIS ONE
+app.get("/api/staff-classes/:staffId", verifyStaffSession, async (req, res) => {
+  const staffId = req.params.staffId;
+
+  try {
+    const [rows] = await pool.query(`
+      SELECT 
+        sc.section_id,
+        COALESCE(c.class_name, wc.class_name) AS class_name,
+        sc.class_id,
+        sc.western_class_id
+      FROM staff_classes sc
+      LEFT JOIN Classes c ON sc.section_id = 1 AND sc.class_id = c.class_id
+      LEFT JOIN Western_Classes wc ON sc.section_id = 2 AND sc.western_class_id = wc.western_class_id
+      WHERE sc.staff_id = ?
+      GROUP BY sc.section_id, sc.class_id, sc.western_class_id, class_name
+      ORDER BY sc.section_id, class_name
+    `, [staffId]);
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("Error in /api/staff-classes (final):", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+// ──────────────────────────────────────────────────────────────
+// 2. DASHBOARD STATS (FIX 404 + JSON)
+// ──────────────────────────────────────────────────────────────
+// FIXED DASHBOARD STATS – NO HTML, NO 500
+app.get("/api/staff-dashboard-stats/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== 'staff') {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const { staffId } = req.params;
+
+  const query = `
+    SELECT 
+      (SELECT COUNT(*) FROM staff_classes WHERE staff_id = ?) AS totalClasses,
+      (SELECT COUNT(DISTINCT se.student_id) 
+       FROM student_enrollments se
+       JOIN staff_classes sc ON se.class_ref = sc.class_id AND se.section_id = sc.section_id
+       WHERE sc.staff_id = ?) AS totalStudents,
+      (SELECT COUNT(*) FROM staff_subjects WHERE staff_id = ?) AS totalSubjects
+  `;
+
+  db.query(query, [staffId, staffId, staffId], (err, results) => {
+    if (err) {
+      console.error("Dashboard stats error:", err);
+      return res.status(500).json({ success: false, message: "Stats error" });
+    }
+
+    const row = results[0] || {};
+    res.json({
+      success: true,
+      data: {
+        totalClasses: parseInt(row.totalClasses) || 0,
+        totalStudents: parseInt(row.totalStudents) || 0,
+        totalSubjects: parseInt(row.totalSubjects) || 0
+      }
+    });
+  });
+});
+// ================================================================
+// 1. TAHFIZ REPORT – FINAL VERSION (WORKS WITH YOUR REAL TABLE)
+// ================================================================
+app.get("/api/tahfiz-report", (req, res) => {
+  const { student_id, session, term } = req.query;
+
+  if (!student_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  // Step 1: Get student name (student_id is already the full string)
+  const studentInfoSql = `
+    SELECT full_name, student_id 
+    FROM Students 
+    WHERE student_id = ?
+  `;
+
+  // CORRECT ATTENDANCE — Uses student_id as string directly!
+  const attendanceSql = `
+    SELECT 
+      COUNT(*) AS total_days,
+      SUM(CASE WHEN attendance_status = 'Present' THEN 1 ELSE 0 END) AS present_days
+    FROM Student_Attendance
+    WHERE student_id = ?
+      AND session_year = ?
+      AND term = ?
+  `;
+
+  // Daily records & grades
+  const detailSql = `
+    SELECT week, assessed_day AS day, from_surah_ayah, to_surah_ayah, daily_grade, comments AS comment
+    FROM Student_Memorization_Assessments sma
+    JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+    JOIN Students s ON se.student_id = s.id
+    WHERE s.student_id = ? AND sma.session_year = ? AND sma.term = ?
+    ORDER BY week, assessed_day
+  `;
+
+  const dailyGradesSql = `
+    SELECT daily_grade FROM Student_Memorization_Assessments sma
+    JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+    WHERE se.student_id = (SELECT id FROM Students WHERE student_id = ?)
+      AND sma.session_year = ? AND sma.term = ?
+  `;
+
+  const examSql = `
+    SELECT exam_grade FROM Student_Memorization_Exam sme
+    JOIN Student_Enrollments se ON sme.enrollment_id = se.enrollment_id
+    WHERE se.student_id = (SELECT id FROM Students WHERE student_id = ?)
+      AND sme.session_year = ? AND sme.term = ?
+  `;
+
+  Promise.all([
+    new Promise((resolve, reject) => db.query(studentInfoSql, [student_id], (err, rows) => err ? reject(err) : resolve(rows))),
+    new Promise((resolve, reject) => db.query(detailSql, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows))),
+    new Promise((resolve, reject) => db.query(dailyGradesSql, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows))),
+    new Promise((resolve, reject) => db.query(examSql, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows))),
+    new Promise((resolve, reject) => db.query(attendanceSql, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows)))
+  ])
+  .then(([infoRows, detailRows, dailyRows, examRows, attRows]) => {
+    if (!infoRows.length || !detailRows.length) {
+      return res.json({ success: false, message: "No data found" });
+    }
+
+    const full_name = infoRows[0].full_name;
+    const sid = infoRows[0].student_id;
+
+    // ATTENDANCE — NOW 100% CORRECT
+    const att = attRows[0] || { total_days: 0, present_days: 0 };
+    const totalDays = att.total_days || 1;
+    const presentDays = att.present_days || 0;
+    const attendancePercent = totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) + "%" : "0%";
+
+    // Grade calculation
+    const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+    const dailyPoints = dailyRows.map(r => gradePoints[r.daily_grade] || 0);
+    const avgDailyPoint = dailyPoints.length ? dailyPoints.reduce((a,b) => a+b, 0) / dailyPoints.length : 0;
+    const dailyScore = (avgDailyPoint / 5) * 80;
+    const examGrade = examRows[0]?.exam_grade || "F";
+    const examScore = (gradePoints[examGrade] || 0) / 5 * 20;
+    const totalScore = dailyScore + examScore;
+
+    let finalGrade = "F";
+    if (totalScore >= 70) finalGrade = "A";
+    else if (totalScore >= 60) finalGrade = "B";
+    else if (totalScore >= 50) finalGrade = "C";
+    else if (totalScore >= 40) finalGrade = "D";
+
+    res.json({
+      success: true,
+      data: {
+        full_name,
+        student_id: sid,
+        daily_records: detailRows,
+        exam_score: examScore.toFixed(1),
+        daily_score: dailyScore.toFixed(1),
+        total_score: totalScore.toFixed(1),
+        final_grade: finalGrade,
+        attendance: {
+          present: presentDays,
+          total: totalDays,
+          percentage: attendancePercent
+        },
+        teacher_remark: "Excellent memorization consistency. Masha Allah!"
+      }
+    });
+  })
+  .catch(err => {
+    console.error("Tahfiz Report Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  });
+});
+
+// ================================================================
+// 2. COMPLETE STUDENT REPORT – FINAL CLEAN VERSION (NO TAHFIZ, NO POSITION)
+// ================================================================
+app.get("/api/student-report", (req, res) => {
+  const { student_id, session, term } = req.query;
+
+  if (!student_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  const sqlSubjects = `
+    SELECT 
+      s.full_name,
+      s.student_id,
+      sub.subject_name, 
+      ssa.ca1_score AS ca1, 
+      ssa.ca2_score AS ca2, 
+      ssa.exam_score AS exam,
+      (COALESCE(ssa.ca1_score,0) + COALESCE(ssa.ca2_score,0) + COALESCE(ssa.exam_score,0)) AS total
+    FROM Student_Enrollments se
+    JOIN Student_Subject_Assessments ssa ON ssa.enrollment_id = se.enrollment_id
+    JOIN Subjects sub ON sub.subject_id = ssa.subject_id
+    JOIN Students s ON s.id = se.student_id
+    WHERE s.student_id = ? 
+      AND ssa.session_year = ? 
+      AND ssa.term = ?
+  `;
+
+  const sqlAttendance = `
+    SELECT 
+      COUNT(*) AS total,
+      SUM(CASE WHEN attendance_status = 'Present' THEN 1 ELSE 0 END) AS present
+    FROM Student_Attendance 
+    WHERE student_id = ? AND session_year = ? AND term = ?
+  `;
+
+  Promise.all([
+    new Promise((resolve, reject) => db.query(sqlSubjects, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows))),
+    new Promise((resolve, reject) => db.query(sqlAttendance, [student_id, session, term], (err, rows) => err ? reject(err) : resolve(rows)))
+  ])
+  .then(([subjects, attRows]) => {
+    if (!subjects.length) {
+      return res.json({ success: false, message: "No academic records found" });
+    }
+
+    const full_name = subjects[0].full_name;
+    const sid = subjects[0].student_id;
+
+    // Add grades only (no position!)
+    subjects.forEach(s => {
+      const total = Number(s.total);
+      s.grade = total >= 70 ? "A" : total >= 60 ? "B" : total >= 50 ? "C" : total >= 40 ? "D" : "F";
+      // REMOVED: s.position = "-";
+      delete s.position; // Clean remove
+    });
+
+    const att = attRows[0] || { total: 0, present: 0 };
+    const attendancePercent = att.total > 0 
+      ? ((att.present / att.total) * 100).toFixed(1) + "%" 
+      : "0%";
+
+    res.json({
+      success: true,
+      data: {
+        full_name,
+        student_id: sid,
+        subjects,
+        // REMOVED: tahfiz_grade, tahfiz_total
+        attendance_present: att.present,
+        attendance_total: att.total,
+        attendance_percent: attendancePercent,
+        // REMOVED: position_in_class
+
+      }
+    });
+  })
+  .catch(err => {
+    console.error("Student Report Error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  });
+});
+// =============================================
+// MEMORIZATION VIDEOS – ULTIMATE FINAL BACKEND (DELETE + FILTERS FIXED)
+// =============================================
+
+// GET: All videos for staff's classes
+app.get("/api/memorization-videos/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const staffId = req.params.staffId;
+
+  const sql = `
+    SELECT 
+      v.id,
+      v.video_url,
+      v.session,
+      v.term,
+      v.week,
+      v.day,  
+      v.from_ayah,
+      v.to_ayah,
+      v.class_id,
+      v.section_id,
+      COALESCE(c.class_name, wc.class_name) AS class_name,
+      v.uploaded_at
+    FROM Memorization_Videos v
+    JOIN staff_classes sc ON v.section_id = sc.section_id 
+      AND ((sc.section_id = 1 AND v.class_id = sc.class_id) 
+        OR (sc.section_id = 2 AND v.class_id = sc.western_class_id))
+    LEFT JOIN Classes c ON v.section_id = 1 AND v.class_id = c.class_id
+    LEFT JOIN Western_Classes wc ON v.section_id = 2 AND v.class_id = wc.western_class_id
+    WHERE sc.staff_id = ?
+    ORDER BY v.uploaded_at DESC
+  `;
+
+  db.query(sql, [staffId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching videos:", err);
+      return res.status(500).json({ success: false });
+    }
+    res.json({ success: true, data: rows });
+  });
+});
+
+// NEW ENDPOINT: Get staff's sessions & classes for filters AND upload form
+app.get("/api/staff-classes-sessions/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const staffId = req.params.staffId;
+
+  const sql = `
+    SELECT DISTINCT
+      sc.section_id,
+      COALESCE(c.class_id, wc.western_class_id) AS class_id,
+      COALESCE(c.class_name, wc.class_name) AS class_name,
+      sc.session
+    FROM staff_classes sc
+    LEFT JOIN Classes c ON sc.section_id = 1 AND sc.class_id = c.class_id
+    LEFT JOIN Western_Classes wc ON sc.section_id = 2 AND sc.western_class_id = wc.western_class_id
+    WHERE sc.staff_id = ?
+    ORDER BY sc.session DESC, class_name
+  `;
+
+  db.query(sql, [staffId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching staff classes/sessions:", err);
+      return res.status(500).json({ success: false });
+    }
+
+    const sessions = [...new Set(rows.map(r => r.session))].sort((a, b) => b.localeCompare(a));
+    const classes = rows.map(r => ({
+      value: `${r.section_id}:${r.class_id}`,
+      name: `${r.class_name} - ${r.session}`
+    }));
+
+    res.json({ success: true, sessions, classes });
+  });
+});
+
+// POST: Upload memorization video – replace if same class/session/term/week/day
+app.post("/api/upload-memorization-video", uploadVideo.single("video"), (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: "No video file uploaded" });
+  }
+
+  const {
+    class_id,
+    section_id,
+    session,
+    term,
+    week,
+    day,
+    from_ayah,
+    to_ayah
+  } = req.body;
+
+  if (!class_id || !section_id || !session || !term || !week || !day || !from_ayah || !to_ayah) {
+    return res.status(400).json({ success: false, message: "All fields are required" });
+  }
+
+  const video_url = `/uploads/${req.file.filename}`;
+
+  const checkSql = `
+    SELECT id, video_url FROM Memorization_Videos
+    WHERE class_id=? AND section_id=? AND session=? AND term=? AND week=? AND day=?
+  `;
+
+  db.query(checkSql, [class_id, section_id, session, term, week, day], (err, rows) => {
+    if (err) {
+      console.error("Check error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (rows.length > 0) {
+      const oldVideo = rows[0];
+      const oldFilePath = path.join(process.cwd(), 'public', 'uploads', path.basename(oldVideo.video_url));
+
+      fs.unlink(oldFilePath, (err) => {
+        if (err && err.code !== 'ENOENT') console.warn("Failed to delete old video:", err);
+      });
+
+      db.query("DELETE FROM Memorization_Videos WHERE id=?", [oldVideo.id], (err) => {
+        if (err) console.error("Failed to delete old record:", err);
+      });
+    }
+
+    const insertSql = `
+      INSERT INTO Memorization_Videos 
+      (class_id, section_id, session, term, week, day, from_ayah, to_ayah, video_url, uploaded_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+
+    db.query(insertSql, [class_id, section_id, session, term, week, day, from_ayah, to_ayah, video_url], (err) => {
+      if (err) {
+        console.error("Upload error:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      res.json({ success: true, message: "Video uploaded successfully" });
+    });
+  });
+});
+
+// DELETE: Fixed with staffId in URL
+app.delete("/api/delete-memorization-video/:id/:staffId", (req, res) => {
+  if (!req.session.isAuthenticated || req.session.userType !== "staff") {
+    return res.status(401).json({ success: false });
+  }
+
+  const videoId = req.params.id;
+  const staffId = req.params.staffId;
+
+  const getSql = `
+    SELECT v.video_url FROM Memorization_Videos v
+    JOIN staff_classes sc ON v.section_id = sc.section_id
+      AND ((sc.section_id = 1 AND v.class_id = sc.class_id)
+        OR (sc.section_id = 2 AND v.class_id = sc.western_class_id))
+    WHERE v.id = ? AND sc.staff_id = ?
+  `;
+
+  db.query(getSql, [videoId, staffId], (err, rows) => {
+    if (err || rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Video not found or unauthorized" });
+    }
+
+    const video_url = rows[0].video_url;
+
+    db.query("DELETE FROM Memorization_Videos WHERE id=?", [videoId], (err) => {
+      if (err) {
+        console.error("Delete error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      const filePath = path.join(process.cwd(), 'public', 'uploads', path.basename(video_url));
+      fs.unlink(filePath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+          console.warn("Failed to delete video file:", err);
+        }
+      });
+
+      res.json({ success: true, message: "Video deleted successfully" });
+    });
+  });
+});
+// ADMIN: Get ALL classes (Islamic + Western)
+app.get("/api/admin-classes", (req, res) => {
+  const query = `
+    SELECT 'Islamic' AS type, class_id AS value, class_name AS name FROM Classes WHERE section_id = 1
+    UNION ALL
+    SELECT 'Western' AS type, western_class_id AS value, class_name AS name FROM Western_Classes WHERE section_id = 2
+    ORDER BY name
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ success: false });
+    res.json({ success: true, data: results });
+  });
+});
+
+// ADMIN: Get all sessions (from Sessions table)
+app.get("/api/admin-sessions", (req, res) => {
+  const query = `SELECT session_year FROM Sessions ORDER BY session_year DESC`;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).json({ success: false });
+    res.json({ success: true, data: results });
+  });
+});
+
+// ==============================
+// ADMIN: Weekly Attendance – FINAL VERSION (7 Days + Full Words + Smart 5-Day %)
+// ==============================
+app.get("/api/admin-attendance-weekly", (req, res) => {
+  const { class_id, session, term, week } = req.query;
+
+  if (!class_id || !session || !term || !week) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  // Step 1: Find section_id and class_ref
+  const findClassQuery = `
+    SELECT section_id, class_id AS class_ref FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id, western_class_id AS class_ref FROM Western_Classes WHERE western_class_id = ?
+  `;
+
+  db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
+    if (err || classResult.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const { section_id } = classResult[0];
+
+    // Step 2: Fetch raw attendance (same as staff)
+    const attendanceQuery = `
+      SELECT 
+        sa.student_id,
+        s.full_name AS student_name,
+        sa.attendance_status,
+        sa.day_name
+      FROM Student_Attendance sa
+      JOIN Students s ON sa.student_id = s.student_id
+      WHERE sa.section_id = ?
+        AND sa.session_year = ?
+        AND sa.term = ?
+        AND sa.week_number = ?
+        AND sa.is_active = 1
+      ORDER BY s.full_name, sa.day_name
+    `;
+
+    db.query(attendanceQuery, [section_id, session, term, week], (err, results) => {
+      if (err) {
+        console.error("Error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (results.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      // Group by student
+      const grouped = {};
+      results.forEach(r => {
+        if (!grouped[r.student_id]) {
+          grouped[r.student_id] = {
+            student_id: r.student_id,
+            student_name: r.student_name,
+            days: {}
+          };
+        }
+        // FULL WORDS: Present or Absent
+        grouped[r.student_id].days[r.day_name] = r.attendance_status;
+      });
+
+      const allDays = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+      const finalData = Object.values(grouped).map(student => {
+        let presentCount = 0;
+        let markedDays = 0;  // Only count days that were actually marked (not -)
+
+        allDays.forEach(day => {
+          const status = student.days[day];
+          if (status === "Present" || status === "Absent") {
+            markedDays++;
+            if (status === "Present") presentCount++;
+          }
+          // Fill missing days with "-"
+          if (!student.days[day]) student.days[day] = "-";
+        });
+
+        const percentage = markedDays > 0 
+          ? ((presentCount / markedDays) * 100).toFixed(1) + "%" 
+          : "0%";
+
+        const total = `${presentCount}/${markedDays || 0}`;
+
+        return {
+          student_id: student.student_id,
+          student_name: student.student_name,
+          Saturday: student.days.Saturday,
+          Sunday: student.days.Sunday,
+          Monday: student.days.Monday,
+          Tuesday: student.days.Tuesday,
+          Wednesday: student.days.Wednesday,
+          Thursday: student.days.Thursday,
+          Friday: student.days.Friday,
+          total,
+          percentage
+        };
+      });
+
+      res.json({ success: true, data: finalData });
+    });
+  });
+});
+// ==============================
+// ADMIN: CUMULATIVE Attendance up to selected week
+// ==============================
+app.get("/api/admin-cumulative-attendance", (req, res) => {
+  const { class_id, session, term, up_to_week } = req.query;
+
+  if (!class_id || !session || !term || !up_to_week) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  const findClassQuery = `
+    SELECT section_id, class_id AS class_ref FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id, western_class_id AS class_ref FROM Western_Classes WHERE western_class_id = ?
+  `;
+
+  db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
+    if (err || classResult.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const { section_id } = classResult[0];
+
+    const query = `
+      SELECT 
+        sa.student_id,
+        s.full_name AS student_name,
+        sa.attendance_status,
+        sa.week_number,
+        sa.day_name
+      FROM Student_Attendance sa
+      JOIN Students s ON sa.student_id = s.student_id
+      WHERE sa.section_id = ?
+        AND sa.session_year = ?
+        AND sa.term = ?
+        AND sa.week_number <= ?
+        AND sa.is_active = 1
+      ORDER BY s.full_name, sa.week_number, sa.day_name
+    `;
+
+    db.query(query, [section_id, session, term, up_to_week], (err, results) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (results.length === 0) {
+        return res.json({ success: true, data: [] });
+      }
+
+      const grouped = {};
+      results.forEach(r => {
+        if (!grouped[r.student_id]) {
+          grouped[r.student_id] = {
+            student_id: r.student_id,
+            student_name: r.student_name,
+            present: 0,
+            total_days: 0
+          };
+        }
+        // Only count actual marked days (not -)
+        if (r.attendance_status === "Present" || r.attendance_status === "Absent") {
+          grouped[r.student_id].total_days++;
+          if (r.attendance_status === "Present") {
+            grouped[r.student_id].present++;
+          }
+        }
+      });
+
+      const finalData = Object.values(grouped).map(s => {
+        const percentage = s.total_days > 0 
+          ? ((s.present / s.total_days) * 100).toFixed(1) + "%" 
+          : "0%";
+
+        return {
+          student_id: s.student_id,
+          student_name: s.student_name,
+          total_present: s.present,
+          total_days: s.total_days,
+          percentage
+        };
+      });
+
+      res.json({ success: true, data: finalData });
+    });
+  });
+});
+
+// ==============================
+// STAFF: CUMULATIVE Attendance up to selected week
+// No staff-class assignment check
+// ==============================
+app.get("/api/staff-cumulative-attendance/:staffId", (req, res) => {
+  const { staffId } = req.params;
+  const { class_id, session, term, up_to_week } = req.query;
+
+  if (!class_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing required parameters" });
+  }
+
+  const effectiveUpToWeek = up_to_week ? parseInt(up_to_week) : 999;
+
+  const findClassQuery = `
+    SELECT section_id FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id FROM Western_Classes WHERE western_class_id = ?
+    LIMIT 1
+  `;
+
+  db.query(findClassQuery, [class_id, class_id], (err, classResult) => {
+    if (err || classResult.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const section_id = classResult[0].section_id;
+
+    const query = `
+      SELECT 
+        sa.student_id,
+        s.full_name AS student_name,
+        sa.attendance_status,
+        sa.week_number
+      FROM Student_Attendance sa
+      JOIN Students s ON sa.student_id = s.student_id
+      WHERE sa.section_id = ?
+        AND sa.session_year = ?
+        AND sa.term = ?
+        AND sa.week_number <= ?
+        AND sa.is_active = 1
+      ORDER BY s.full_name, sa.week_number
+    `;
+
+    db.query(query, [section_id, session, term, effectiveUpToWeek], (err, results) => {
+      if (err) {
+        console.error("Cumulative Error:", err);
+        return res.status(500).json({ success: false });
+      }
+
+      if (!results.length) return res.json({ success: true, data: [] });
+
+      const grouped = {};
+      results.forEach(r => {
+        if (!grouped[r.student_id]) {
+          grouped[r.student_id] = { student_id: r.student_id, student_name: r.student_name, present: 0, total_days: 0 };
+        }
+        if (r.attendance_status === "Present" || r.attendance_status === "Absent") {
+          grouped[r.student_id].total_days++;
+          if (r.attendance_status === "Present") grouped[r.student_id].present++;
+        }
+      });
+
+      const finalData = Object.values(grouped).map(s => ({
+        student_id: s.student_id,
+        student_name: s.student_name,
+        total_present: s.present,
+        total_days: s.total_days,
+        percentage: s.total_days > 0 ? ((s.present / s.total_days) * 100).toFixed(1) + "%" : "0%"
+      }));
+
+      res.json({ success: true, data: finalData });
+    });
+  });
+});
+// GET ALL CLASSES – Admin only
+app.get("/api/classes", (req, res) => {
+  // Security check
+  if (!req.session?.isAuthenticated || req.session.userType !== "admin") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const sql = `SELECT id, name, level 
+               FROM Classes 
+               ORDER BY level, name`; // always order them nicely
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("Error fetching classes:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    res.json({ success: true, data: rows });
+  });
+});
+
+// ============================================================
+// ADMIN: Get all sessions – Admin only
+// ============================================================
+app.get("/api/sessions", (req, res) => {
+  if (!req.session?.isAuthenticated || req.session.userType !== "admin") {
+    return res.status(401).json({ success: false, message: "Unauthorized" });
+  }
+
+  const sql = `
+    SELECT session_year, is_current 
+    FROM Sessions 
+    ORDER BY session_year DESC
+  `;
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("Error fetching sessions:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    res.json({ success: true, data: rows });
+  });
+});
+
+// ============================================================
+// ADMIN: Get all students for report (Simplified, works like staff)
+// ============================================================
+app.get("/api/students/for-report", (req, res) => {
+  const { class: classId, session, term } = req.query;
+
+  if (!classId || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  // Fetch all students enrolled in the class (any type)
+  const sql = `
+    SELECT s.full_name, s.student_id, s.id AS internal_id
+    FROM Students s
+    JOIN Student_Enrollments se ON se.student_id = s.id
+    WHERE se.class_ref = ? OR se.class_ref = ?
+    ORDER BY s.full_name
+  `;
+
+  db.query(sql, [classId, classId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching students:", err);
+      return res.status(500).json({ success: false });
+    }
+
+    res.json({ success: true, data: { students: rows } });
+  });
+});
+
+// ============================================================
+// ADMIN: Tahfiz Overall (Simplified, works like staff)
+// ============================================================
+// =============================================
+// ADMIN: Tahfiz OVERALL (Class + Session + Term) – Fixed
+// =============================================
+app.get("/api/tahfiz/overall", (req, res) => {
+  const { class: classId, session, term } = req.query;
+
+  if (!classId || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" });
+  }
+
+  // Detect section_id
+  const classSql = `
+    SELECT section_id FROM Classes WHERE class_id = ?
+    UNION ALL
+    SELECT section_id FROM Western_Classes WHERE western_class_id = ?
+  `;
+
+  db.query(classSql, [classId, classId], (err, classRows) => {
+    if (err || classRows.length === 0) {
+      return res.status(404).json({ success: false, message: "Class not found" });
+    }
+
+    const section_id = classRows[0].section_id;
+
+    // Get students in this class
+    const studentsSql = `
+      SELECT s.full_name, s.student_id, s.id AS internal_id
+      FROM Students s
+      JOIN Student_Enrollments se ON s.id = se.student_id
+      WHERE se.class_ref = ? AND se.section_id = ?
+      ORDER BY s.full_name
+    `;
+
+    db.query(studentsSql, [classId, section_id], (err, students) => {
+      if (err) return res.status(500).json({ success: false });
+
+      if (students.length === 0) {
+        return res.json({ success: true, data: { students: [] } });
+      }
+
+      const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 };
+
+      const tasks = students.map(std => {
+        return new Promise(resolve => {
+          const dailySql = `
+            SELECT daily_grade FROM Student_Memorization_Assessments sma
+            JOIN Student_Enrollments se ON sma.enrollment_id = se.enrollment_id
+            WHERE se.student_id = ? AND sma.session_year = ? AND sma.term = ?
+          `;
+
+          const examSql = `
+            SELECT exam_grade FROM Student_Memorization_Exam sme
+            JOIN Student_Enrollments se ON sme.enrollment_id = se.enrollment_id
+            WHERE se.student_id = ? AND sme.session_year = ? AND sme.term = ?
+          `;
+
+          Promise.all([
+            new Promise((res2, rej2) =>
+              db.query(dailySql, [std.internal_id, session, term], (e, r) => e ? rej2(e) : res2(r))
+            ),
+            new Promise((res2, rej2) =>
+              db.query(examSql, [std.internal_id, session, term], (e, r) => e ? rej2(e) : res2(r))
+            )
+          ])
+          .then(([dailyRows, examRows]) => {
+            const dailyPointsList = dailyRows.map(r => gradePoints[r.daily_grade] || 0);
+            const avgDailyPoint = dailyPointsList.length
+              ? dailyPointsList.reduce((a, b) => a + b, 0) / dailyPointsList.length
+              : 0;
+            const dailyScore = (avgDailyPoint / 5) * 80;
+
+            const examGrade = examRows[0]?.exam_grade || "F";
+            const examScore = ((gradePoints[examGrade] || 0) / 5) * 20;
+
+            const total = dailyScore + examScore;
+
+            let finalGrade = "F";
+            if (total >= 70) finalGrade = "A";
+            else if (total >= 60) finalGrade = "B";
+            else if (total >= 50) finalGrade = "C";
+            else if (total >= 40) finalGrade = "D";
+
+            // Return all numbers safely as proper numbers
+            resolve({
+              fullname: std.full_name,
+              student_id: std.student_id,
+              avg_daily: Number(avgDailyPoint.toFixed(1)) || 0,
+              daily_mark: Number(dailyScore.toFixed(1)) || 0,
+              daily_total: 80,
+              exam_mark: Number(examScore.toFixed(1)) || 0,
+              exam_total: 20,
+              total: Number(total.toFixed(1)) || 0,
+              grade: finalGrade
+            });
+          })
+          .catch(() => resolve({
+            fullname: std.full_name,
+            student_id: std.student_id,
+            avg_daily: 0,
+            daily_mark: 0,
+            daily_total: 80,
+            exam_mark: 0,
+            exam_total: 20,
+            total: 0,
+            grade: "F"
+          }));
+        });
+      });
+
+      Promise.all(tasks).then(list => {
+        res.json({ success: true, data: { students: list.filter(x => x) } });
+      });
+    });
+  });
+});
+
+// ============================================================
+// ADMIN: Complete Report HTML, PDF & ZIP (reuse existing functions)
+// ============================================================
+app.get("/api/report/complete/html", (req, res) => {
+  const { student, session, term } = req.query;
+  if (!student || !session || !term) return res.status(400).send("Missing required parameters");
+
+  generateCompleteReportHTML(student, session, term)
+    .then(html => {
+      res.setHeader("Content-Type", "text/html");
+      res.send(html);
+    })
+    .catch(err => {
+      console.error("Error generating HTML:", err);
+      res.status(500).send("Error generating complete report preview");
+    });
+});
+
+app.get("/api/report/complete/pdf", (req, res) => {
+  const { student, session, term } = req.query;
+  generateCompleteReportPDF(student, session, term)
+    .then(filePath => res.download(filePath))
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ success: false });
+    });
+});
+
+app.get("/api/report/complete/zip", (req, res) => {
+  const { class: classId, session, term } = req.query;
+  generateZipForCompleteReports(classId, session, term)
+    .then(filePath => res.download(filePath))
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ success: false });
+    });
+});
+// 1. PUBLIC CLASSES ENDPOINT (No Auth Required)
+app.get("/api/public/classes", (req, res) => {
+  const sql = `
+    SELECT DISTINCT 
+      c.class_id,
+      c.class_name AS name,
+      c.level,
+      c.section_id,
+      COUNT(DISTINCT se.student_id) AS student_count
+    FROM Classes c
+    LEFT JOIN Student_Enrollments se ON se.class_ref = c.class_id
+    GROUP BY c.class_id, c.class_name, c.level, c.section_id
+    ORDER BY c.level, c.class_name
+  `
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("[v0] Error fetching classes:", err)
+      return res.status(500).json({ success: false, message: "Server error" })
+    }
+    res.json({ success: true, data: rows || [] })
+  })
+})
+
+// 2. PUBLIC SESSIONS ENDPOINT (No Auth Required)
+app.get("/api/public/sessions", (req, res) => {
+  const sql = `
+    SELECT session_year, is_current
+    FROM Sessions
+    ORDER BY start_date DESC
+  `
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("[v0] Error fetching sessions:", err)
+      return res.status(500).json({ success: false, message: "Server error" })
+    }
+
+    res.json({ success: true, data: rows })
+  })
+})
+
+// 3. PUBLIC STUDENTS ENDPOINT (No Auth Required)
+// Returns students by class_id, section_id, session, and term
+app.get("/api/public/students", (req, res) => {
+  const { class_id, section_id, session, term } = req.query
+
+  if (!class_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" })
+  }
+
+  const sql = `
+    SELECT DISTINCT
+      s.id,
+      s.student_id,
+      s.full_name,
+      se.enrollment_id,
+      se.level
+    FROM Student_Enrollments se
+    JOIN Students s ON s.id = se.student_id
+    WHERE se.class_ref = ?
+      AND se.session_year = ?
+      AND se.term = ?
+    ORDER BY s.full_name
+  `
+
+  db.query(sql, [class_id, session, term], (err, rows) => {
+    if (err) {
+      console.error("[v0] Error fetching students:", err)
+      return res.status(500).json({ success: false, message: "Server error" })
+    }
+    res.json({ success: true, data: rows || [] })
+  })
+})
+
+// 4. PUBLIC TAHFIZ REPORT ENDPOINT (No Auth Required)
+app.get("/api/public/tahfiz-report", (req, res) => {
+  const { student_id, session, term } = req.query
+
+  if (!student_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" })
+  }
+
+  // Step 1: Get numeric id from string student_id
+  const getIdSql = `SELECT id FROM Students WHERE student_id = ?`
+
+  db.query(getIdSql, [student_id], (err, idRows) => {
+    if (err || !idRows.length) {
+      console.error("[v0] Student not found:", student_id)
+      return res.json({ success: false, message: "Student not found" })
+    }
+
+    const numericId = idRows[0].id
+
+    // Step 2: Get student info
+    const studentInfoSql = `
+      SELECT full_name, student_id FROM Students WHERE id = ?
+    `
+
+    // Step 3: Get attendance
+    const attendanceSql = `
+      SELECT 
+        COUNT(*) AS total_days,
+        SUM(CASE WHEN attendance_status = 'Present' THEN 1 ELSE 0 END) AS present_days
+      FROM Student_Attendance
+      WHERE student_id = ? AND session_year = ? AND term = ?
+    `
+
+    // Step 4: Get daily records & grades
+    const detailSql = `
+      SELECT week, assessed_day AS day, from_surah_ayah, to_surah_ayah, daily_grade, comments AS comment
+      FROM Student_Memorization_Assessments
+      WHERE enrollment_id IN (
+        SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ? AND session_year = ? AND term = ?
+      )
+      ORDER BY week, assessed_day
+    `
+
+    // Step 5: Get daily grades for average
+    const dailyGradesSql = `
+      SELECT daily_grade 
+      FROM Student_Memorization_Assessments
+      WHERE enrollment_id IN (
+        SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ? AND session_year = ? AND term = ?
+      )
+    `
+
+    // Step 6: Get exam grade
+    const examSql = `
+      SELECT exam_grade 
+      FROM Student_Memorization_Exam
+      WHERE enrollment_id IN (
+        SELECT enrollment_id FROM Student_Enrollments WHERE student_id = ? AND session_year = ? AND term = ?
+      )
+      LIMIT 1
+    `
+
+    Promise.all([
+      new Promise((resolve, reject) =>
+        db.query(studentInfoSql, [numericId], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+      new Promise((resolve, reject) =>
+        db.query(attendanceSql, [student_id, session, term], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+      new Promise((resolve, reject) =>
+        db.query(detailSql, [numericId, session, term], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+      new Promise((resolve, reject) =>
+        db.query(dailyGradesSql, [numericId, session, term], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+      new Promise((resolve, reject) =>
+        db.query(examSql, [numericId, session, term], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+    ])
+      .then(([infoRows, attRows, detailRows, dailyRows, examRows]) => {
+        if (!infoRows.length) {
+          return res.json({ success: false, message: "No student data found" })
+        }
+
+        const full_name = infoRows[0].full_name
+        const sid = infoRows[0].student_id
+
+        // Calculate attendance percentage
+        const att = attRows[0] || { total_days: 0, present_days: 0 }
+        const totalDays = att.total_days || 1
+        const presentDays = att.present_days || 0
+        const attendancePercent = totalDays > 0 ? ((presentDays / totalDays) * 100).toFixed(1) + "%" : "0%"
+
+        // Calculate grades
+        const gradePoints = { A: 5, B: 4, C: 3, D: 2, E: 1, F: 0 }
+        const dailyPoints = dailyRows.map((r) => gradePoints[r.daily_grade] || 0)
+        const avgDailyPoint = dailyPoints.length ? dailyPoints.reduce((a, b) => a + b, 0) / dailyPoints.length : 0
+        const dailyScore = (avgDailyPoint / 5) * 80
+        const examGrade = examRows[0]?.exam_grade || "F"
+        const examScore = ((gradePoints[examGrade] || 0) / 5) * 20
+        const totalScore = dailyScore + examScore
+
+        let finalGrade = "F"
+        if (totalScore >= 70) finalGrade = "A"
+        else if (totalScore >= 60) finalGrade = "B"
+        else if (totalScore >= 50) finalGrade = "C"
+        else if (totalScore >= 40) finalGrade = "D"
+
+        res.json({
+          success: true,
+          data: {
+            full_name,
+            student_id: sid,
+            daily_records: detailRows,
+            exam_score: examScore.toFixed(1),
+            daily_score: dailyScore.toFixed(1),
+            total_score: totalScore.toFixed(1),
+            final_grade: finalGrade,
+            attendance: {
+              present: presentDays,
+              total: totalDays,
+              percentage: attendancePercent,
+            },
+            teacher_remark: "Excellent memorization consistency. Masha Allah!",
+          },
+        })
+      })
+      .catch((err) => {
+        console.error("[v0] Tahfiz Report Error:", err)
+        res.status(500).json({ success: false, message: "Server error" })
+      })
+  })
+})
+
+// 5. PUBLIC COMPLETE REPORT ENDPOINT (No Auth Required)
+app.get("/api/public/complete-report", (req, res) => {
+  const { student_id, session, term } = req.query
+
+  if (!student_id || !session || !term) {
+    return res.status(400).json({ success: false, message: "Missing parameters" })
+  }
+
+  const getIdSql = `SELECT id FROM Students WHERE student_id = ?`
+
+  db.query(getIdSql, [student_id], (err, idRows) => {
+    if (err || !idRows.length) {
+      console.error("[v0] Student not found:", student_id)
+      return res.json({ success: false, message: "Student not found" })
+    }
+
+    const numericId = idRows[0].id
+
+    const sqlSubjects = `
+      SELECT 
+        s.full_name,
+        s.student_id,
+        sub.subject_name, 
+        ssa.ca1_score AS ca1, 
+        ssa.ca2_score AS ca2, 
+        ssa.exam_score AS exam,
+        (COALESCE(ssa.ca1_score,0) + COALESCE(ssa.ca2_score,0) + COALESCE(ssa.exam_score,0)) AS total
+      FROM Student_Enrollments se
+      JOIN Student_Subject_Assessments ssa ON ssa.enrollment_id = se.enrollment_id
+      JOIN Subjects sub ON sub.subject_id = ssa.subject_id
+      JOIN Students s ON s.id = se.student_id
+      WHERE s.id = ? 
+        AND ssa.session_year = ? 
+        AND ssa.term = ?
+    `
+
+    const sqlAttendance = `
+      SELECT 
+        COUNT(*) AS total,
+        SUM(CASE WHEN attendance_status = 'Present' THEN 1 ELSE 0 END) AS present
+      FROM Student_Attendance 
+      WHERE student_id = ? AND session_year = ? AND term = ?
+    `
+
+    Promise.all([
+      new Promise((resolve, reject) =>
+        db.query(sqlSubjects, [numericId, session, term], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+      new Promise((resolve, reject) =>
+        db.query(sqlAttendance, [student_id, session, term], (err, rows) => (err ? reject(err) : resolve(rows))),
+      ),
+    ])
+      .then(([subjects, attRows]) => {
+        if (!subjects.length) {
+          return res.json({ success: false, message: "No academic records found" })
+        }
+
+        const full_name = subjects[0].full_name
+        const sid = subjects[0].student_id
+
+        // Add grades
+        subjects.forEach((s) => {
+          const total = Number(s.total)
+          s.grade = total >= 70 ? "A" : total >= 60 ? "B" : total >= 50 ? "C" : total >= 40 ? "D" : "F"
+        })
+
+        const att = attRows[0] || { total: 0, present: 0 }
+        const attendancePercent = att.total > 0 ? ((att.present / att.total) * 100).toFixed(1) + "%" : "0%"
+
+        res.json({
+          success: true,
+          data: {
+            full_name,
+            student_id: sid,
+            subjects,
+            attendance_present: att.present,
+            attendance_total: att.total,
+            attendance_percent: attendancePercent,
+          },
+        })
+      })
+      .catch((err) => {
+        console.error("[v0] Complete Report Error:", err)
+        res.status(500).json({ success: false, message: "Server error" })
+      })
+  })
+})
+
+//server listen to port 5000
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
 });
