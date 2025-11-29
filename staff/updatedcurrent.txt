@@ -1778,7 +1778,7 @@ ADD FOREIGN KEY (session_year) REFERENCES Sessions(session_year);
 
 -- Add session column to Student_Enrollments
 ALTER TABLE Student_Enrollments 
-ADD COLUMN session_year VARCHAR(20) DEFAULT '2024/2025' AFTER term,
+ADD COLUMN session_year VARCHAR(20) DEFAULT '2025/2026' AFTER term,
 ADD FOREIGN KEY (session_year) REFERENCES Sessions(session_year);
 
 -- Daily_Memorization_Scheme
@@ -1801,3 +1801,6 @@ ADD COLUMN term INT NOT NULL DEFAULT 1;
 
 // add this next year please:
 // INSERT INTO Sessions (session_year, is_current, start_date) VALUES ('2026/2027', 1, '2026-09-01');
+//  this for admin to get report of current session:
+UPDATE Student_Enrollments
+SET session_year = '2025/2026';// depending on the session you are
