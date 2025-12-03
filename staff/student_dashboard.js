@@ -1,8 +1,7 @@
-// reports-portal-fixed.js
-// Drop-in replacement for your previous script (Option A: same functionality, fixed)
-
+// student_dashboard.js - FINAL PERFECT VERSION (NO AUTO-PLAY + BETTER ATTENDANCE DISPLAY)
+let visibleVideos = 2;
 const API_BASE_URL = "http://localhost:5000/api";
-let studentId = null, classRef = null, videos = [], visible = 4;
+let studentId = null, classRef = null, videos = [], currentVideoIndex = -1;
 
 /* ---------- Generic fetch helper ---------- */
 async function fetchData(endpoint, method = "GET", body = null) {
@@ -31,6 +30,16 @@ function showMessageModal(title, message) {
     try { new bootstrap.Modal("#messageModal").show(); } catch (e) { console.warn("Modal show failed", e); }
 }
 
+function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
 /* ---------- Student details & related ---------- */
 async function fetchStudentDetails() {
     try {
@@ -42,7 +51,6 @@ async function fetchStudentDetails() {
         document.getElementById('studentIdDisplay').textContent = s.student_id || '—';
         document.getElementById('studentIdDisplay2').textContent = s.student_id || '—';
         document.getElementById('profilePicture').src = s.profile_picture || '/uploads/default.jpg';
-
         document.getElementById('gender').textContent = s.gender || '—';
         document.getElementById('dateOfBirth').textContent = s.date_of_birth || '—';
         document.getElementById('email').textContent = s.email || '—';
@@ -73,9 +81,7 @@ async function fetchStudentDetails() {
         studentId = s.student_id;
         classRef = `${s.section_id}:${s.class_id}`;
         await loadVideoCount();
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
 }
 
 async function loadVideoCount() {
@@ -87,7 +93,7 @@ async function loadVideoCount() {
     }
 }
 
-/* ---------- Sessions / Terms / Weeks population ---------- */
+/* ---------- Sessions / Terms population ---------- */
 async function loadSessions() {
     try {
         const r = await fetch("/api/sessions");
@@ -102,25 +108,10 @@ async function loadSessions() {
         });
 
         document.querySelectorAll("select[id*='Term']").forEach(sel => {
-            // ensure only added once
             if (sel.children.length > 1) return;
             sel.add(new Option("1st Term", "1"));
             sel.add(new Option("2nd Term", "2"));
             sel.add(new Option("3rd Term", "3"));
-        });
-
-        // populate week select(s) only if empty to avoid duplicates
-        const weekSelects = [
-            document.getElementById("attWeek"),
-            document.getElementById("adminWeeklyWeekSelect"),
-            document.getElementById("cumulativeUpToWeekSelect")
-        ].filter(Boolean);
-
-        weekSelects.forEach(sel => {
-            if (sel.children.length > 1) return;
-            for (let i = 1; i <= 15; i++) {
-                sel.add(new Option(`Week ${i}`, String(i)));
-            }
         });
     } catch (err) {
         console.error("Failed to load sessions:", err);
@@ -129,237 +120,223 @@ async function loadSessions() {
 
 /* ---------- Navigation ---------- */
 function setupNav() {
-    // Only bind to nav-links that actually have data-view attribute (top-level sidebar links)
     document.querySelectorAll(".nav-link[data-view]").forEach(l => {
         l.addEventListener("click", e => {
             e.preventDefault();
-            // Hide all main content views: expecting IDs like 'xxx-view'
             document.querySelectorAll("#mainContent > div[id$='-view']").forEach(v => v.style.display = "none");
-
-            const viewName = l.dataset.view;
-            if (!viewName) return;
-            const targetId = `${viewName}-view`;
+            const targetId = `${l.dataset.view}-view`;
             const target = document.getElementById(targetId);
             if (target) target.style.display = "block";
-
-            // update active classes among top-level nav only
             document.querySelectorAll(".nav-link[data-view]").forEach(x => x.classList.remove("active"));
             l.classList.add("active");
-
-            // optional per-view initializers
             if (l.dataset.view === "videos") loadVideos();
-            if (l.dataset.view === "attendance") {
-                showAttendanceTab("weekly");
-                // attach once (safe)
-                attachAttendanceEvents();
-            }
         });
     });
 
-    // Logout (student)
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-        logoutBtn.onclick = async (e) => {
-            e?.preventDefault();
-            try {
-                await fetchData('/student-logout', 'POST');
-            } catch (err) { /* ignore - fetchData already shows modal */ }
-            location.href = "/student-login";
-        };
-    }
+    document.getElementById("logoutBtn")?.addEventListener("click", async () => {
+        try { await fetchData('/student-logout', 'POST'); } catch (err) {}
+        location.href = "/student-login";
+    });
 
-    // Sidebar mobile toggle
-    const sidebarToggleMobile = document.getElementById("sidebarToggleMobile");
-    if (sidebarToggleMobile) {
-        sidebarToggleMobile.onclick = () => document.getElementById("sidebar").classList.toggle("open");
+    document.getElementById("sidebarToggleMobile")?.addEventListener("click", () => {
+        document.getElementById("sidebar").classList.toggle("open");
+    });
+}
+
+/* ---------- VIDEO PLAYER CONTROLS ---------- */
+const videoPlayer = document.getElementById("mainVideoPlayer");
+const playPauseBtn = document.getElementById("playPauseBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const progressBar = document.getElementById("progressBar");
+const currentTimeEl = document.getElementById("currentTime");
+const durationEl = document.getElementById("duration");
+const volumeSlider = document.getElementById("volumeSlider");
+const muteBtn = document.getElementById("muteBtn");
+const fullscreenBtn = document.getElementById("fullscreenBtn");
+const videoTitle = document.getElementById("videoTitle");
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function playVideo(index) {
+    if (index < 0 || index >= videos.length) return;
+    currentVideoIndex = index;
+    const v = videos[index];
+    const url = v.video_url || v.file_path || v.video_path || '';
+
+    videoPlayer.src = url;
+    // DO NOT auto-play → wait for user to click Play
+    videoPlayer.pause();
+    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+
+    const ayahText = v.from_ayah && v.to_ayah ? ` (${v.from_ayah} → ${v.to_ayah})` : "";
+    videoTitle.textContent = `Week ${v.week || '?'} - ${v.day || 'Recording'}${ayahText}`;
+
+    document.querySelectorAll(".video-card").forEach((card, i) => {
+        card.style.border = i === index ? "4px solid #34a853" : "1px solid #ddd";
+        card.style.boxShadow = i === index ? "0 0 15px rgba(52,168,83,0.6)" : "none";
+    });
+}
+
+function togglePlayPause() {
+    if (videoPlayer.paused || videoPlayer.ended) {
+        videoPlayer.play();
+        playPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+    } else {
+        videoPlayer.pause();
+        playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     }
 }
 
-/* ---------- Videos ---------- */
+// Controls
+prevBtn.onclick = () => playVideo(Math.max(0, currentVideoIndex - 1));
+nextBtn.onclick = () => playVideo(Math.min(videos.length - 1, currentVideoIndex + 1));
+playPauseBtn.onclick = togglePlayPause;
+fullscreenBtn.onclick = () => videoPlayer.requestFullscreen?.() || videoPlayer.webkitEnterFullscreen?.();
+
+muteBtn.onclick = () => {
+    videoPlayer.muted = !videoPlayer.muted;
+    muteBtn.innerHTML = videoPlayer.muted ? '<i class="fas fa-volume-mute"></i>' : '<i class="fas fa-volume-up"></i>';
+};
+volumeSlider.oninput = () => videoPlayer.volume = volumeSlider.value;
+
+// Progress & Time
+videoPlayer.ontimeupdate = () => {
+    if (videoPlayer.duration) {
+        const percent = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+        progressBar.style.width = percent + "%";
+        currentTimeEl.textContent = formatTime(videoPlayer.currentTime);
+    }
+};
+videoPlayer.onloadedmetadata = () => {
+    durationEl.textContent = formatTime(videoPlayer.duration);
+};
+videoPlayer.onended = () => {
+    playPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+    if (currentVideoIndex < videos.length - 1) {
+        playVideo(currentVideoIndex + 1);
+    }
+};
+
+/* ---------- LOAD & RENDER VIDEOS WITH LOAD MORE / SHOW LESS ---------- */
 async function loadVideos() {
     try {
         const response = await fetchData('/student-videos');
         videos = response.success ? response.data : [];
-        visible = 4;
+        document.getElementById('totalVideosCount').textContent = videos.length;
+        visibleVideos = 2;
         renderVideos();
+        // DO NOT auto-play first video
+        if (videos.length > 0) {
+            playVideo(0); // Just loads first video but does NOT play
+            videoTitle.textContent = "Click Play to start";
+        }
     } catch (err) {
         console.error("Failed to load videos:", err);
-        const grid = document.getElementById("videoGrid");
-        if (grid) grid.innerHTML = "<p class='text-center text-danger col-12'>Error loading videos</p>";
+        document.getElementById("videoGrid").innerHTML = "<p class='text-center text-danger'>Error loading videos</p>";
     }
 }
 
 function renderVideos() {
     const grid = document.getElementById("videoGrid");
-    if (!grid) return;
-
     grid.innerHTML = "";
 
-    if (!videos || videos.length === 0) {
+    if (!videos.length) {
         grid.innerHTML = "<p class='text-center text-muted col-12 py-8'>No memorization videos available yet</p>";
-        toggleElement("loadMoreBtn", false);
-        toggleElement("showLessBtn", false);
+        document.getElementById("loadMoreBtn").style.display = "none";
+        document.getElementById("showLessBtn").style.display = "none";
         return;
     }
 
-    const slice = videos.slice(0, visible);
-    slice.forEach(v => {
+    const videosToShow = videos.slice(0, visibleVideos);
+
+    videosToShow.forEach((v, i) => {
         const ayahText = v.from_ayah && v.to_ayah ? `${v.from_ayah} → ${v.to_ayah}` : "Full Recording";
         const videoUrl = v.video_url || v.file_path || v.video_path || '';
-        const uploadedDate = v.uploaded_at ? new Date(v.uploaded_at).toLocaleDateString() : '';
+        const date = v.uploaded_at ? new Date(v.uploaded_at).toLocaleDateString() : '';
 
         const col = document.createElement("div");
-        col.className = "col";
+        col.className = "col video-card";
+        col.style.cursor = "pointer";
+        col.style.border = i === currentVideoIndex ? "4px solid #34a853" : "1px solid #ddd";
+        col.onclick = () => playVideo(i);
+
         col.innerHTML = `
-            <div class="card shadow h-100 video-card">
-                <video class="card-img-top" style="height:200px; object-fit:cover; background:#000;">
+            <div class="card shadow h-100">
+                <video class="card-img-top" style="height:180px; object-fit:cover; background:#000;">
                     <source src="${escapeHtml(videoUrl)}" type="video/mp4">
                 </video>
-                <div class="card-body text-center d-flex flex-column">
-                    <h6 class="card-title mb-2">Week ${escapeHtml(v.week || '')} - ${escapeHtml(v.day || 'Recording')}</h6>
-                    <p class="small text-muted flex-grow-1">${escapeHtml(ayahText)}</p>
-                    <button class="btn btn-success btn-sm mt-2 playVid" data-path="${escapeHtml(videoUrl)}">
-                        Play Video
-                    </button>
+                <div class="card-body text-center">
+                    <h6 class="card-title mb-1">Week ${escapeHtml(v.week || '?')} - ${escapeHtml(v.day || 'Recording')}</h6>
+                    <p class="small text-muted mb-2">${escapeHtml(ayahText)}</p>
+                    <button class="btn btn-success btn-sm">Play Now</button>
                 </div>
-                <div class="card-footer text-muted small text-center">
-                    ${escapeHtml(uploadedDate)}
-                </div>
+                <div class="card-footer text-muted small">${date}</div>
             </div>`;
         grid.appendChild(col);
     });
 
-    toggleElement("loadMoreBtn", visible < videos.length);
-    toggleElement("showLessBtn", visible > 4);
+    // Button visibility
+    const loadMoreBtn = document.getElementById("loadMoreBtn");
+    const showLessBtn = document.getElementById("showLessBtn");
+
+    loadMoreBtn.style.display = visibleVideos < videos.length ? "inline-block" : "none";
+    showLessBtn.style.display = visibleVideos > 2 ? "inline-block" : "none";
 }
 
-/* ---------- Attendance Tab Management ---------- */
-function showAttendanceTab(tab) {
-    const weekly = document.getElementById("weekly-section");
-    const cumulative = document.getElementById("cumulative-section");
-    if (weekly) weekly.style.display = (tab === "weekly") ? "block" : "none";
-    if (cumulative) cumulative.style.display = (tab === "cumulative") ? "block" : "none";
+// Load More / Show Less Buttons
+document.getElementById("loadMoreBtn")?.addEventListener("click", () => {
+    visibleVideos += 8;
+    renderVideos();
+    document.getElementById("videoGrid").scrollIntoView({ behavior: "smooth" });
+});
 
-    // Update internal attendance nav active state (if present)
-    const innerNav = document.querySelectorAll("#attendance-view .nav-link[data-tab]");
-    innerNav.forEach(a => {
-        a.classList.toggle("active", a.dataset.tab === tab);
-    });
-}
+document.getElementById("showLessBtn")?.addEventListener("click", () => {
+    visibleVideos = 2;
+    renderVideos();
+    document.querySelector(".video-player-container").scrollIntoView({ behavior: "smooth" });
+});
 
-/* Attach attendance event handlers (idempotent) */
-function attachAttendanceEvents() {
-    // --- Internal attendance tab click handlers (only once) ---
-    const attendanceNavLinks = document.querySelectorAll("#attendance-view .nav-link[data-tab]");
-    attendanceNavLinks.forEach(link => {
-        // avoid re-binding by marking dataset
-        if (link.dataset._attendanceAttached) return;
-        link.addEventListener("click", (e) => {
-            e.preventDefault();
-            const tab = link.dataset.tab;
-            if (!tab) return;
-            showAttendanceTab(tab);
-        });
-        link.dataset._attendanceAttached = "1";
-    });
+/* ---------- CUMULATIVE ATTENDANCE — NOW SHOWS CORRECT % ---------- */
+document.getElementById("loadCumBtn")?.addEventListener("click", async () => {
+    const s = document.getElementById("cumSession")?.value;
+    const t = document.getElementById("cumTerm")?.value;
+    if (!s || !t) return alert("Please select Session and Term");
 
-    // --- Weekly & cumulative load buttons ---
-    const weeklyBtn = document.getElementById("loadWeeklyBtn");
-    if (weeklyBtn && !weeklyBtn.dataset._attached) {
-        weeklyBtn.addEventListener("click", async () => {
-            const s = document.getElementById("attSession")?.value;
-            const t = document.getElementById("attTerm")?.value;
-            const w = document.getElementById("attWeek")?.value;
-            if (!s || !t || !w) return alert("Please select Session, Term and Week");
+    try {
+        const r = await fetch(`/api/student-cumulative-attendance?student_id=${encodeURIComponent(studentId)}&session=${encodeURIComponent(s)}&term=${encodeURIComponent(t)}`);
+        const d = await r.json();
+        const target = document.getElementById("cumResult");
 
-            try {
-                const r = await fetch(`/api/student-attendance?student_id=${encodeURIComponent(studentId)}&session=${encodeURIComponent(s)}&term=${encodeURIComponent(t)}&week=${encodeURIComponent(w)}`);
-                const d = await r.json();
-                const el = document.getElementById("weeklyResult");
-                if (!d.success || !d.data?.length) {
-                    if (el) el.innerHTML = "<p class='text-muted'>No attendance record</p>";
-                    return;
-                }
+        if (!d.success || !d.data) {
+            target.innerHTML = "<p class='text-danger text-center'>No attendance record found</p>";
+            return;
+        }
 
-                let html = "<table class='table table-bordered'><thead class='table-light'><tr><th>Date</th><th>Status</th></tr></thead><tbody>";
-                d.data.forEach(x => {
-                    const statusClass = x.status === "Present" ? "success" : "danger";
-                    html += `<tr><td>${escapeHtml(x.date)}</td><td><span class='badge bg-${statusClass}'>${escapeHtml(x.status)}</span></td></tr>`;
-                });
-                if (el) el.innerHTML = html + "</tbody></table>";
-            } catch (err) {
-                console.error("Load weekly failed", err);
-                showMessageModal("Error", "Failed to load weekly attendance");
-            }
-        });
-        weeklyBtn.dataset._attached = "1";
+        // FIX: Calculate percentage properly if backend sends raw numbers
+        let percentage = "0%";
+        if (d.data.percentage) {
+            percentage = d.data.percentage; // Already a string like "85%"
+        } else if (d.data.present_days != null && d.data.total_days > 0) {
+            percentage = Math.round((d.data.present_days / d.data.total_days) * 100) + "%";
+        }
+
+        target.innerHTML = `
+            <div class="text-center p-5 bg-light rounded shadow-lg border border-success">
+                <h1 class="display-2 fw-bold text-success mb-3">${percentage}</h1>
+                <p class="lead text-muted mb-0">
+                    <strong>${d.data.present_days || 0}</strong> Present out of <strong>${d.data.total_days || 0}</strong> days
+                </p>
+            </div>`;
+    } catch (err) {
+        console.error("Load cumulative failed", err);
+        showMessageModal("Error", "Failed to load attendance");
     }
-
-    const cumBtn = document.getElementById("loadCumBtn");
-    if (cumBtn && !cumBtn.dataset._attached) {
-        cumBtn.addEventListener("click", async () => {
-            const s = document.getElementById("cumSession")?.value;
-            const t = document.getElementById("cumTerm")?.value;
-            if (!s || !t) return alert("Please select Session and Term");
-
-            try {
-                const r = await fetch(`/api/student-cumulative-attendance?student_id=${encodeURIComponent(studentId)}&session=${encodeURIComponent(s)}&term=${encodeURIComponent(t)}`);
-                const d = await r.json();
-                const target = document.getElementById("cumResult");
-                if (!d.success) {
-                    if (target) target.innerHTML = "<p class='text-danger text-center'>No data found</p>";
-                    return;
-                }
-                if (target) target.innerHTML = `
-                    <div class="alert alert-success text-center p-4">
-                        <h4>Attendance: ${escapeHtml(d.data.percentage)}</h4>
-                        <p class="mb-0">Present: ${escapeHtml(String(d.data.present_days))} out of ${escapeHtml(String(d.data.total_days))} days</p>
-                    </div>`;
-            } catch (err) {
-                console.error("Load cumulative failed", err);
-                showMessageModal("Error", "Failed to load cumulative attendance");
-            }
-        });
-        cumBtn.dataset._attached = "1";
-    }
-
-    // Exports (weekly/cumulative) - keep idempotent
-    const exportWeeklyExcel = document.getElementById("exportAdminWeeklyExcel");
-    if (exportWeeklyExcel && !exportWeeklyExcel.dataset._attached) {
-        exportWeeklyExcel.addEventListener("click", () => {
-            // existing behavior expected to be implemented server-side or elsewhere
-            // We just forward user to the endpoint pattern if present (you can keep your existing behavior)
-            // Example: window.open(`/api/attendance/weekly/excel?student_id=${studentId}&...`, '_blank');
-            alert("Export Weekly Excel clicked - server endpoint should handle generation.");
-        });
-        exportWeeklyExcel.dataset._attached = "1";
-    }
-
-    const exportWeeklyPdf = document.getElementById("exportAdminWeeklyPdf");
-    if (exportWeeklyPdf && !exportWeeklyPdf.dataset._attached) {
-        exportWeeklyPdf.addEventListener("click", () => {
-            alert("Export Weekly PDF clicked - server endpoint should handle generation.");
-        });
-        exportWeeklyPdf.dataset._attached = "1";
-    }
-
-    const exportCumExcel = document.getElementById("exportCumulativeExcel");
-    if (exportCumExcel && !exportCumExcel.dataset._attached) {
-        exportCumExcel.addEventListener("click", () => {
-            alert("Export Cumulative Excel clicked - server endpoint should handle generation.");
-        });
-        exportCumExcel.dataset._attached = "1";
-    }
-
-    const exportCumPdf = document.getElementById("exportCumulativePdf");
-    if (exportCumPdf && !exportCumPdf.dataset._attached) {
-        exportCumPdf.addEventListener("click", () => {
-            alert("Export Cumulative PDF clicked - server endpoint should handle generation.");
-        });
-        exportCumPdf.dataset._attached = "1";
-    }
-}
-
+});
 /* ---------- Reports preview ---------- */
 function showReport(type) {
     const session = document.getElementById(type + "Session")?.value;
@@ -372,74 +349,15 @@ function showReport(type) {
 
     previewEl.innerHTML = `
         <iframe src="/api/public/${endpoint}?student_id=${encodeURIComponent(studentId)}&session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}" 
-                class="w-100 border-0" style="height:80vh;"></iframe>
+                class="w-100 border-0 rounded" style="height:80vh;"></iframe>
         <div class="text-center mt-3">
             <a href="/api/report/complete/pdf?student=${encodeURIComponent(studentId)}&session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}" 
                target="_blank" class="btn btn-success btn-lg">Download PDF</a>
         </div>`;
 }
 
-/* ---------- Overall Tahfiz ---------- */
-document.getElementById("loadOverall")?.addEventListener("click", async () => {
-    const s = document.getElementById("overallSession")?.value;
-    const t = document.getElementById("overallTerm")?.value;
-    if (!s || !t) return alert("Please select Session and Term");
-
-    try {
-        const r = await fetch(`/api/student-overall-tahfiz?session=${encodeURIComponent(s)}&term=${encodeURIComponent(t)}`);
-        const d = await r.json();
-        const tbl = document.getElementById("overallTable");
-        if (!tbl) return;
-        if (!d.success || !d.data?.length) {
-            tbl.innerHTML = "<p class='text-muted text-center py-4'>No records found</p>";
-            return;
-        }
-        let html = `<table class="table table-striped"><thead class="table-success"><tr>
-            <th>Week</th><th>Day</th><th>From</th><th>To</th><th>Grade</th><th>Comment</th>
-        </tr></thead><tbody>`;
-        d.data.forEach(r => {
-            html += `<tr><td>${escapeHtml(r.week)}</td><td>${escapeHtml(r.day)}</td><td>${escapeHtml(r.from_surah_ayah)}</td>
-                     <td>${escapeHtml(r.to_surah_ayah)}</td><td><strong>${escapeHtml(r.daily_grade)}</strong></td><td>${escapeHtml(r.comments || "—")}</td></tr>`;
-        });
-        tbl.innerHTML = html + "</tbody></table>";
-    } catch (err) {
-        console.error("Load overall tahfiz failed", err);
-        showMessageModal("Error", "Failed to load overall Tahfiz");
-    }
-});
-
-/* ---------- Video controls & misc ---------- */
-document.getElementById("loadMoreBtn")?.addEventListener("click", () => { visible += 8; renderVideos(); });
-document.getElementById("showLessBtn")?.addEventListener("click", () => { visible = 4; renderVideos(); });
-document.addEventListener("click", e => {
-    const target = e.target;
-    if (target && target.classList && target.classList.contains("playVid")) {
-        const path = target.dataset.path;
-        const player = document.getElementById("modalVideoPlayer");
-        if (player) player.src = path;
-        try { new bootstrap.Modal("#videoModal").show(); } catch (err) { console.warn("Video modal error", err); }
-    }
-});
-
-/* Reports buttons */
 document.getElementById("loadTahfiz")?.addEventListener("click", () => showReport("tahfiz"));
 document.getElementById("loadAcademic")?.addEventListener("click", () => showReport("academic"));
-
-/* ---------- Utilities ---------- */
-function toggleElement(id, show) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.display = show ? "block" : "none";
-}
-function escapeHtml(str) {
-    if (str === null || str === undefined) return "";
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-}
 
 /* ---------- MAIN INIT ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -447,27 +365,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         await fetchStudentDetails();
         await loadSessions();
         setupNav();
-
-        // Ensure attendance tab handlers are attached in case the attendance view gets shown
-        attachAttendanceEvents();
-
-        // If the attendance view is the default visible one at load time, show weekly
-        const attendanceNav = document.querySelector('.nav-link[data-view="attendance"]');
-        if (attendanceNav && attendanceNav.classList.contains("active")) {
-            showAttendanceTab("weekly");
-        }
-
-        // Ensure clicking the top-level attendance nav attaches events (safe to call multiple times)
-        const attendanceViewTrigger = document.querySelector('.nav-link[data-view="attendance"]');
-        if (attendanceViewTrigger) {
-            attendanceViewTrigger.addEventListener("click", () => {
-                // short defer to ensure DOM of the view is visible
-                setTimeout(() => {
-                    showAttendanceTab("weekly");
-                    attachAttendanceEvents();
-                }, 50);
-            });
-        }
     } catch (err) {
         console.error("Initialization error", err);
     }
