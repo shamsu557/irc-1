@@ -4095,294 +4095,370 @@ function exportTahfizOverallExcel() {
 }
 
 
-
-// ======================== COMPLETE REPORT PORTAL (UPDATED & SAFE) ========================
-// ======================== STUDENT REPORTS PORTAL – FINAL FIXED VERSION ========================
+// ======================== COMPLETE REPORT PORTAL – FINAL & PERFECT VERSION ========================
+// Works for ALL sessions (current + past) — shows "No data" when needed
+// Uses the fixed /api/public/students & /api/public/complete-report endpoints
+// ================================================
+// ======================== COMPLETE REPORT PORTAL – FINAL & PERFECT VERSION ========================
+// Works for ALL sessions (current + past) — student list NOT affected by session
+// Uses the fixed /api/public/students & /api/public/complete-report endpoints
+// ================================================
 async function loadAdminCompleteReportStudents() {
-    const classSelect = document.getElementById('reportClassSelect');
-    const sessionSelect = document.getElementById('reportSessionSelect');
-    const termSelect = document.getElementById('reportTermSelect');
+  const classSelect = document.getElementById('reportClassSelect');
+  const sessionSelect = document.getElementById('reportSessionSelect');
+  const termSelect = document.getElementById('reportTermSelect');
 
-    const classValue = classSelect?.value;        // e.g. "1:15 or 2:8
-    const session = sessionSelect?.value?.trim();
-    const term = termSelect?.value || "1";
+  const classValue = classSelect?.value;        // e.g. "1:15" or "2:8"
+  const session = sessionSelect?.value?.trim(); // Used ONLY for preview/download, NOT for student list
+  const term = termSelect?.value || "1";
 
-    // Validation
-    if (!classValue || !session) {
-        showMessageModal('error', 'Please select both Class and Session');
-        return;
+  // VALIDATION – ONLY CLASS REQUIRED TO LOAD STUDENTS
+  if (!classValue) {
+    showMessageModal('error', 'Please select a Class');
+    return;
+  }
+
+  const [sectionId, classId] = classValue.split(":");
+
+  const tbody = document.getElementById('reportStudentsTableBody');
+  const emptyMsg = document.getElementById('reportEmpty');
+  if (!tbody) return;
+
+  // Show loading
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="4" class="text-center py-10">
+        <div class="spinner-border text-primary"></div>
+        <p class="mt-4">Loading students...</p>
+      </td>
+    </tr>
+  `;
+  if (emptyMsg) emptyMsg.style.display = 'none';
+
+  try {
+    // **************** IMPORTANT CHANGE ****************
+    // Load students by CLASS only (not session)
+    const response = await fetchData(
+      `/api/public/students?section_id=${sectionId}&class_id=${classId}`
+    );
+
+    if (!response.success || !response.data || response.data.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="text-center text-muted py-12">
+            No students enrolled in this class
+          </td>
+        </tr>
+      `;
+      if (emptyMsg) emptyMsg.style.display = 'block';
+      return;
     }
 
-    const tbody = document.getElementById('reportStudentsTableBody');
-    const emptyMsg = document.getElementById('reportEmpty');
-    if (!tbody) return;
+    const students = response.data;
 
-    // Show loading
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="4" class="text-center py-8">
-                <div class="spinner-border text-primary"></div>
-                <p class="mt-3">Loading students...</p>
-            </td>
-        </tr>
-    `;
+    tbody.innerHTML = '';
+    students.forEach((student, index) => {
+      const studentId = student.student_id;
+      const fullName = student.full_name || 'Unknown Student';
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${escapeHtml(fullName)}</td>
+        <td>${escapeHtml(studentId)}</td>
+        <td class="text-center">
+
+          <!-- PREVIEW BUTTON -->
+          <button 
+            class="btn btn-sm btn-success me-2 preview-complete-report"
+            data-student-id="${studentId}"
+            data-session="${session || ''}"
+            data-term="${term}">
+            Preview
+          </button>
+
+          <!-- PDF BUTTON -->
+          <button 
+            class="btn btn-sm btn-primary download-complete-report"
+            data-student-id="${studentId}"
+            data-session="${session || ''}"
+            data-term="${term}">
+            PDF
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+
     if (emptyMsg) emptyMsg.style.display = 'none';
 
-    try {
-        // TRY THE 3 MOST COMMON ENDPOINTS – ONE OF THEM WILL WORK
-        let res = null;
-        const endpoints = [
-            `/api/students/for-report?class_id=${classValue}&session=${session}&term=${term}`,
-            `/api/report/students?class=${classValue}&session=${session}&term=${term}`,
-            `/api/students/report-list?class=${classValue}&session=${session}&term=${term}`
-        ];
-
-        for (const url of endpoints) {
-            try {
-                const response = await fetchData(url);
-                if (response.success && response.data && (
-                    (Array.isArray(response.data) && response.data.length > 0) ||
-                    (response.data.students && response.data.students.length > 0)
-                )) {
-                    res = response;
-                    console.log("Success with endpoint:", url);
-                    break;
-                }
-            } catch (e) {
-                console.log("Failed endpoint:", url, e);
-            }
-        }
-
-        if (!res) {
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-8">No students found for this class/session</td></tr>`;
-            if (emptyMsg) emptyMsg.style.display = 'block';
-            return;
-        }
-
-        // Normalize data format
-        let students = [];
-        if (Array.isArray(res.data)) {
-            students = res.data;
-        } else if (res.data.students && Array.isArray(res.data.students)) {
-            students = res.data.students;
-        }
-
-        tbody.innerHTML = '';
-        students.forEach((s, i) => {
-            const studentId = s.id || s.student_id || s.admission_no;
-            const fullName = s.full_name || s.fullname || s.student_name || s.name || 'Unknown';
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${i + 1}</td>
-                <td>${escapeHtml(fullName)}</td>
-                <td>${escapeHtml(studentId || '—')}</td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-success me-2 preview-complete-report"
-                            data-student-id="${studentId}"
-                            data-session="${session}"
-                            data-term="${term}">
-                        Preview
-                    </button>
-                    <button class="btn btn-sm btn-primary download-complete-report"
-                            data-student-id="${studentId}"
-                            data-session="${session}"
-                            data-term="${term}">
-                        PDF
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-
-        if (emptyMsg) emptyMsg.style.display = 'none';
-
-    } catch (err) {
-        console.error("Final error loading students:", err);
-        tbody.innerHTML = `<tr><td colspan="4" class="text-danger text-center py-6">Error loading students. Check console.</td></tr>`;
-    }
+  } catch (err) {
+    console.error("Error loading students for complete report:", err);
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="text-danger text-center py-10">
+          Failed to load students. Please try again.
+        </td>
+      </tr>
+    `;
+  }
 }
 
-// ======================== CLICK EVENTS – PREVIEW & DOWNLOAD (SAFE & FIXED) ========================
-document.body.addEventListener('click', async function(e) {
-    const previewBtn = e.target.closest('.preview-complete-report');
-    const downloadBtn = e.target.closest('.download-complete-report');
+// ======================== PREVIEW & DOWNLOAD – FULLY SAFE WITH "No data" SUPPORT ========================
+document.body.addEventListener('click', async function (e) {
+  const previewBtn = e.target.closest('.preview-complete-report');
+  const downloadBtn = e.target.closest('.download-complete-report');
 
-    if (previewBtn) {
-        const studentId = previewBtn.dataset.studentId;
-        const session = previewBtn.dataset.session;
-        const term = previewBtn.dataset.term;
+  if (previewBtn) {
+    const studentId = previewBtn.dataset.studentId;
+    const session = previewBtn.dataset.session;
+    const term = previewBtn.dataset.term;
 
-        const modalBody = document.getElementById('completeReportPreviewBody');
-        if (!modalBody) return;
+    const modalBody = document.getElementById('completeReportPreviewBody');
+    if (!modalBody) return;
 
-        modalBody.innerHTML = `<div class="text-center py-10"><div class="spinner-border text-primary R"></div><p>Loading report...</p></div>`;
-        const modal = new bootstrap.Modal(document.getElementById('completeReportPreviewModal'));
-        modal.show();
+    modalBody.innerHTML = `
+      <div class="text-center py-12">
+        <div class="spinner-border text-primary"></div>
+        <p class="mt-4">Loading report preview...</p>
+      </div>
+    `;
 
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/report/complete/html?student=${studentId}&session=${session}&term=${term}`);
-            if (!res.ok) throw new Error('Failed to load');
-            modalBody.innerHTML = await res.text();
-        } catch (err) {
-            modalBody.innerHTML = `<div class="text-danger text-center py-10">Failed to load report preview</div>`;
-            console.error(err);
-        }
-    }
-
-    if (downloadBtn) {
-        const studentId = downloadBtn.dataset.studentId;
-        const session = downloadBtn.dataset.session;
-        const term = downloadBtn.dataset.term;
-
-        // Trigger direct download
-        window.location.href = `${API_BASE_URL}/api/report/complete/pdf?student=${studentId}&session=${session}&term=${term}`;
-    }
-});
-
-// ======================== BUTTON RE-ATTACH (PREVENT DUPLICATE LISTENERS) ========================
-document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById('loadReportStudentsBtn');
-    if (btn) {
-        // Remove any old listeners
-        const newBtn = btn.cloneNode(true);
-        btn.parentNode.replaceChild(newBtn, btn);
-        // Attach fresh listener
-        newBtn.addEventListener('click', loadAdminCompleteReportStudents);
-    }
-});
-// ======================== DOWNLOAD ALL REPORTS – ZIP ========================
-document.getElementById('exportAllReportsBtn')?.addEventListener('click', async () => {
-    const classId = document.getElementById('reportClassSelect')?.value;
-    const session = document.getElementById('reportSessionSelect')?.value;
-    const term = document.getElementById('reportTermSelect')?.value;
-
-    if (!classId || !session || !term) {
-        showMessageModal('error', 'Please select Class, Session and Term first');
-        return;
-    }
-
-    const btn = document.getElementById('exportAllReportsBtn');
-    const original = btn.innerHTML;
-
-    btn.disabled = true;
-    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Preparing ZIP...`;
+    const modal = new bootstrap.Modal(document.getElementById('completeReportPreviewModal'));
+    modal.show();
 
     try {
-        const res = await fetch(`${API_BASE_URL}/api/report/complete/zip?class=${classId}&session=${session}&term=${term}`);
+      const res = await fetch(
+        `${API_BASE_URL}/api/public/complete-report?student_id=${studentId}&session=${session}&term=${term}`
+      );
+      const data = await res.json();
 
-        if (!res.ok) throw new Error('Failed');
+      if (!res.ok || data.success === false) {
+        throw new Error('Server error');
+      }
 
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
+      if (data.data === null) {
+        modalBody.innerHTML = `
+          <div class="text-center py-16">
+            <i class="fas fa-info-circle fa-4x text-warning mb-4"></i>
+            <h5>No Academic Records</h5>
+            <p class="text-muted">
+              No subject scores recorded for<br>
+              <strong>${session} • Term ${term}</strong>
+            </p>
+          </div>
+        `;
+        return;
+      }
 
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `All_Reports_Class${classId}_${session}_T${term}.zip`;
-        a.click();
+      let rows = '';
+      data.data.subjects.forEach(sub => {
+        rows += `
+          <tr>
+            <td>${escapeHtml(sub.subject_name)}</td>
+            <td class="text-center">${sub.ca1 ?? '-'}</td>
+            <td class="text-center">${sub.ca2 ?? '-'}</td>
+            <td class="text-center">${sub.exam ?? '-'}</td>
+            <td class="text-center"><strong>${sub.total ?? '-'}</strong></td>
+            <td class="text-center"><strong>${sub.grade ?? '-'}</strong></td>
+          </tr>
+        `;
+      });
 
-        URL.revokeObjectURL(url);
-
+      modalBody.innerHTML = `
+        <div class="p-4">
+          <div class="text-center mb-4">
+            <h4>Complete Academic Report</h4>
+            <p class="text-muted mb-1">${data.data.full_name}<br>${session} • Term ${term}</p>
+          </div>
+          <table class="table table-bordered table-sm">
+            <thead class="table-light">
+              <tr>
+                <th>Subject</th>
+                <th>CA1</th>
+                <th>CA2</th>
+                <th>Exam</th>
+                <th>Total</th>
+                <th>Grade</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="6" class="text-center text-muted">No subjects found</td></tr>'}
+            </tbody>
+          </table>
+          <div class="text-center mt-4">
+            <p><strong>Attendance:</strong> ${data.data.attendance_present} / ${data.data.attendance_total} (${data.data.attendance_percent})</p>
+          </div>
+        </div>
+      `;
     } catch (err) {
-        showMessageModal('error', 'Failed to generate ZIP');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = original;
+      console.error("Preview failed:", err);
+      modalBody.innerHTML = `
+        <div class="text-center py-12 text-danger">
+          <i class="fas fa-exclamation-triangle fa-4x mb-4"></i>
+          <h5>Report Load Failed</h5>
+          <p>Please try again later</p>
+        </div>
+      `;
     }
-});
+  }
 
+  if (downloadBtn) {
+    const studentId = downloadBtn.dataset.studentId;
+    const session = downloadBtn.dataset.session;
+    const term = downloadBtn.dataset.term;
 
+    try {
+      const check = await fetch(
+        `${API_BASE_URL}/api/public/complete-report?student_id=${studentId}&session=${session}&term=${term}`
+      );
+      const json = await check.json();
 
-// ======================== DOMContentLoaded FINAL ATTACHMENTS ========================
-document.addEventListener("DOMContentLoaded", async () => {
-    console.log("Initializing Report Sections...");
-
-    // Tahfiz Overall Results
-    document.getElementById('loadOverallStudentsBtn')?.addEventListener('click', loadTahfizOverallResults);
-    document.getElementById('exportOverallPdfBtn')?.addEventListener('click', exportTahfizOverallPdf);
-    document.getElementById('exportOverallExcelBtn')?.addEventListener('click', exportTahfizOverallExcel);
-
-    // Complete Report Portal (Complete Reports)
-    document.getElementById('loadReportStudentsBtn')?.addEventListener('click', loadAdminCompleteReportStudents);
-
-    // ──────────────────────────────────────────────────────────────────
-    // CRITICAL FIX: Populate ALL session dropdowns correctly (no more "undefined")
-    // ──────────────────────────────────────────────────────────────────
-    async function populateAllSessionDropdowns() {
-        try {
-            const res = await fetchData('/api/sessions');
-            if (!res.success || !Array.isArray(res.data)) {
-                console.error("Failed to load sessions:", res);
-                return;
-            }
-
-            // List of ALL session dropdowns in your entire dashboard
-            const sessionSelectIds = [
-                'overallSessionSelect',        // Tahfiz Overall Results
-                'reportSessionSelect',         // Complete Report Portal
-                'adminWeeklySessionSelect',     // Weekly Attendance
-                'cumulativeSessionSelect',      // Cumulative Attendance
-                'sessionSelect',               // Set Fees
-                'feesSessionFilter',           // Payment Tracking filter
-                'feeOverviewSessionFilter',     // Fee Structure filter
-                'paymentSession',              // Add Payment modal
-                'adminTahfizSessionSelect',    // (if you have separate Tahfiz section)
-                'adminCompleteSessionSelect'        // any other
-            ];
-
-            sessionSelectIds.forEach(id => {
-                const select = document.getElementById(id);
-                if (!select) return;
-
-                // Clear and add default option
-                select.innerHTML = '<option value="">Select Session</option>';
-
-                res.data.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.session_year;
-                    opt.textContent = s.session_year;
-                    if (s.is_current) opt.selected = true;
-                    select.appendChild(opt);
-                });
-            });
-
-            console.log("All session dropdowns populated successfully with real data");
-        } catch (err) {
-            console.error("Error populating sessions:", err);
+      if (json.data === null) {
+        if (!confirm(`No data found for ${studentId} in ${session} Term ${term}.\n\nDownload blank report anyway?`)) {
+          return;
         }
-    }
+      }
+    } catch (e) { /* ignore */ }
 
-    // ──────────────────────────────────────────────────────────────────
-    // Run everything in correct order
-    // ──────────────────────────────────────────────────────────────────
-    await populateClasses();        // Classes first
-    await populateAllSessionDropdowns();  // ← This fixes "undefined" forever
-    await populateTerms();          // Terms last (static)
-
-    console.log("Tahfiz + Complete Report + All Dropdowns Loaded 100% Correctly");
+    window.location.href = `${API_BASE_URL}/api/report/complete/pdf?student=${studentId}&session=${session}&term=${term}`;
+  }
 });
 
-// TAHFIZ GRADING SYSTEM – FINAL & SAFE VERSION
-function getGrade(total) {
-    if (total == null || isNaN(total)) return "-";
-    total = parseFloat(total);
+// ======================== LOAD BUTTON – CLEAN RE-ATTACH (NO DUPLICATES) ========================
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById('loadReportStudentsBtn');
+  if (btn) {
+    const newBtn = btn.cloneNode(true);
+    btn.replaceWith(newBtn);
+    newBtn.addEventListener('click', loadAdminCompleteReportStudents);
+  }
+});
 
-    if (total >= 90) return "A+ (Excellent)";
-    if (total >= 80) return "A (Very Good)";
-    if (total >= 70) return "B (Good)";
-    if (total >= 60) return "C (Credit)";
-    if (total >= 50) return "D (Pass)";
-    return "F (Fail)";
+// ======================== EXPORT ALL REPORTS AS ZIP ========================
+document.getElementById('exportAllReportsBtn')?.addEventListener('click', async () => {
+  const classVal = document.getElementById('reportClassSelect')?.value;
+  const session = document.getElementById('reportSessionSelect')?.value;
+  const term = document.getElementById('reportTermSelect')?.value;
+
+  if (!classVal || !session || !term) {
+    showMessageModal('error', 'Please select Class, Session and Term first');
+    return;
+  }
+
+  const btn = document.getElementById('exportAllReportsBtn');
+  const originalText = btn.innerHTML;
+
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Preparing ZIP...`;
+
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/report/complete/zip?class=${classVal}&session=${session}&term=${term}`
+    );
+
+    if (!res.ok) throw new Error('Failed to generate ZIP');
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Complete_Reports_${classVal.replace(':', '-')}_${session}_Term${term}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showMessageModal('success', 'All reports downloaded successfully!');
+  } catch (err) {
+    console.error(err);
+    showMessageModal('error', 'Failed to generate ZIP file');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+  }
+});
+
+// ======================== DOMContentLoaded – FINAL INITIALIZATION ========================
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("Initializing Report Sections...");
+
+  document.getElementById('loadOverallStudentsBtn')?.addEventListener('click', loadTahfizOverallResults);
+  document.getElementById('exportOverallPdfBtn')?.addEventListener('click', exportTahfizOverallPdf);
+  document.getElementById('exportOverallExcelBtn')?.addEventListener('click', exportTahfizOverallExcel);
+
+  document.getElementById('loadReportStudentsBtn')?.addEventListener('click', loadAdminCompleteReportStudents);
+
+  async function populateAllSessionDropdowns() {
+    try {
+      const res = await fetchData('/api/sessions');
+      if (!res.success || !Array.isArray(res.data)) {
+        console.error("Failed to load sessions:", res);
+        return;
+      }
+
+      const sessionSelectIds = [
+        'overallSessionSelect',
+        'reportSessionSelect',
+        'adminWeeklySessionSelect',
+        'cumulativeSessionSelect',
+        'sessionSelect',
+        'feesSessionFilter',
+        'feeOverviewSessionFilter',
+        'paymentSession',
+        'adminTahfizSessionSelect',
+        'adminCompleteSessionSelect'
+      ];
+
+      sessionSelectIds.forEach(id => {
+        const select = document.getElementById(id);
+        if (!select) return;
+
+        select.innerHTML = '<option value="">Select Session</option>';
+
+        res.data.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.session_year;
+          opt.textContent = s.session_year;
+          if (s.is_current) opt.selected = true;
+          select.appendChild(opt);
+        });
+      });
+
+      console.log("All session dropdowns populated successfully");
+    } catch (err) {
+      console.error("Error populating sessions:", err);
+    }
+  }
+
+  await populateClasses();
+  await populateAllSessionDropdowns();
+  await populateTerms();
+
+  console.log("Complete Report Portal + All Dropdowns Loaded 100% Correctly");
+});
+
+// ======================== TAHFIZ GRADING SYSTEM – FIXED & SAFE ========================
+function getGrade(total) {
+  if (total == null || isNaN(total)) return "-";
+  total = parseFloat(total);
+
+  if (total >= 90) return "A+ (Excellent)";
+  if (total >= 80) return "A (Very Good)";
+  if (total >= 70) return "B (Good)";
+  if (total >= 60) return "C (Credit)";
+  if (total >= 50) return "D (Pass)";
+  return "F (Fail)";
 }
 
 function getGradeColor(total) {
-    if (total == null || isNaN(total)) return "";
-    total = parseFloat(total);
+  if (total == null || isNaN(total)) return "";
+  total = parseFloat(total);
 
-    if (total >= 90) return "text-success font-bold";
-    if (total >= 80) return "text-success";
-    if (total >= 70) return "text-primary";
-    if (total >= 60) return "text-info";
-    if (total >= 50) return "text-warning";
-    return "text-danger font-bold";
+  if (total >= 90) return "text-success font-bold";
+  if (total >= 80) return "text-success";
+  if (total >= 70) return "text-primary";
+  if (total >= 60) return "text-info";
+  if (total >= 50) return "text-warning";
+  return "text-danger font-bold";
 }
