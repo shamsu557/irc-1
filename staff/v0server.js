@@ -4937,50 +4937,72 @@ app.get("/api/student-videos", (req, res) => {
   });
 });
 
-// 5. CUMULATIVE ATTENDANCE - FINAL FIX (MATCHES TAHFIZ & ACADEMIC REPORTS)
+// CUMULATIVE ATTENDANCE - AUTO UP TO WEEK 15
 app.get("/api/student-cumulative-attendance", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "student") {
-    return res.status(401).json({ success: false });
+    return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  const { session, term } = req.query;
+  const { session, term, section_id, up_to_week } = req.query;
+
   if (!session || !term) {
-    return res.status(400).json({ success: false, message: "Session and term required" });
+    return res.status(400).json({
+      success: false,
+      message: "Session and term are required"
+    });
   }
 
-  // THIS IS EXACTLY WHAT YOUR TAHFIZ & ACADEMIC REPORTS USE — SO IT WORKS
-  const query = `
+  const maxWeek = up_to_week ? parseInt(up_to_week) : 15;
+
+  let sql = `
     SELECT 
       COUNT(*) AS total_days,
       SUM(CASE WHEN attendance_status = 'Present' THEN 1 ELSE 0 END) AS present_days
-    FROM Student_Attendance 
-    WHERE student_id = (SELECT id FROM Students WHERE student_id = ?)
+    FROM Student_Attendance
+    WHERE student_id = ?
       AND session_year = ?
       AND term = ?
       AND is_active = 1
+      AND week_number <= ?
   `;
 
-  db.query(query, [req.session.studentId, session, term], (err, results) => {
+  const params = [
+    req.session.studentId,   // external adm number
+    session,
+    term,
+    maxWeek
+  ];
+
+  if (section_id) {
+    sql += ` AND section_id = ?`;
+    params.push(section_id);
+  }
+
+  db.query(sql, params, (err, results) => {
     if (err) {
-      console.error("Attendance error:", err);
-      return res.status(500).json({ success: false });
+      console.error("Database error:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
     }
 
-    const row = results[0];
-    const total = parseInt(row.total_days) || 0;
-    const present = parseInt(row.present_days) || 0;
-    const percentage = total > 0 ? ((present / total) * 100).toFixed(1) + "%" : "0%";
+    const row = results[0] || { total_days: 0, present_days: 0 };
+    const total = row.total_days || 0;
+    const present = row.present_days || 0;
 
-    res.json({
+    const percentage = total > 0
+      ? ((present / total) * 100).toFixed(1) + "%"
+      : "0%";
+
+    return res.json({
       success: true,
       data: {
         total_days: total,
         present_days: present,
-        percentage: percentage
+        percentage
       }
     });
   });
 });
+
 // 6. TAHFIZ REPORT - FULLY CLASS FILTERED + CLASS NAME
 app.get("/api/student-tahfiz-report", (req, res) => {
   if (!req.session.isAuthenticated || req.session.userType !== "student") {

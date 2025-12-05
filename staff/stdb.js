@@ -348,44 +348,106 @@ function renderVideos() {
 document.getElementById("loadMoreBtn")?.addEventListener("click", () => { visibleVideos = videos.length; renderVideos(); });
 document.getElementById("showLessBtn")?.addEventListener("click", () => { visibleVideos = 2; renderVideos(); document.getElementById("videos-view")?.scrollIntoView({ behavior: "smooth" }); });
 
-/* ==================== CUMULATIVE ATTENDANCE ==================== */
-async function getCumulativeAttendance(session, term) {
-  if (!classRef) return { percentage: "N/A", present: 0, total: 0 };
+/* ==================== CUMULATIVE ATTENDANCE – PER CLASS (AUTO UP TO WEEK 15) ==================== */
+async function getCumulativeAttendance(session, term, classRef) {
+  // Always require session, term and classRef
+  if (!session || !term || !classRef) {
+    return { total: 0, present: 0, percentage: "N/A" };
+  }
+
+  const [section_id, class_id] = classRef.split(":");
+
   try {
-    const res = await fetch(`/api/student-cumulative-attendance?session=${session}&term=${term}&class_ref=${classRef}`, { credentials: "include" });
+    // Force up_to_week=15 so students automatically get cumulative for weeks 1..15
+    const params = new URLSearchParams({
+      session: session,
+      term: term,
+      section_id: section_id,
+      class_id: class_id,
+      up_to_week: "15"
+    });
+
+    const res = await fetch(`/api/student-cumulative-attendance?${params.toString()}`, {
+      credentials: "include"
+    });
+
     const json = await res.json();
+
     if (json.success && json.data) {
-      const p = json.data.present_days || 0;
-      const t = json.data.total_days || 0;
-      const pct = t > 0 ? ((p / t) * 100).toFixed(1) + "%" : "0%";
-      return { percentage: pct, present: p, total: t };
+      // backend returns total_days and present_days (or similar). Normalize to { total, present, percentage }
+      const total = parseInt(json.data.total_days ?? json.data.total ?? 0, 10) || 0;
+      const present = parseInt(json.data.present_days ?? json.data.present ?? 0, 10) || 0;
+      const percentage = (json.data.percentage && typeof json.data.percentage === "string")
+        ? json.data.percentage
+        : (total > 0 ? ((present / total) * 100).toFixed(1) + "%" : "0%");
+
+      return { total, present, percentage };
+    } else {
+      // no data or unsuccessful response
+      return { total: 0, present: 0, percentage: "0%" };
     }
-  } catch (e) { console.error(e); }
-  return { percentage: "N/A", present: 0, total: 0 };
+  } catch (err) {
+    console.error("Attendance fetch failed:", err);
+    return { total: 0, present: 0, percentage: "N/A" };
+  }
 }
 
+/* Load Cumulative Attendance Button (uses auto-up-to-week=15) */
 document.getElementById("loadCumBtn")?.addEventListener("click", async () => {
-  const session = document.getElementById("cumSession").value;
-  const term = document.getElementById("cumTerm").value;
+  const session = document.getElementById("cumSession")?.value.trim();
+  const term = document.getElementById("cumTerm")?.value;
+
   if (!session || !term || !classRef) {
     showMessageModal("Required", "Please select Session, Term, and Class");
     return;
   }
-  const att = await getCumulativeAttendance(session, term);
+
   const el = document.getElementById("cumResult");
-  el.innerHTML = att.total === 0
-    ? "<p class='text-danger text-center'>No attendance record found</p>"
-    : `<div class="text-center p-5 bg-light rounded shadow-lg border border-success">
-         <h1 class="display-2 fw-bold text-success mb-3">${att.percentage}</h1>
-         <p class="lead"><strong>${att.present}</strong> Present / <strong>${att.total}</strong> Days</p>
-         <small class="text-muted">${session} • ${termMap[term]} Term • ${getClassName()}</small>
-       </div>`;
+  el.innerHTML = `<div class="text-center py-4">
+                    <div class="spinner-border text-success" style="width:4rem;height:4rem;"></div>
+                  </div>`;
+
+  const att = await getCumulativeAttendance(session, term, classRef);
+
+  const pct = parseFloat(String(att?.percentage || 0).replace("%", "")) || 0;
+  const isPerfect = pct === 100;
+  const isExcellent = pct >= 90;
+
+  // If no attendance recorded
+  if (!att || att.total === 0) {
+    el.innerHTML = `
+      <div class="text-center p-2 rounded max-w-xs mx-auto text-gray-800 text-sm">
+        <h1 class="font-semibold mb-1">${escapeHtml(att?.percentage || "0%")}</h1>
+        <p class="mb-1">${escapeHtml(String(att?.present || 0))} Present / ${escapeHtml(String(att?.total || 0))} Days</p>
+        <div class="opacity-80 text-xs">
+          <p>${escapeHtml(session)} • ${escapeHtml(termMap[term] || term + " Term")}</p>
+          <p>${escapeHtml(getClassName())}</p>
+        </div>
+        ${isPerfect ? '<p class="mt-1 font-bold text-green-600">PERFECT!</p>' : ""}
+        ${isExcellent && !isPerfect ? '<p class="mt-1 font-medium text-emerald-700">Excellent!</p>' : ""}
+      </div>`;
+    return;
+  }
+
+  // Minimal display for recorded attendance
+  el.innerHTML = `
+    <div class="text-center p-3 rounded max-w-xs mx-auto text-gray-800 text-sm">
+      <h1 class="font-semibold mb-1">${escapeHtml(att.percentage)}</h1>
+      <p class="mb-1">${escapeHtml(String(att.present))} Present / ${escapeHtml(String(att.total))} Days</p>
+      <div class="opacity-80 text-xs">
+        <p>${escapeHtml(session)} • ${escapeHtml(termMap[term] || term + " Term")}</p>
+        <p>${escapeHtml(getClassName())}</p>
+      </div>
+      ${isPerfect ? '<p class="mt-1 font-bold text-green-600">PERFECT!</p>' : ""}
+      ${isExcellent && !isPerfect ? '<p class="mt-1 font-medium text-emerald-700">Excellent!</p>' : ""}
+    </div>`;
 });
 
-/* ==================== TAHFIZ REPORT ==================== */
+/* ==================== TAHFIZ REPORT – USES CORRECT CLASS ATTENDANCE ==================== */
 async function generateTahfizReport() {
-  const session = document.getElementById("tahfizSession").value;
-  const term = document.getElementById("tahfizTerm").value;
+  const session = document.getElementById("tahfizSession")?.value;
+  const term = document.getElementById("tahfizTerm")?.value;
+
   if (!session || !term || !classRef) {
     showMessageModal("Required", "Please select Session, Term, and Class");
     return;
@@ -396,13 +458,16 @@ async function generateTahfizReport() {
   new bootstrap.Modal(document.getElementById("tahfizPreviewModal")).show();
 
   try {
-    const res = await fetch(`/api/student-tahfiz-report?session=${session}&term=${term}&class_ref=${classRef}`, { credentials: "include" });
-    const json = await res.json();
+    const [reportRes, attendance] = await Promise.all([
+      fetch(`/api/student-tahfiz-report?session=${session}&term=${term}&class_ref=${classRef}`, { credentials: "include" }),
+      getCumulativeAttendance(session, term, classRef)
+    ]);
+
+    const json = await reportRes.json();
     if (!json.success) throw new Error(json.message || "No data");
 
     const t = json.data;
     currentTahfizData = { ...t, session, term };
-    const attendance = await getCumulativeAttendance(session, term);
     const finalGrade = (t.final_grade || "F").toUpperCase();
 
     const rows = (t.daily_records || []).map((r, i) => `
@@ -417,53 +482,61 @@ async function generateTahfizReport() {
     body.innerHTML = `
       <div id="tahfizPrintArea" style="font-family:Arial,sans-serif; max-width:210mm; margin:0 auto; padding:20px; background:white;">
         <div style="text-align:center; padding:20px 0 30px; border-bottom:4px double #d0e8d8; margin-bottom:30px;">
-          <img src="${schoolInfo.logoSrc}" style="width:110px; height:110px; border-radius:50%; border:4px solid #e8f5e9; display:block; margin:0 auto 15px auto;" crossorigin="anonymous">
-          <h1 style="margin:0; font-size:32px; font-weight:bold; color:#065f46;">${schoolInfo.name}</h1>
-          <p style="margin:8px 0 0; font-size:15px; color:#555;">${schoolInfo.address}<br>Tel: ${schoolInfo.phone}</p>
+          <img src="${schoolInfo.logoSrc}" style="width:110px;height:110px;border-radius:50%;border:4px solid #e8f5e9;display:block;margin:0 auto 15px;" crossorigin="anonymous">
+          <h1 style="margin:0;font-size:32px;font-weight:bold;color:#065f46;">${schoolInfo.name}</h1>
+          <p style="margin:8px 0 0;font-size:15px;color:#555;">${schoolInfo.address}<br>Tel: ${schoolInfo.phone}</p>
         </div>
-        <h2 style="text-align:center; color:#065f46; font-size:28px; margin:30px 0;">Tahfiz-ul-Qur'an Progress Report</h2>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin:30px 0; font-size:15px;">
-          <div style="background:#f0fdfc; padding:14px; border-radius:8px;"><strong>Student:</strong> ${t.full_name || "N/A"}</div>
-          <div style="background:#f8f9fa; padding:14px; border-radius:8px;"><strong>Adm No:</strong> ${studentId}</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Class:</strong> ${t.class_name || "N/A"}</div>
-          <div style="background:#f8f9fa; padding:14px; border-radius:8px;"><strong>Session:</strong> ${session}</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Term:</strong> ${termMap[term]} Term</div>
-          <div style="background:#e8f5e9; padding:14px; border-radius:8px;"><strong>Attendance:</strong> ${attendance.percentage} (${attendance.present}/${attendance.total} days)</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Daily Score:</strong> ${t.daily_score ?? "-"}%</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Exam Score:</strong> ${t.exam_score ?? "-"}%</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Total Score:</strong> ${t.total_score ?? "-"}%</div>
-          <div style="background:#e3f2fd; padding:16px; border-radius:10px; text-align:center; font-size:18px; color:#1565c0;"><strong>Final Grade: ${finalGrade}</strong></div>
-          <div style="grid-column:1/-1; background:#fffde7; padding:18px; border-radius:10px; border-left:4px solid #fff176;">
+
+        <h2 style="text-align:center;color:#065f46;font-size:28px;margin:30px 0;">Tahfiz-ul-Qur'an Progress Report</h2>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:30px 0;font-size:15px;">
+          <div style="background:#f0fdfc;padding:14px;border-radius:8px;"><strong>Student:</strong> ${t.full_name || "N/A"}</div>
+          <div style="background:#f8f9fa;padding:14px;border-radius:8px;"><strong>Adm No:</strong> ${studentId}</div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Class:</strong> ${t.class_name || "N/A"}</div>
+          <div style="background:#f8f9fa;padding:14px;border-radius:8px;"><strong>Session:</strong> ${session}</div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Term:</strong> ${termMap[term]} Term</div>
+          <div style="background:#e8f5e9;padding:16px;border-radius:8px;font-weight:bold;color:#065f46;">
+            <strong>Attendance:</strong> ${attendance.percentage} (${attendance.present}/${attendance.total} days)
+          </div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Daily Score:</strong> ${t.daily_score ?? "-"}%</div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Exam Score:</strong> ${t.exam_score ?? "-"}%</div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Total Score:</strong> ${t.total_score ?? "-"}%</div>
+          <div style="background:#e3f2fd;padding:16px;border-radius:10px;text-align:center;font-size:18px;color:#1565c0;"><strong>Final Grade: ${finalGrade}</strong></div>
+          <div style="grid-column:1/-1;background:#fffde7;padding:18px;border-radius:10px;border-left:4px solid #fff176;">
             <strong>Comment:</strong> ${finalGradeComments[finalGrade] || "No comment available"}
           </div>
         </div>
-        <table style="width:100%; border-collapse:collapse; margin:40px 0;">
+
+        <table style="width:100%;border-collapse:collapse;margin:40px 0;">
           <thead>
-            <tr style="background:#e8f5e9; color:#065f46;">
-              <th style="padding:15px 12px; text-align:left; font-weight:600;">Week & Day</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">From</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">To</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">Grade</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">Comment</th>
+            <tr style="background:#e8f5e9;color:#065f46;">
+              <th style="padding:15px 12px;text-align:left;">Week & Day</th>
+              <th style="padding:15px 12px;text-align:center;">From</th>
+              <th style="padding:15px 12px;text-align:center;">To</th>
+              <th style="padding:15px 12px;text-align:center;">Grade</th>
+              <th style="padding:15px 12px;text-align:center;">Comment</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
-        <div style="margin-top:90px; text-align:center;">
-          <div style="display:inline-block; border-top:3px solid #333; padding-top:10px; width:300px;">
+
+        <div style="margin-top:90px;text-align:center;">
+          <div style="display:inline-block;border-top:3px solid #333;padding-top:10px;width:300px;">
             <strong style="font-size:17px;">Sadiku Muhammad Ahmad</strong><br>Director
           </div>
         </div>
       </div>`;
   } catch (err) {
-    body.innerHTML = `<div style="color:red; text-align:center; padding:80px; font-size:20px;">${err.message}</div>`;
+    console.error(err);
+    body.innerHTML = `<div style="color:red;text-align:center;padding:80px;font-size:20px;">Error: ${err.message || "Failed to load report"}</div>`;
   }
 }
 
-/* ==================== ACADEMIC REPORT ==================== */
+/* ==================== ACADEMIC REPORT – USES SAME PERFECT ATTENDANCE ==================== */
 async function generateCompleteReport() {
-  const session = document.getElementById("academicSession").value;
-  const term = document.getElementById("academicTerm").value;
+  const session = document.getElementById("academicSession")?.value;
+  const term = document.getElementById("academicTerm")?.value;
+
   if (!session || !term || !classRef) {
     showMessageModal("Required", "Please select Session, Term, and Class");
     return;
@@ -474,63 +547,73 @@ async function generateCompleteReport() {
   new bootstrap.Modal(document.getElementById("completeReportPreviewModal")).show();
 
   try {
-    const res = await fetch(`/api/student-complete-report?session=${session}&term=${term}&class_ref=${classRef}`, { credentials: "include" });
-    const json = await res.json();
+    const [reportRes, attendance] = await Promise.all([
+      fetch(`/api/student-complete-report?session=${session}&term=${term}&class_ref=${classRef}`, { credentials: "include" }),
+      getCumulativeAttendance(session, term, classRef)
+    ]);
+
+    const json = await reportRes.json();
     if (!json.success) throw new Error(json.message || "No data");
 
     const r = json.data;
     currentCompleteReportData = { ...r, session, term };
-    const attendance = await getCumulativeAttendance(session, term);
 
     const subjectRows = (r.subjects || []).map((s, i) => `
       <tr style="background:${i % 2 === 0 ? '#f8fff9' : 'white'};">
-        <td style="padding:12px 10px; border-bottom:1px solid #eee;">${s.subject_name}</td>
-        <td style="padding:12px 10px; border-bottom:1px solid #eee; text-align:center;">${s.ca1 || '-'}</td>
-        <td style="padding:12px 10px; border-bottom:1px solid #eee; text-align:center;">${s.ca2 || '-'}</td>
-        <td style="padding:12px 10px; border-bottom:1px solid #eee; text-align:center;">${s.exam || '-'}</td>
-        <td style="padding:12px 10px; border-bottom:1px solid #eee; text-align:center; font-weight:bold; color:#065f46;">${s.total?.toFixed(1) || '-'}</td>
-        <td style="padding:12px 10px; border-bottom:1px solid #eee; text-align:center; font-weight:bold; color:${s.grade==='A'?'#065f46':s.grade==='F'?'#c62828':'#333'};">${s.grade || '-'}</td>
-        <td style="padding:12px 10px; border-bottom:1px solid #eee;">${dailyGradeComments[s.grade] || "-"}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${s.subject_name}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;text-align:center;">${s.ca1 || '-'}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;text-align:center;">${s.ca2 || '-'}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;text-align:center;">${s.exam || '-'}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;color:#065f46;">${s.total?.toFixed(1) || '-'}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:bold;color:${s.grade==='A'?'#065f46':s.grade==='F'?'#c62828':'#333'};">${s.grade || '-'}</td>
+        <td style="padding:12px 10px;border-bottom:1px solid #eee;">${dailyGradeComments[s.grade] || "-"}</td>
       </tr>`).join("");
 
     body.innerHTML = `
-      <div id="completePrintArea" style="font-family:Arial,sans-serif; max-width:210mm; margin:0 auto; padding:20px; background:white;">
-        <div style="text-align:center; padding:20px 0 30px; border-bottom:4px double #d0e8d8; margin-bottom:30px;">
-          <img src="${schoolInfo.logoSrc}" style="width:110px; height:110px; border-radius:50%; border:4px solid #e8f5e9; display:block; margin:0 auto 15px auto;" crossorigin="anonymous">
-          <h1 style="margin:0; font-size:32px; font-weight:bold; color:#065f46;">${schoolInfo.name}</h1>
-          <p style="margin:8px 0 0; font-size:15px; color:#555;">${schoolInfo.address}<br>Tel: ${schoolInfo.phone}</p>
+      <div id="completePrintArea" style="font-family:Arial,sans-serif;max-width:210mm;margin:0 auto;padding:20px;background:white;">
+        <div style="text-align:center;padding:20px 0 30px;border-bottom:4px double #d0e8d8;margin-bottom:30px;">
+          <img src="${schoolInfo.logoSrc}" style="width:110px;height:110px;border-radius:50%;border:4px solid #e8f5e9;display:block;margin:0 auto 15px;" crossorigin="anonymous">
+          <h1 style="margin:0;font-size:32px;font-weight:bold;color:#065f46;">${schoolInfo.name}</h1>
+          <p style="margin:8px 0 0;font-size:15px;color:#555;">${schoolInfo.address}<br>Tel: ${schoolInfo.phone}</p>
         </div>
-        <h2 style="text-align:center; color:#065f46; font-size:28px; margin:30px 0;">End of Term Report Sheet</h2>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px; margin:30px 0; font-size:15px;">
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Student:</strong> ${r.full_name}</div>
-          <div style="background:#f8f9fa; padding:14px; border-radius:8px;"><strong>Adm No:</strong> ${studentId}</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Class:</strong> ${r.class_name || "N/A"}</div>
-          <div style="background:#f8f9fa; padding:14px; border-radius:8px;"><strong>Session:</strong> ${session}</div>
-          <div style="background:#f0fdf4; padding:14px; border-radius:8px;"><strong>Term:</strong> ${termMap[term]} Term</div>
-          <div style="background:#e8f5e9; padding:14px; border-radius:8px;"><strong>Attendance:</strong> ${attendance.percentage} (${attendance.present}/${attendance.total} days)</div>
+
+        <h2 style="text-align:center;color:#065f46;font-size:28px;margin:30px 0;">End of Term Report Sheet</h2>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:30px 0;font-size:15px;">
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Student:</strong> ${r.full_name}</div>
+          <div style="background:#f8f9fa;padding:14px;border-radius:8px;"><strong>Adm No:</strong> ${studentId}</div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Class:</strong> ${r.class_name || "N/A"}</div>
+          <div style="background:#f8f9fa;padding:14px;border-radius:8px;"><strong>Session:</strong> ${session}</div>
+          <div style="background:#f0fdf4;padding:14px;border-radius:8px;"><strong>Term:</strong> ${termMap[term]} Term</div>
+          <div style="background:#e8f5e9;padding:16px;border-radius:8px;font-weight:bold;color:#065f46;">
+            <strong>Attendance:</strong> ${attendance.percentage} (${attendance.present}/${attendance.total} days)
+          </div>
         </div>
-        <table style="width:100%; border-collapse:collapse; margin:40px 0;">
+
+        <table style="width:100%;border-collapse:collapse;margin:40px 0;">
           <thead>
-            <tr style="background:#e8f5e9; color:#065f46;">
-              <th style="padding:15px 12px; text-align:left; font-weight:600;">Subject</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">CA1</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">CA2</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">Exam</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">Total</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">Grade</th>
-              <th style="padding:15px 12px; text-align:center; font-weight:600;">Remark</th>
+            <tr style="background:#e8f5e9;color:#065f46;">
+              <th style="padding:15px 12px;text-align:left;">Subject</th>
+              <th style="padding:15px 12px;text-align:center;">CA1</th>
+              <th style="padding:15px 12px;text-align:center;">CA2</th>
+              <th style="padding:15px 12px;text-align:center;">Exam</th>
+              <th style="padding:15px 12px;text-align:center;">Total</th>
+              <th style="padding:15px 12px;text-align:center;">Grade</th>
+              <th style="padding:15px 12px;text-align:center;">Remark</th>
             </tr>
           </thead>
           <tbody>${subjectRows}</tbody>
         </table>
-        <div style="margin-top:90px; text-align:center;">
-          <div style="display:inline-block; border-top:3px solid #333; padding-top:10px; width:300px;">
+
+        <div style="margin-top:90px;text-align:center;">
+          <div style="display:inline-block;border-top:3px solid #333;padding-top:10px;width:300px;">
             <strong style="font-size:17px;">Sadiku Muhammad Ahmad</strong><br>Director
           </div>
         </div>
       </div>`;
   } catch (err) {
-    body.innerHTML = `<div style="color:red; text-align:center; padding:80px; font-size:20px;">${err.message}</div>`;
+    console.error(err);
+    body.innerHTML = `<div style="color:red;text-align:center;padding:80px;font-size:20px;">Error: ${err.message || "Failed to load report"}</div>`;
   }
 }
 
