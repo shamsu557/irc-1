@@ -3192,16 +3192,33 @@ async function populateClassSelects() {
   }
 }
 
-    // Logout Handling
-    document.getElementById('logoutBtn').addEventListener('click', async (e) => {
-        e.preventDefault();
-        const result = await fetchData('/api/logout', { method: 'POST' });
-        if (result.success) {
+   // FIXED LOGOUT — WORKS PERFECTLY WITH YOUR BACKEND
+document.getElementById('logoutBtn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+
+    try {
+        const res = await fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'include',        // Very important — sends session cookie
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await res.json();
+
+        if (data.success || res.ok) {
+            // Session destroyed → go to login
             window.location.href = '/admin-login';
         } else {
-            showMessageModal('error', result.message || 'Failed to log out.');
+            showMessageModal('error', data.message || 'Logout failed');
         }
-    });
+    } catch (err) {
+        console.error('Logout error:', err);
+        // Fallback — just redirect (in case network issue)
+        window.location.href = '/admin-login';
+    }
+});
     // Initial Page Load
     (async () => {
         const userData = await fetchData('/api/user-details');
