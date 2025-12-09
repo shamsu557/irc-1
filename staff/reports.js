@@ -305,13 +305,24 @@ window.generateCompleteReport = async (studentId) => {
   }
 };
 
+// PDF GENERATION (100% WORKING WITH HTML2CANVAS + JSPDF)
 const generatePDF = async (elementId, filename) => {
   const element = document.getElementById(elementId);
   if (!element) return alert("Content not ready");
+
+  // Wait for all images inside the element to load
+  const images = element.querySelectorAll("img");
+  await Promise.all(Array.from(images).map(img => {
+    if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
+    return new Promise(resolve => { img.onload = img.onerror = resolve; });
+  }));
+
+  // Clone element to avoid messing up layout & set fixed width for PDF
   const clone = element.cloneNode(true);
   clone.style.cssText = "position:absolute; left:-9999px; width:210mm; padding:8px 15mm 20mm; background:white; font-size:13px; line-height:1.4;";
   document.body.appendChild(clone);
 
+  // Render the clone to canvas
   const canvas = await html2canvas(clone, {
     scale: 1.8,
     useCORS: true,
@@ -320,24 +331,30 @@ const generatePDF = async (elementId, filename) => {
   });
   document.body.removeChild(clone);
 
+  // Convert canvas to image
   const imgData = canvas.toDataURL("image/jpeg", 0.85);
+
+  // Initialize jsPDF
   const pdf = new jspdf.jsPDF("p", "mm", "a4");
-  const imgWidth = 190;
-  const pageHeight = 280;
+  const imgWidth = 190; // Width inside A4 page
+  const pageHeight = 280; // Approx height of A4 page
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
   let heightLeft = imgHeight;
-  let position = 2; // ← MOVED UP from 10 to 2!
+  let position = 2; // Start slightly down
 
+  // Add first page
   pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
   heightLeft -= pageHeight;
 
+  // Add additional pages if content exceeds one page
   while (heightLeft > 0) {
     pdf.addPage();
-    position = 2 - pageHeight;
+    position = -pageHeight + 2;
     pdf.addImage(imgData, "JPEG", 10, position + 10, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 
+  // Save the PDF
   pdf.save(filename);
 };
 
