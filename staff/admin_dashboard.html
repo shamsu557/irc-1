@@ -11,6 +11,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="./css/admin_report.css">
     <style>
         :root {
             --primary-color: #4285f4;
@@ -134,16 +135,6 @@
         #sidebarToggleMobile:hover {
             background-color: #3267d6;
         }
-
-        /* FIXED TOP NAV IN GENERATE VIEW */
-#generateTopNav {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    background: #fff;
-    padding: 10px 0;
-}
-
 
         /* Profile Picture Styles */
         .profile-picture {
@@ -280,41 +271,71 @@
             <p class="text-sm text-gray-400 mt-2">Role: <span id="userRoleDisplay">N/A</span></p>
             <p class="text-sm text-gray-400 mt-1">Username: <span id="usernameDisplay">N/A</span></p>
         </div>
-        <ul class="nav flex-column mt-4" id="sidebarNav">
-            <li class="nav-item">
-                <a href="#" class="nav-link active" data-view="dashboard"><i class="fas fa-tachometer-alt"></i> <span data-translate="dashboard">Dashboard</span></a>
-            </li>
-            <li class="nav-item">
-                <a href="#" class="nav-link" data-view="staff-management"><i class="fas fa-users"></i> <span data-translate="staff">Staff</span></a>
-            </li>
-            <li class="nav-item">
-                <a href="#" class="nav-link" data-view="student-management"><i class="fas fa-user-graduate"></i> <span data-translate="students">Students</span></a>
-            </li>
-            <li class="nav-item" id="feesNavItem">
-                <a href="#" class="nav-link" data-view="fees-management"><i class="fas fa-money-bill-wave"></i> <span data-translate="fees">Fees</span></a>
-            </li>
-            <li class="nav-item" id="bookingsNavItem">
-                <a href="#" class="nav-link" data-view="bookings-management"><i class="fas fa-book"></i> <span data-translate="bookings">Bookings</span></a>
-            </li>
-            <li class="nav-item" id="adminManagementNavItem">
-                <a href="#" class="nav-link" data-view="admin-management"><i class="fas fa-user-shield"></i> <span data-translate="admins">Admins</span></a>
-            </li>
-            
-            <li class="nav-item">
-                <a href="#" class="nav-link" data-view="generate"><i class="fas fa-id-card"></i> <span data-translate="generate">ID/Report Generator</span></a>
-            </li>
-            
-            <li class="nav-item">
+       <ul class="nav flex-column mt-4" id="sidebarNav">
+
+    <li class="nav-item">
+        <a href="#" class="nav-link active" data-view="dashboard">
+            <i class="fas fa-tachometer-alt"></i>
+            <span data-translate="dashboard">Dashboard</span>
+        </a>
+    </li>
+
+    <li class="nav-item">
+        <a href="#" class="nav-link" data-view="staff-management">
+            <i class="fas fa-users"></i>
+            <span data-translate="staff">Staff</span>
+        </a>
+    </li>
+
+    <li class="nav-item">
+        <a href="#" class="nav-link" data-view="student-management">
+            <i class="fas fa-user-graduate"></i>
+            <span data-translate="students">Students</span>
+        </a>
+    </li>
+
+    <li class="nav-item" id="feesNavItem">
+        <a href="#" class="nav-link" data-view="fees-management">
+            <i class="fas fa-money-bill-wave"></i>
+            <span data-translate="fees">Fees</span>
+        </a>
+    </li>
+
+    <li class="nav-item" id="bookingsNavItem">
+        <a href="#" class="nav-link" data-view="bookings-management">
+            <i class="fas fa-book"></i>
+            <span data-translate="bookings">Bookings</span>
+        </a>
+    </li>
+
+    <li class="nav-item" id="adminManagementNavItem">
+        <a href="#" class="nav-link" data-view="admin-management">
+            <i class="fas fa-user-shield"></i>
+            <span data-translate="admins">Admins</span>
+        </a>
+    </li>
+<li class="nav-item">
+        <a href="#" class="nav-link" data-view="generate">
+            <i class="fas fa-id-card"></i>
+            <span data-translate="generate">Attendance Reports</span>
+        </a>
+    </li>
+ <li class="nav-item">
     <a href="#" class="nav-link" data-view="tahfiz-overall">
-        <i class="fas fa-book-quran"></i> <span>Tahfiz Overall Results</span>
+        <i class="fas fa-book-quran"></i>
+        <span data-translate="tahfizOverall">Tahfiz Overall Results</span>
     </a>
 </li>
-<!--<li class="nav-item">
+
+<!-- Student Reports Portal (served as /public/admin_reports.html) -->
+<li class="nav-item">
     <a href="#" class="nav-link" data-view="admin-reports">
-        <i class="fas fa-file-alt"></i> <span>Student Reports Portal</span>
+        <i class="fas fa-file-alt"></i>
+        <span data-translate="studentReportsPortal">Student Reports Portal</span>
     </a>
-</li>-->
-        </ul>
+</li>
+       
+</ul>
         <div class="mt-auto p-4">
             <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-user-circle me-2"></i>
@@ -337,6 +358,7 @@
             <i class="fas fa-bars"></i>
         </button>
 
+        <!-- Dashboard View -->
         <!-- Dashboard View -->
         <div id="dashboard-view">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -387,7 +409,7 @@
             </div>
         </div>
 
-        <!-- Staff Management View -->
+       <!-- Staff Management View -->
         <div id="staff-management-view" style="display: none;">
             <h2 class="text-2xl font-semibold mb-4" data-translate="staffManagement">Staff Management</h2>
 
@@ -408,20 +430,20 @@
             <div class="bg-white p-4 rounded-lg shadow table-responsive">
                 <table class="table w-full">
                     <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAllStaff"></th>
-                            <th data-translate="staffId">Staff ID</th>
-                            <th data-translate="profilePicture">Profile Picture</th>
-                            <th data-translate="name">Name</th>
-                            <th data-translate="email">Email</th>
-                            <th data-translate="phone">Phone</th>
-                            <th data-translate="role">Role</th>
-                            <th data-translate="classesTaught">Classes Taught</th>
-                            <th data-translate="subjectTaught">Subjects Taught</th>
-                            <th data-translate="formMasterInfo">Form Master Info</th>
-                            <th data-translate="actions">Actions</th>
-                        </tr>
-                    </thead>
+    <tr>
+        <th><input type="checkbox" id="selectAllStaff"></th>
+        <th data-translate="staffId">Staff ID</th>
+        <th data-translate="profilePicture">Profile Picture</th>
+        <th data-translate="name">Name</th>
+        <th data-translate="email">Email</th>
+        <th data-translate="phone">Phone</th>
+        <th data-translate="role">Role</th>
+        <th data-translate="classesTaught">Classes Taught</th>
+        <th data-translate="subjectsTaught">Subjects Taught</th>
+        <th data-translate="formMasterInfo">Form Master Info</th>
+        <th data-translate="actions">Actions</th>
+    </tr>
+</thead>
                     <tbody id="staffTableBody"></tbody>
                 </table>
             </div>
@@ -450,19 +472,19 @@
             <div class="bg-white p-4 rounded-lg shadow table-responsive">
                 <table class="table w-full">
                     <thead>
-                        <tr>
-                            <th data-translate="studentId">Student ID</th>
-                            <th data-translate="profilePicture">Profile Picture</th>
-                            <th data-translate="name">Full Name</th>
-                            <th data-translate="gender">Gender</th>
-                            <th data-translate="dateOfBirth">Date of Birth</th>
-                            <th data-translate="subjects">Subjects</th>
-                            <th data-translate="classes">Class(es)</th>
-                            <th data-translate="guardianPhone">Guardian Phone</th>
-                            <th data-translate="address">Address</th>
-                            <th data-translate="actions">Actions</th>
-                        </tr>
-                    </thead>
+    <tr>
+        <th data-translate="studentId">Student ID</th>
+        <th data-translate="profilePicture">Profile Picture</th>
+        <th data-translate="name">Full Name</th>
+        <th data-translate="gender">Gender</th>
+        <th data-translate="dateOfBirth">Date of Birth</th>
+        <th data-translate="subjects">Subjects</th>
+        <th data-translate="classes">Class(es)</th>
+        <th data-translate="guardianPhone">Guardian Phone</th>
+        <th data-translate="address">Address</th>
+        <th data-translate="actions">Actions</th>
+    </tr>
+</thead>
                     <tbody id="studentTableBody"></tbody>
                 </table>
             </div>
@@ -538,7 +560,6 @@
                 </form>
             </div>
         </div>
-
         <!-- ==== PAYMENT TRACKING ==== -->
         <div id="trackFeesSection" class="tab-pane fade">
             <div class="bg-white p-4 rounded shadow">
@@ -721,7 +742,7 @@
         </div>
     </div>
 </div>
-        <!-- Bookings Management View -->
+         <!-- Bookings Management View -->
         <div id="bookings-management-view" style="display: none;">
             <h2 class="text-2xl font-semibold mb-4" data-translate="bookingsManagement">Bookings Management</h2>
             <div class="bg-white p-4 rounded-lg shadow">
@@ -776,58 +797,153 @@
             </div>
         </div>
 
-        
-<!-- ======================== REPORTS GENERATOR - FINAL PERFECT VERSION ======================== -->
-<div id="generate-view" style="display: none;">
-    <div class="container-fluid px-6 py-8">
-        <h2 class="text-4xl font-extrabold text-center mb-10 text-emerald-700">
-            Reports Generator
-        </h2>
+      <!-- Academic Management View -->
+<div id="academic-management-view" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="academicManagement">Academic Management</h2>
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+        <h3 class="text-xl font-semibold mb-3" data-translate="academicCalendar">Academic Calendar</h3>
+        <form id="academicCalendarForm">
+            <div class="mb-3">
+                <label for="termStartDate" class="form-label" data-translate="termStartDate">Term Start Date</label>
+                <input type="date" class="form-control" id="termStartDate" required>
+            </div>
+            <div class="mb-3">
+                <label for="termEndDate" class="form-label" data-translate="termEndDate">Term End Date</label>
+                <input type="date" class="form-control" id="termEndDate" required>
+            </div>
+            <button type="submit" class="btn btn-primary" data-translate="saveDates">Save Dates</button>
+        </form>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-3" data-translate="reportsheets">Reportsheets</h3>
+        <button class="btn btn-secondary" id="generateReportSheetsBtn" data-translate="generateReportSheets">Generate Report Sheets</button>
+    </div>
+</div>
 
-        <!-- 5 TOP BUTTONS - CLEAN & EQUAL -->
-        <div class="flex flex-wrap justify-center gap-6 mb-12">
-            <button id="btnShowWeeklyAttendance" class="btn btn-primary btn-lg px-10 py-5 text-xl font-bold rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition flex items-center gap-3">
-                <i class="fas fa-calendar-week"></i> Weekly Attendance
-            </button>
-            <button id="btnShowCumulativeAttendance" class="btn btn-success btn-lg px-10 py-5 text-xl font-bold rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition flex items-center gap-3">
-                <i class="fas fa-chart-line"></i> Cumulative Attendance
-            </button>
+<!-- ID/Report Generator View -->
+<div id="generate-card" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="generate">ID/Report Generator</h2>
+    <div class="bg-white p-4 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-3" data-translate="generateIdCard">Generate ID Card</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="id-card-entity-type" class="form-label" data-translate="selectType">Select Type</label>
+                <select id="id-card-entity-type" class="form-select">
+                    <option value="student" data-translate="student">Student</option>
+                    <option value="staff" data-translate="staff">Staff</option>
+                </select>
+            </div>
+            <div>
+                <label for="id-card-entity-id" class="form-label" data-translate="entityId">Entity ID</label>
+                <input type="text" id="id-card-entity-id" placeholder="e.g., 101" class="form-control">
+            </div>
+        </div>
+        <button id="generate-id-card-button" class="btn btn-primary" data-translate="generateIdCard">Generate ID Card</button>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow mt-4">
+        <h3 class="text-xl font-semibold mb-3" data-translate="generateReportSheet">Generate Report Sheet</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="report-student-id" class="form-label" data-translate="studentId">Student ID</label>
+                <input type="text" id="report-student-id" placeholder="e.g., 205" class="form-control">
+            </div>
+            <div>
+                <label for="report-type" class="form-label" data-translate="reportType">Report Type</label>
+                <select id="report-type" class="form-select">
+                    <option value="terminal" data-translate="terminalReport">Terminal</option>
+                    <option value="sessional" data-translate="sessionalReport">Sessional</option>
+                </select>
+            </div>
+            <div id="session-container">
+                <label for="report-session" class="form-label" data-translate="session">Session</label>
+                <select id="report-session" class="form-select">
+                    <option value="2024/2025" data-translate="session2024_2025">2024/2025 Session</option>
+                    <option value="2023/2024" data-translate="session2023_2024">2023/2024 Session</option>
+                </select>
+            </div>
+            <div id="term-container" style="display: none;">
+                <label for="report-term" class="form-label" data-translate="term">Term</label>
+                <select id="report-term" class="form-select">
+                    <option value="1st Term" data-translate="firstTerm">1st Term</option>
+                    <option value="2nd Term" data-translate="secondTerm">2nd Term</option>
+                    <option value="3rd Term" data-translate="thirdTerm">3rd Term</option>
+                </select>
+            </div>
+        </div>
+        <button id="generate-report-sheet-button" class="btn btn-primary" data-translate="generateReportSheet">Generate Report Sheet</button>
+    </div>
+</div>
+
+<!-- Demographics View -->
+<div id="demographics-view" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="demographics">Demographic Data</h2>
+    <div class="grid grid-cols-1 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-xl font-semibold mb-3" data-translate="staffGenderDistribution">Staff Gender Distribution</h3>
+            <div id="staffGenderChart" class="w-full h-64"></div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-xl font-semibold mb-3" data-translate="studentGenderDistribution">Student Gender Distribution</h3>
+            <div id="studentGenderChart" class="w-full h-64"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== REPORTS GENERATOR - COMPACT VERSION ======================== -->
+<div id="generate-view" style="display: none;">
+    <div class="container-fluid px-4 py-6">
+        <h2 class="text-2xl font-extrabold text-center mb-8 text-emerald-700" data-translate="attendanceReports">
+    Attendance Reports
+</h2>
+        <!-- Compact Top Buttons -->
+        <div class="flex flex-wrap justify-center gap-4 mb-8">
+           <button id="btnShowWeeklyAttendance" class="btn btn-primary px-6 py-3 text-base font-semibold rounded-lg shadow hover:shadow-lg flex items-center gap-2" data-translate="weeklyAttendance">
+    <i class="fas fa-calendar-week text-sm"></i> Weekly Attendance
+</button>
+<button id="btnShowCumulativeAttendance" class="btn btn-success px-6 py-3 text-base font-semibold rounded-lg shadow hover:shadow-lg flex items-center gap-2" data-translate="cumulativeAttendance">
+    <i class="fas fa-chart-line text-sm"></i> Cumulative Attendance
+</button>
         </div>
 
-        <!-- ALL SECTIONS WRAPPER -->
-        <div id="sectionsWrapper" class="space-y-12">
+        <div id="sectionsWrapper" class="space-y-8">
 
-            <!-- WEEKLY ATTENDANCE SECTION -->
-            <div id="weeklyAttendanceSection" class="bg-white rounded-2xl shadow-2xl p-10 border border-emerald-100" style="display: none;">
-                <h3 class="text-3xl font-bold mb-8 text-emerald-700 text-center">
+            <!-- WEEKLY SECTION -->
+            <div id="weeklyAttendanceSection" class="bg-white rounded-xl shadow p-6 border border-emerald-100" style="display:none;">
+                <h3 class="text-xl font-bold mb-6 text-emerald-700 text-center" data-translate="weeklyAttendanceReport">
+    Weekly Attendance Report
+</h3>
                     Weekly Attendance Report
                 </h3>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Class</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklyClassSelect">
-                            <option value="">Select Class</option>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Class</label>
+                        <select id="adminWeeklyClassSelect" class="form-select w-full border rounded-lg px-3 py-2">
+                            <option value="" data-translate="selectClassPlaceholder">Select Class</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Session</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklySessionSelect">
-                            <option value="">Select Session</option>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Session</label>
+                        <select id="adminWeeklySessionSelect" class="form-select w-full border rounded-lg px-3 py-2">
+                            <option value="" data-translate="selectSessionPlaceholder">Select Session</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Term</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklyTermSelect">
-                            <option value="">Select Term</option>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Term</label>
+                        <select id="adminWeeklyTermSelect" class="form-select w-full border rounded-lg px-3 py-2">
+                            <option value="" data-translate="selectTermPlaceholder">Select Term</option>
                             <option value="1">1st Term</option>
                             <option value="2">2nd Term</option>
                             <option value="3">3rd Term</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Week</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="adminWeeklyWeekSelect">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Week</label>
+                        <select id="adminWeeklyWeekSelect" class="form-select w-full border rounded-lg px-3 py-2">
                             <option value="">Select Week</option>
                             <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
                             <option value="4">Week 4</option><option value="5">Week 5</option><option value="6">Week 6</option>
@@ -836,68 +952,75 @@
                             <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
                         </select>
                     </div>
+
                     <div class="flex items-end">
-                        <button id="loadAdminWeeklyAttendanceBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
-                            Load Report
-                        </button>
+                        <button id="loadAdminWeeklyAttendanceBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow" data-translate="load">
+    Load
+</button>
                     </div>
                 </div>
 
                 <div class="table-responsive overflow-x-auto">
-                    <table class="table table-bordered table-hover text-center">
-                        <thead class="bg-emerald-600 text-white">
-                            <tr>
-                                <th>Student Name</th>
-                                <th>Student ID</th>
-                                <th>Sat</th><th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th>
-                                <th>Total</th><th>%</th>
-                            </tr>
-                        </thead>
+                    <table class="table table-bordered table-hover text-center text-sm">
+                        <thead class="bg-emerald-600 text-white text-xs">
+    <tr>
+        <th data-translate="studentName">Student Name</th>
+        <th data-translate="studentId">Student ID</th>
+        <th data-translate="sat">Sat</th>
+        <th data-translate="sun">Sun</th>
+        <th data-translate="mon">Mon</th>
+        <th data-translate="tue">Tue</th>
+        <th data-translate="wed">Wed</th>
+        <th data-translate="thu">Thu</th>
+        <th data-translate="fri">Fri</th>
+        <th data-translate="total">Total</th>
+        <th data-translate="percentage">%</th>
+    </tr>
+</thead>
                         <tbody id="adminWeeklyAttendanceTableBody"></tbody>
                     </table>
                 </div>
 
-                <div class="mt-8 flex justify-end gap-4">
-                    <button id="exportAdminWeeklyExcel" class="btn btn-success btn-lg px-8 py-4 rounded-xl shadow-lg">
-                        Export Excel
-                    </button>
-                    <button id="exportAdminWeeklyPdf" class="btn btn-danger btn-lg px-8 py-4 rounded-xl shadow-lg">
-                        Export PDF
-                    </button>
-                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button id="exportAdminWeeklyExcel" class="btn btn-success px-5 py-2 rounded-lg" data-translate="exportExcel">Excel</button>
+<button id="exportAdminWeeklyPdf" class="btn btn-danger px-5 py-2 rounded-lg" data-translate="exportPdf">PDF</button></div>
             </div>
 
-            <!-- CUMULATIVE ATTENDANCE SECTION -->
-            <div id="cumulativeAttendanceSection" class="bg-white rounded-2xl shadow-2xl p-10 border border-emerald-100" style="display: none;">
-                <h3 class="text-3xl font-bold mb-8 text-emerald-700 text-center">
-                    Cumulative Attendance Report (Term-to-Date)
-                </h3>
+            <!-- CUMULATIVE SECTION -->
+            <div id="cumulativeAttendanceSection" class="bg-white rounded-xl shadow p-6 border border-emerald-100" style="display:none;">
+                <h3 class="text-xl font-bold mb-6 text-emerald-700 text-center" data-translate="cumulativeAttendanceReport">
+    Cumulative Attendance Report (Term-to-Date)
+</h3>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Class</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeClassSelect">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Class</label>
+                        <select id="cumulativeClassSelect" class="form-select w-full border rounded-lg px-3 py-2">
                             <option value="">Select Class</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Session</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeSessionSelect">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Session</label>
+                        <select id="cumulativeSessionSelect" class="form-select w-full border rounded-lg px-3 py-2">
                             <option value="">Select Session</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Term</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeTermSelect">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Term</label>
+                        <select id="cumulativeTermSelect" class="form-select w-full border rounded-lg px-3 py-2">
                             <option value="">Select Term</option>
                             <option value="1">1st Term</option>
                             <option value="2">2nd Term</option>
                             <option value="3">3rd Term</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">Up to Week</label>
-                        <select class="form-select w-full border-2 border-gray-300 rounded-xl px-4 py-3 focus:ring-4 focus:ring-emerald-200" id="cumulativeUpToWeekSelect">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Up to Week</label>
+                        <select id="cumulativeUpToWeekSelect" class="form-select w-full border rounded-lg px-3 py-2">
                             <option value="">Select Week</option>
                             <option value="1">Week 1</option><option value="2">Week 2</option><option value="3">Week 3</option>
                             <option value="4">Week 4</option><option value="5">Week 5</option><option value="6">Week 6</option>
@@ -906,67 +1029,62 @@
                             <option value="13">Week 13</option><option value="14">Week 14</option><option value="15">Week 15</option>
                         </select>
                     </div>
+
                     <div class="flex items-end">
-                        <button id="loadCumulativeBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition transform hover:scale-105">
-                            Load Report
-                        </button>
+<button id="loadCumulativeBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-4 rounded-lg shadow" data-translate="load">
+    Load
+</button>
                     </div>
                 </div>
 
                 <div class="table-responsive overflow-x-auto">
-                    <table class="table table-bordered table-hover text-center">
-                        <thead class="bg-emerald-600 text-white">
+                    <table class="table table-bordered table-hover text-center text-sm">
+                        <thead class="bg-emerald-600 text-white text-xs">
                             <tr>
-                                <th>Student Name</th>
-                                <th>Student ID</th>
-                                <th>Total Days</th>
-                                <th>Present</th>
-                                <th>Percentage</th>
+                                <th data-translate="studentName">Student Name</th>
+                                <th data-translate="studentId">Student ID</th>
+                                <th data-translate="totalDays">Total Days</th>
+                                <th data-translate="present">Present</th>
+                                <th data-translate="percentage">Percentage</th>
                             </tr>
                         </thead>
                         <tbody id="cumulativeTableBody"></tbody>
                     </table>
                 </div>
 
-                <div class="mt-8 flex justify-end gap-4">
-                    <button id="exportCumulativeExcel" class="btn btn-success btn-lg px-8 py-4 rounded-xl shadow-lg">
-                        Export Excel
-                    </button>
-                    <button id="exportCumulativePdf" class="btn btn-danger btn-lg px-8 py-4 rounded-xl shadow-lg">
-                        Export PDF
-                    </button>
-                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button id="exportCumulativeExcel" class="btn btn-success px-5 py-2 rounded-lg" data-translate="exportExcel">Excel</button>
+<button id="exportCumulativePdf" class="btn btn-danger px-5 py-2 rounded-lg" data-translate="exportPdf">PDF</button></div>
             </div>
 
         </div>
-    </div></div>
-
-<!-- End generate-view -->
+    </div>
+</div>
  
-<!-- ======================== ADMIN: TAHFIZ OVERALL RESULTS ======================== -->
+<!-- Tahfiz Overall Results -->
 <div id="tahfiz-overall" style="display:none;">
-    <div class="container-fluid px-6 py-10">
-        <h2 class="text-4xl font-extrabold text-center mb-10 text-emerald-700">
-            <i class="fas fa-book-quran me-3"></i>Tahfiz Overall Results
+    <div class="container-fluid px-4 py-6">
+        <h2 class="text-2xl font-bold text-center mb-6 text-emerald-700" data-translate="tahfizOverallTitle">
+            Tahfiz Overall Results
         </h2>
 
-        <div class="bg-white rounded-3xl shadow-2xl p-10 border-4 border-emerald-200">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-10">
+        <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-emerald-200">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Class</label>
-                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="overallClassSelect">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="class">Class</label>
+                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm" id="overallClassSelect">
                         <option value="">Select Class</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Session</label>
-                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="overallSessionSelect">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="session">Session</label>
+                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm" id="overallSessionSelect">
                         <option value="">Select Session</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Term</label>
-                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="overallTermSelect">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="term">Term</label>
+                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm" id="overallTermSelect">
                         <option value="">Select Term</option>
                         <option value="1">1st Term</option>
                         <option value="2">2nd Term</option>
@@ -974,128 +1092,146 @@
                     </select>
                 </div>
                 <div class="flex items-end">
-                    <button id="loadOverallStudentsBtn" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-5 px-10 rounded-xl shadow-2xl transform hover:scale-110 transition text-xl">
+                    <button id="loadOverallStudentsBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg shadow-md text-sm" data-translate="loadResults">
                         Load Results
                     </button>
                 </div>
             </div>
 
             <div class="table-responsive overflow-x-auto">
-                <table class="table table-hover table-bordered">
-                    <thead class="bg-gradient-to-r from-emerald-700 to-emerald-800 text-white text-lg">
+                <table class="table table-sm table-hover table-bordered text-sm">
+                    <thead class="bg-emerald-700 text-white text-sm">
                         <tr>
-                            <th>Student Name</th>
-                            <th>Student ID</th>
-                            <th>Avg Daily Mark</th>
-                            <th>Daily (/80)</th>
-                            <th>Exam Mark</th>
-                            <th>Exam (/20)</th>
-                            <th>Total (/100)</th>
-                            <th>Final Grade</th>
+                            <th data-translate="studentName">Student Name</th>
+                            <th data-translate="studentId">Student ID</th>
+                            <th data-translate="avgDaily">Avg Daily</th>
+                            <th data-translate="dailyScore">Daily (/80)</th>
+                            <th data-translate="examMark">Exam Mark</th>
+                            <th data-translate="examOutOf">Exam (/20)</th>
+                            <th data-translate="totalScore">Total (/100)</th>
+                            <th data-translate="grade">Grade</th>
                         </tr>
                     </thead>
-                    <tbody id="overallStudentsTableBody" class="text-gray-800 font-medium"></tbody>
+                    <tbody id="overallStudentsTableBody" class="text-gray-800 font-normal"></tbody>
                 </table>
             </div>
 
-            <div class="mt-10 text-center space-x-6">
-                <button id="exportOverallPdfBtn" class="btn btn-danger btn-lg px-12 py-5 rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition text-xl">
-                    Export PDF
-                </button>
-                <button id="exportOverallExcelBtn" class="btn btn-success btn-lg px-12 py-5 rounded-xl shadow-xl hover:shadow-2xl transform hover:scale-105 transition text-xl">
-                    Export Excel
-                </button>
+            <div class="mt-6 text-center space-x-4">
+                <button id="exportOverallPdfBtn" class="btn btn-danger btn-sm px-5 py-2 rounded-md shadow" data-translate="exportPdf">Export PDF</button>
+                <button id="exportOverallExcelBtn" class="btn btn-success btn-sm px-5 py-2 rounded-md shadow" data-translate="exportExcel">Export Excel</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ======================== ADMIN: STUDENT REPORTS PORTAL ======================== -->
+<!-- Admin Reports Portal -->
 <div id="admin-reports" style="display:none;">
-    <div class="container-fluid px-6 py-10">
-        <div class="text-center mb-12">
-            <h2 class="text-5xl font-extrabold text-emerald-700 mb-4">
-                Student Reports Portal (Admin)
-            </h2>
-            <p class="text-xl text-gray-600 max-w-4xl mx-auto">
-                Generate professional, parent-ready PDF reports with grades, Tahfiz progress, attendance, position & comments
-            </p>
+    <div class="overlay" id="overlay"></div>
+    <div class="spinner" id="spinner">
+        <div class="spinner-border text-success" style="width: 60px; height: 60px;"></div>
+    </div>
+
+    <div class="portal-container">
+        <div class="header">
+            <h1 class="mb-3 fw-bold" data-translate="schoolName">Ibadurrahman College</h1>
+            <p class="mb-0 fs-5" data-translate="reportPortalSubtitle">Student Academic & Tahfiz Report Portal</p>
         </div>
 
-        <!-- Selection Panel -->
-        <div class="bg-white rounded-3xl shadow-2xl p-10 mb-10 border-4 border-emerald-200">
-            <h3 class="text-3xl font-bold mb-8 text-emerald-700 text-center">
-                Generate End-of-Term Reports
+        <div class="filter-card">
+            <h3 class="mb-4 text-success">
+                Select Report Criteria
             </h3>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Class</label>
-                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="reportClassSelect">
-                        <option value="">Select Class</option>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-bold" data-translate="class">Class</label>
+                    <select class="form-select" id="filterClass" required>
+                        <option value="" data-translate="selectClassPlaceholder">-- Select Class --</option>
                     </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Session</label>
-                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="reportSessionSelect">
-                        <option value="">Select Session</option>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold" data-translate="session">Session</label>
+                    <select class="form-select" id="filterSession" required>
+                        <option value="" data-translate="selectSessionPlaceholder">-- Select Session --</option>
                     </select>
                 </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-3">Term</label>
-                    <select class="form-select w-full border-2 border-emerald-300 rounded-xl px-5 py-4 text-lg focus:ring-4 focus:ring-emerald-200" id="reportTermSelect">
-                        <option value="">Select Term</option>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold" data-translate="term">Term</label>
+                    <select class="form-select" id="filterTerm" required>
+                        <option value="" data-translate="selectTermPlaceholder">-- Select Term --</option>
                         <option value="1">1st Term</option>
                         <option value="2">2nd Term</option>
                         <option value="3">3rd Term</option>
                     </select>
                 </div>
-                <div class="flex items-end">
-                    <button id="loadReportStudentsBtn" class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-bold py-5 px-10 rounded-xl shadow-2xl transform hover:scale-110 transition text-xl">
+                <div class="col-md-3">
+                    <button class="btn btn-success w-100 py-2" id="loadStudentsBtn" data-translate="loadStudents">
                         Load Students
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Students Table -->
-        <div class="bg-white rounded-3xl shadow-2xl overflow-hidden border-4 border-emerald-200">
-            <div class="bg-gradient-to-r from-emerald-700 to-emerald-800 text-white p-8">
-                <h3 class="text-3xl font-bold text-center">
-                    Student List & Report Generator
-                </h3>
-            </div>
-
+        <div class="results-card" id="resultsSection" style="display: none;">
+            <h3 class="mb-4 text-success">
+                Students List
+            </h3>
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="bg-emerald-100 text-emerald-800 font-bold text-lg">
+                <table class="table table-hover align-middle">
+                    <thead class="table-success">
                         <tr>
-                            <th class="px-8 py-5">#</th>
-                            <th class="px-8 py-5">Student Name</th>
-                            <th class="px-8 py-5">Student ID</th>
-                            <th class="px-8 py-5 text-center">Report Actions</th>
+                            <th>#</th>
+                            <th data-translate="studentName">Student Name</th>
+                            <th data-translate="admissionNo">Admission No.</th>
+                            <th data-translate="actions">Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="reportStudentsTableBody" class="text-gray-800"></tbody>
+                    <tbody id="studentsTableBody"></tbody>
                 </table>
             </div>
-
-            <div id="reportEmpty" class="p-24 text-center bg-gray-50">
-                <p class="text-3xl font-bold text-gray-500 mb-4">No students loaded yet</p>
-                <p class="text-xl text-gray-600">Select class, session and term above → click "Load Students"</p>
-            </div>
-        </div>
-
-        <!-- Export All Button -->
-        <div class="text-center mt-16">
-            <button id="exportAllReportsBtn" class="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-bold py-6 px-16 rounded-3xl shadow-2xl text-2xl transform hover:scale-110 transition duration-300">
-                Download All Reports as ZIP
-            </button>
-            <p class="text-lg text-gray-600 mt-6">Generate and download all Complete Reports in one secure ZIP file</p>
         </div>
     </div>
-</div>
-</div>
+ <!-- Tahfiz Report Modal -->
+    <div class="modal fade" id="tahfizReportModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-book-quran"></i> Tahfiz-ul-Qur'an Report</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="tahfizReportBody">
+                    <p class="text-center text-muted">Click a student to generate report...</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success" id="downloadTahfizPdf">
+                        <i class="fas fa-file-pdf"></i> Download PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Complete Report Modal -->
+    <div class="modal fade" id="completeReportModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-file-alt"></i> Complete Academic Report</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="completeReportBody">
+                    <p class="text-center text-muted">Click a student to generate report...</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" id="downloadCompletePdf">
+                        <i class="fas fa-file-pdf"></i> Download PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- First Login Modal -->
     <div class="modal fade" id="firstLoginModal" tabindex="-1" aria-labelledby="firstLoginModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
@@ -1376,90 +1512,16 @@
             </div>
         </div>
     </div>
-    <!-- TAHFIZ REPORT PREVIEW MODAL – ADMIN -->
-<div class="modal fade" id="tahfizPreviewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content rounded-3xl shadow-2xl border-4 border-emerald-600 overflow-hidden">
-            <div class="modal-header bg-gradient-to-r from-emerald-700 to-emerald-800 text-white border-b-4 border-emerald-500">
-                <h5 class="modal-title text-2xl font-bold flex items-center gap-3">
-                    <i class="fas fa-book-quran text-yellow-300"></i>
-                    TAHFIZ MEMORIZATION REPORT
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-
-            <div class="modal-body p-8 bg-gradient-to-b from-emerald-50 via-white to-emerald-50 min-h-screen">
-                <div id="tahfizPreviewBody" class="max-w-5xl mx-auto bg-white rounded-2xl shadow-inner p-10 border border-emerald-200">
-                    <!-- Dynamic content injected here by JS -->
-                </div>
-            </div>
-
-            <div class="modal-footer bg-emerald-100 border-t-4 border-emerald-600 py-6 px-10 justify-content-between">
-                <div class="text-emerald-800 font-semibold">
-                    <i class="fas fa-shield-alt me-2"></i> Admin Preview • Ibadurrahman College
-                </div>
-                <div class="space-x-4">
-                    <button onclick="downloadCurrentTahfizPdf()" 
-                            class="btn bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-10 py-4 rounded-xl shadow-xl transform hover:scale-105 transition text-lg">
-                        <i class="fas fa-download me-2"></i> DOWNLOAD PDF
-                    </button>
-                    <button type="button" class="btn btn-outline-danger px-8 py-4 rounded-xl font-bold" data-bs-dismiss="modal">
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
-</div>
-<!-- COMPLETE ACADEMIC REPORT PREVIEW MODAL – ADMIN FULLSCREEN -->
-<div class="modal fade" id="completeReportPreviewModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen">
-        <div class="modal-content border-8 border-emerald-700 rounded-none shadow-2xl overflow-hidden">
-            <!-- Header -->
-            <div class="modal-header bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white py-6 px-10 border-b-8 border-emerald-600">
-                <h5 class="modal-title text-4xl font-extrabold flex items-center gap-4">
-                    <i class="fas fa-graduation-cap text-yellow-300"></i>
-                    END-OF-TERM REPORT SHEET
-                </h5>
-                <button type="button" class="btn-close btn-close-white text-4xl" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-
-            <!-- Body -->
-            <div class="modal-body p-0 bg-gray-50">
-                <div id="completeReportPreviewBody" class="p-10 bg-white min-h-screen">
-                    <!-- Full report rendered here -->
-                </div>
-            </div>
-
-            <!-- Fixed Footer -->
-            <div class="modal-footer fixed bottom-0 left-0 right-0 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white py-6 px-10 border-t-8 border-emerald-600 shadow-2xl z-10">
-                <div class="container mx-auto flex flex-col lg:flex-row justify-between items-center">
-                    <div class="text-lg font-bold mb-3 lg:mb-0">
-                        <i class="fas fa-user-shield me-3"></i>
-                        Generated by Admin • <span id="reportGeneratedTime" class="text-yellow-300"></span>
-                    </div>
-                    <div class="space-x-6">
-                        <button onclick="downloadCurrentCompletePdf()"
-                                class="btn bg-yellow-500 hover:bg-yellow-600 text-emerald-900 font-bold px-12 py-5 rounded-2xl shadow-2xl transform hover:scale-110 transition text-xl">
-                            <i class="fas fa-file-pdf me-3"></i> DOWNLOAD PDF
-                        </button>
-                        <button type="button" class="btn btn-light btn-lg px-10 py-5 rounded-2xl font-bold border-2 border-white" data-bs-dismiss="modal">
-                            Close Preview
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+  <!-- Language Toggle -->
+<div class="text-center mt-4">
+    <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
 </div>
 
-    <!-- Language Toggle -->
-    <div class="text-center mt-4">
-        <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
-    </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- html2pdf.js (FULL, required) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module" src="./js/admin_dashboard.js"></script>
+<script type="module" src="./js/reports.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="./js/admin_dashboard.js"></script>
-    <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98d6b1df1810ef39',t:'MTc2MDI3MzEzMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a49b8ab7de6edea',t:'MTc2NDE2MzYyNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
-</html> 
