@@ -1757,12 +1757,32 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /* ================================================================
-   TAB SWITCHING
+   TAB SWITCHING (Fees Management)
    ================================================================ */
+const addPaymentBtn = document.getElementById("topAddPaymentBtn");
+const setFeesForm = document.getElementById("setFeesForm");
+
 document.querySelectorAll("#feesTab .nav-link").forEach((tab) => {
   tab.addEventListener("shown.bs.tab", (e) => {
-    if (e.target.id === "trackFeesTab") fetchPaymentData();
-    else if (e.target.id === "feeStructureOverviewTab") fetchFeeStructureOverview();
+    const targetId = e.target.id;
+
+    // --- Show/Hide Add Payment button ---
+    if (targetId === "trackFeesTab") {
+      addPaymentBtn.classList.remove("d-none"); // show button
+      fetchPaymentData();                        // fetch payment tracking data
+    } else {
+      addPaymentBtn.classList.add("d-none");    // hide button
+    }
+
+    // --- Fee Structure Overview ---
+    if (targetId === "feeStructureOverviewTab") {
+      fetchFeeStructureOverview();              // fetch fee structure data
+    }
+
+    // --- Reset Set Fees form when switching to it ---
+    if (targetId === "setFeesTab") {
+      setFeesForm?.reset();
+    }
   });
 });
 
@@ -1939,57 +1959,80 @@ function filterBookings() {
 
 // --- Export Bookings to PDF ---
 const exportToPDF = async () => {
-    const doc = new jsPDF();
-    doc.text("Bookings Management", 10, 10);
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("p", "mm", "a4");
+        const margin = 10;
+        let y = 15;
 
-    // Correct IDs matching your HTML
-    const fromDate = document.getElementById('bookingsDateFrom')?.value;
-    const toDate = document.getElementById('bookingsDateTo')?.value;
+        // --- Add school logo if available ---
+        if (schoolInfo?.logoSrc) {
+            try {
+                const img = await loadImageAsDataURL(schoolInfo.logoSrc);
+                doc.addImage(img, "JPEG", margin, y, 25, 25);
+            } catch (e) {
+                console.warn("Logo failed to load", e);
+            }
+        }
 
-    const data = await fetchData('/api/bookings');
-    if (data.success) {
-        const table = document.createElement('table');
-        const thead = table.createTHead();
-        const tbody = table.createTBody();
+        // --- Add school info ---
+        doc.setFontSize(14);
+        if (schoolInfo?.name) doc.text(schoolInfo.name, margin + 30, y + 8);
+        doc.setFontSize(8);
+        if (schoolInfo?.address) doc.text(schoolInfo.address, margin + 30, y + 14);
+        if (schoolInfo?.phone || schoolInfo?.email) 
+            doc.text(`${schoolInfo.phone || ''} | ${schoolInfo.email || ''}`, margin + 30, y + 19);
 
+        y += 30;
+
+        doc.setFontSize(12);
+        doc.text("BOOKINGS REPORT", 105, y, null, null, "center");
+        y += 10;
+
+        // --- Fetch bookings data ---
+        const fromDate = document.getElementById('bookingsDateFrom')?.value;
+        const toDate = document.getElementById('bookingsDateTo')?.value;
+        const dataResp = await fetchData('/api/bookings');
+
+        if (!dataResp.success || !Array.isArray(dataResp.data)) throw new Error("Failed to fetch bookings");
+
+        // --- Prepare data arrays directly for autoTable ---
         const headers = ['Name', 'Email', 'Gender', 'Date of Birth', 'Phone', 'Address', 'Message', 'Time Sent'];
-        const headerRow = thead.insertRow();
-        headers.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            headerRow.appendChild(th);
-        });
+        const body = dataResp.data
+            .filter(booking => {
+                const bookingDate = new Date(booking.time_sent);
+                return (!fromDate || bookingDate >= new Date(fromDate)) &&
+                       (!toDate || bookingDate <= new Date(toDate + 'T23:59:59'));
+            })
+            .map(booking => [
+                booking.name || 'N/A',
+                booking.email || 'N/A',
+                booking.gender || 'N/A',
+                formatDate(booking.date_of_birth) || 'N/A',
+                booking.phone || 'N/A',
+                booking.address || 'N/A',
+                booking.message || 'N/A',
+                new Date(booking.time_sent).toLocaleString() || 'N/A'
+            ]);
 
-        data.data.forEach(booking => {
-            const bookingDate = new Date(booking.time_sent);
-
-            // Filter by date range if selected
-            if ((fromDate && bookingDate < new Date(fromDate)) ||
-                (toDate && bookingDate > new Date(toDate + 'T23:59:59'))) return;
-
-            const row = tbody.insertRow();
-            row.insertCell().textContent = booking.name || 'N/A';
-            row.insertCell().textContent = booking.email || 'N/A';
-            row.insertCell().textContent = booking.gender || 'N/A';
-            row.insertCell().textContent = formatDate(booking.date_of_birth) || 'N/A';
-            row.insertCell().textContent = booking.phone || 'N/A';
-            row.insertCell().textContent = booking.address || 'N/A';
-            row.insertCell().textContent = booking.message || 'N/A';
-            row.insertCell().textContent = bookingDate.toLocaleString() || 'N/A';
-        });
-
+        // --- Generate PDF ---
         doc.autoTable({
-            html: table,
-            startY: 20,
+            head: [headers],
+            body: body,
+            startY: y,
             styles: { fontSize: 8 },
             headStyles: { fillColor: [66, 133, 244] },
             bodyStyles: { textColor: [0, 0, 0] }
         });
 
-        doc.save('bookings.pdf');
+        // --- Save PDF ---
+        doc.save(`bookings_${new Date().toISOString().slice(0,10)}.pdf`);
+
+    } catch (err) {
+        console.error(err);
+        showMessageModal("error", "Export failed. Check console.");
     }
 };
-
 
 // --- Export Bookings to Excel ---
 const exportToExcel = async () => {
@@ -2117,19 +2160,76 @@ const prepareStudentTableForExport = async () => {
 
 // --- Export Students to PDF ---
 const exportStudentsToPDF = async () => {
-    const doc = new jsPDF();
-    doc.text("Student Management", 10, 10);
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("p", "mm", "a4");
+        const margin = 10;
+        let y = 15;
 
-    const table = await prepareStudentTableForExport();
-    doc.autoTable({
-        html: table,
-        startY: 20,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [66, 133, 244] },
-        bodyStyles: { textColor: [0, 0, 0] }
-    });
+        // --- Add school logo if available ---
+        if (schoolInfo?.logoSrc) {
+            try {
+                const img = await loadImageAsDataURL(schoolInfo.logoSrc);
+                doc.addImage(img, "JPEG", margin, y, 25, 25);
+            } catch (e) {
+                console.warn("Logo failed to load", e);
+            }
+        }
 
-    doc.save('students.pdf');
+        // --- Add school info ---
+        doc.setFontSize(14);
+        if (schoolInfo?.name) doc.text(schoolInfo.name, margin + 30, y + 8);
+        doc.setFontSize(8);
+        if (schoolInfo?.address) doc.text(schoolInfo.address, margin + 30, y + 14);
+        if (schoolInfo?.phone || schoolInfo?.email) 
+            doc.text(`${schoolInfo.phone || ''} | ${schoolInfo.email || ''}`, margin + 30, y + 19);
+
+        y += 30;
+
+        doc.setFontSize(12);
+        doc.text("STUDENTS REPORT", 105, y, null, null, "center");
+        y += 10;
+
+        // --- Fetch students data ---
+        const tableData = await prepareStudentTableForExport();
+        if (!tableData) throw new Error("Failed to prepare student data");
+
+        // --- Convert table to array for autoTable ---
+        const headers = [];
+        const body = [];
+
+        const thead = tableData.querySelector("thead");
+        const tbody = tableData.querySelector("tbody");
+
+        if (thead) {
+            thead.querySelectorAll("th").forEach(th => headers.push(th.textContent || ""));
+        }
+
+        if (tbody) {
+            tbody.querySelectorAll("tr").forEach(tr => {
+                const row = [];
+                tr.querySelectorAll("td").forEach(td => row.push(td.textContent || ""));
+                body.push(row);
+            });
+        }
+
+        // --- Generate PDF ---
+        doc.autoTable({
+            head: [headers],
+            body: body,
+            startY: y,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [66, 133, 244] },
+            bodyStyles: { textColor: [0, 0, 0] }
+        });
+
+        // --- Save PDF ---
+        doc.save(`students_${new Date().toISOString().slice(0,10)}.pdf`);
+
+    } catch (err) {
+        console.error(err);
+        showMessageModal("error", "Export failed. Check console.");
+    }
 };
 
 // --- Export Students to Excel ---
@@ -2193,19 +2293,76 @@ const prepareStaffTableForExport = async () => {
 
 // --- Export Staff to PDF ---
 const exportStaffToPDF = async () => {
-    const doc = new jsPDF();
-    doc.text("Staff Management", 10, 10);
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF("p", "mm", "a4");
+        const margin = 10;
+        let y = 15;
 
-    const table = await prepareStaffTableForExport();
-    doc.autoTable({
-        html: table,
-        startY: 20,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [66, 133, 244] },
-        bodyStyles: { textColor: [0, 0, 0] }
-    });
+        // --- Add school logo if available ---
+        if (schoolInfo?.logoSrc) {
+            try {
+                const img = await loadImageAsDataURL(schoolInfo.logoSrc);
+                doc.addImage(img, "JPEG", margin, y, 25, 25);
+            } catch (e) {
+                console.warn("Logo failed to load", e);
+            }
+        }
 
-    doc.save('staff.pdf');
+        // --- Add school info ---
+        doc.setFontSize(14);
+        if (schoolInfo?.name) doc.text(schoolInfo.name, margin + 30, y + 8);
+        doc.setFontSize(8);
+        if (schoolInfo?.address) doc.text(schoolInfo.address, margin + 30, y + 14);
+        if (schoolInfo?.phone || schoolInfo?.email) 
+            doc.text(`${schoolInfo.phone || ''} | ${schoolInfo.email || ''}`, margin + 30, y + 19);
+
+        y += 30;
+
+        doc.setFontSize(12);
+        doc.text("STAFF REPORT", 105, y, null, null, "center");
+        y += 10;
+
+        // --- Fetch staff data ---
+        const tableData = await prepareStaffTableForExport();
+        if (!tableData) throw new Error("Failed to prepare staff data");
+
+        // --- Convert table to arrays for autoTable ---
+        const headers = [];
+        const body = [];
+
+        const thead = tableData.querySelector("thead");
+        const tbody = tableData.querySelector("tbody");
+
+        if (thead) {
+            thead.querySelectorAll("th").forEach(th => headers.push(th.textContent || ""));
+        }
+
+        if (tbody) {
+            tbody.querySelectorAll("tr").forEach(tr => {
+                const row = [];
+                tr.querySelectorAll("td").forEach(td => row.push(td.textContent || ""));
+                body.push(row);
+            });
+        }
+
+        // --- Generate PDF ---
+        doc.autoTable({
+            head: [headers],
+            body: body,
+            startY: y,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [66, 133, 244] },
+            bodyStyles: { textColor: [0, 0, 0] }
+        });
+
+        // --- Save PDF ---
+        doc.save(`staff_${new Date().toISOString().slice(0,10)}.pdf`);
+
+    } catch (err) {
+        console.error(err);
+        showMessageModal("error", "Export failed. Check console.");
+    }
 };
 
 // --- Export Staff to Excel ---
