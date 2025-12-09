@@ -305,26 +305,40 @@ window.generateCompleteReport = async (studentId) => {
   }
 };
 
-// PDF GENERATION (100% WORKING)
 const generatePDF = async (elementId, filename) => {
   const element = document.getElementById(elementId);
-  if (!element) return alert("Report not ready!");
+  if (!element) return alert("Content not ready");
+  const clone = element.cloneNode(true);
+  clone.style.cssText = "position:absolute; left:-9999px; width:210mm; padding:8px 15mm 20mm; background:white; font-size:13px; line-height:1.4;";
+  document.body.appendChild(clone);
 
-  const images = element.querySelectorAll("img");
-  await Promise.all(Array.from(images).map(img => {
-    if (img.complete && img.naturalWidth !== 0) return Promise.resolve();
-    return new Promise(resolve => { img.onload = img.onerror = resolve; });
-  }));
+  const canvas = await html2canvas(clone, {
+    scale: 1.8,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    windowWidth: 1000
+  });
+  document.body.removeChild(clone);
 
-  const opt = {
-    margin: [12, 12, 15, 12],
-    filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
+  const imgData = canvas.toDataURL("image/jpeg", 0.85);
+  const pdf = new jspdf.jsPDF("p", "mm", "a4");
+  const imgWidth = 190;
+  const pageHeight = 280;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  let heightLeft = imgHeight;
+  let position = 2; // ← MOVED UP from 10 to 2!
 
-  await html2pdf().set(opt).from(element).save();
+  pdf.addImage(imgData, "JPEG", 10, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  while (heightLeft > 0) {
+    pdf.addPage();
+    position = 2 - pageHeight;
+    pdf.addImage(imgData, "JPEG", 10, position + 10, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+
+  pdf.save(filename);
 };
 
 window.downloadCurrentTahfizPdf = () => {
