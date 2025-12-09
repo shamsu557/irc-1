@@ -136,16 +136,6 @@
             background-color: #3267d6;
         }
 
-        /* FIXED TOP NAV IN GENERATE VIEW */
-#generateTopNav {
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-    background: #fff;
-    padding: 10px 0;
-}
-
-
         /* Profile Picture Styles */
         .profile-picture {
             width: 40px;
@@ -324,7 +314,12 @@
             <span data-translate="admins">Admins</span>
         </a>
     </li>
-
+<li class="nav-item">
+        <a href="#" class="nav-link" data-view="generate">
+            <i class="fas fa-id-card"></i>
+            <span data-translate="generate">Attendance Reports</span>
+        </a>
+    </li>
  <li class="nav-item">
     <a href="#" class="nav-link" data-view="tahfiz-overall">
         <i class="fas fa-book-quran"></i>
@@ -339,14 +334,8 @@
         <span data-translate="studentReportsPortal">Student Reports Portal</span>
     </a>
 </li>
-      <li class="nav-item">
-        <a href="#" class="nav-link" data-view="generate">
-            <i class="fas fa-id-card"></i>
-            <span data-translate="generate">Attendance Reports</span>
-        </a>
-    </li>
+       
 </ul>
-
         <div class="mt-auto p-4">
             <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="fas fa-user-circle me-2"></i>
@@ -369,6 +358,7 @@
             <i class="fas fa-bars"></i>
         </button>
 
+        <!-- Dashboard View -->
         <!-- Dashboard View -->
         <div id="dashboard-view">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -419,7 +409,7 @@
             </div>
         </div>
 
-        <!-- Staff Management View -->
+       <!-- Staff Management View -->
         <div id="staff-management-view" style="display: none;">
             <h2 class="text-2xl font-semibold mb-4" data-translate="staffManagement">Staff Management</h2>
 
@@ -570,7 +560,6 @@
                 </form>
             </div>
         </div>
-
         <!-- ==== PAYMENT TRACKING ==== -->
         <div id="trackFeesSection" class="tab-pane fade">
             <div class="bg-white p-4 rounded shadow">
@@ -753,7 +742,7 @@
         </div>
     </div>
 </div>
-        <!-- Bookings Management View -->
+         <!-- Bookings Management View -->
         <div id="bookings-management-view" style="display: none;">
             <h2 class="text-2xl font-semibold mb-4" data-translate="bookingsManagement">Bookings Management</h2>
             <div class="bg-white p-4 rounded-lg shadow">
@@ -808,7 +797,100 @@
             </div>
         </div>
 
-        <!-- ======================== REPORTS GENERATOR - COMPACT VERSION ======================== -->
+      <!-- Academic Management View -->
+<div id="academic-management-view" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="academicManagement">Academic Management</h2>
+    <div class="bg-white p-4 rounded-lg shadow mb-4">
+        <h3 class="text-xl font-semibold mb-3" data-translate="academicCalendar">Academic Calendar</h3>
+        <form id="academicCalendarForm">
+            <div class="mb-3">
+                <label for="termStartDate" class="form-label" data-translate="termStartDate">Term Start Date</label>
+                <input type="date" class="form-control" id="termStartDate" required>
+            </div>
+            <div class="mb-3">
+                <label for="termEndDate" class="form-label" data-translate="termEndDate">Term End Date</label>
+                <input type="date" class="form-control" id="termEndDate" required>
+            </div>
+            <button type="submit" class="btn btn-primary" data-translate="saveDates">Save Dates</button>
+        </form>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-3" data-translate="reportsheets">Reportsheets</h3>
+        <button class="btn btn-secondary" id="generateReportSheetsBtn" data-translate="generateReportSheets">Generate Report Sheets</button>
+    </div>
+</div>
+
+<!-- ID/Report Generator View -->
+<div id="generate-card" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="generate">ID/Report Generator</h2>
+    <div class="bg-white p-4 rounded-lg shadow">
+        <h3 class="text-xl font-semibold mb-3" data-translate="generateIdCard">Generate ID Card</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="id-card-entity-type" class="form-label" data-translate="selectType">Select Type</label>
+                <select id="id-card-entity-type" class="form-select">
+                    <option value="student" data-translate="student">Student</option>
+                    <option value="staff" data-translate="staff">Staff</option>
+                </select>
+            </div>
+            <div>
+                <label for="id-card-entity-id" class="form-label" data-translate="entityId">Entity ID</label>
+                <input type="text" id="id-card-entity-id" placeholder="e.g., 101" class="form-control">
+            </div>
+        </div>
+        <button id="generate-id-card-button" class="btn btn-primary" data-translate="generateIdCard">Generate ID Card</button>
+    </div>
+
+    <div class="bg-white p-4 rounded-lg shadow mt-4">
+        <h3 class="text-xl font-semibold mb-3" data-translate="generateReportSheet">Generate Report Sheet</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="report-student-id" class="form-label" data-translate="studentId">Student ID</label>
+                <input type="text" id="report-student-id" placeholder="e.g., 205" class="form-control">
+            </div>
+            <div>
+                <label for="report-type" class="form-label" data-translate="reportType">Report Type</label>
+                <select id="report-type" class="form-select">
+                    <option value="terminal" data-translate="terminalReport">Terminal</option>
+                    <option value="sessional" data-translate="sessionalReport">Sessional</option>
+                </select>
+            </div>
+            <div id="session-container">
+                <label for="report-session" class="form-label" data-translate="session">Session</label>
+                <select id="report-session" class="form-select">
+                    <option value="2024/2025" data-translate="session2024_2025">2024/2025 Session</option>
+                    <option value="2023/2024" data-translate="session2023_2024">2023/2024 Session</option>
+                </select>
+            </div>
+            <div id="term-container" style="display: none;">
+                <label for="report-term" class="form-label" data-translate="term">Term</label>
+                <select id="report-term" class="form-select">
+                    <option value="1st Term" data-translate="firstTerm">1st Term</option>
+                    <option value="2nd Term" data-translate="secondTerm">2nd Term</option>
+                    <option value="3rd Term" data-translate="thirdTerm">3rd Term</option>
+                </select>
+            </div>
+        </div>
+        <button id="generate-report-sheet-button" class="btn btn-primary" data-translate="generateReportSheet">Generate Report Sheet</button>
+    </div>
+</div>
+
+<!-- Demographics View -->
+<div id="demographics-view" style="display: none;">
+    <h2 class="text-2xl font-semibold mb-4" data-translate="demographics">Demographic Data</h2>
+    <div class="grid grid-cols-1 gap-4">
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-xl font-semibold mb-3" data-translate="staffGenderDistribution">Staff Gender Distribution</h3>
+            <div id="staffGenderChart" class="w-full h-64"></div>
+        </div>
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="text-xl font-semibold mb-3" data-translate="studentGenderDistribution">Student Gender Distribution</h3>
+            <div id="studentGenderChart" class="w-full h-64"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ======================== REPORTS GENERATOR - COMPACT VERSION ======================== -->
 <div id="generate-view" style="display: none;">
     <div class="container-fluid px-4 py-6">
         <h2 class="text-2xl font-extrabold text-center mb-8 text-emerald-700" data-translate="attendanceReports">
@@ -979,108 +1061,91 @@
     </div>
 </div>
  
-<!-- ======================== ADMIN: TAHFIZ OVERALL RESULTS ======================== -->
+<!-- Tahfiz Overall Results -->
 <div id="tahfiz-overall" style="display:none;">
     <div class="container-fluid px-4 py-6">
-
         <h2 class="text-2xl font-bold text-center mb-6 text-emerald-700" data-translate="tahfizOverallTitle">
-    <i class="fas fa-book-quran me-2"></i> Tahfiz Overall Results
-</h2>
+            Tahfiz Overall Results
+        </h2>
 
         <div class="bg-white rounded-xl shadow-lg p-6 border-2 border-emerald-200">
-
-            <!-- Filters -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="class">Class</label>
-                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm"
-                            id="overallClassSelect">
+                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm" id="overallClassSelect">
                         <option value="">Select Class</option>
                     </select>
                 </div>
-
                 <div>
-                   <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="session">Session</label>
-                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm"
-                            id="overallSessionSelect">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="session">Session</label>
+                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm" id="overallSessionSelect">
                         <option value="">Select Session</option>
                     </select>
                 </div>
-
                 <div>
-                 <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="term">Term</label>
-                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm"
-                            id="overallTermSelect">
+                    <label class="block text-sm font-semibold text-gray-700 mb-1" data-translate="term">Term</label>
+                    <select class="form-select w-full border border-emerald-300 rounded-lg px-3 py-2 text-sm" id="overallTermSelect">
                         <option value="">Select Term</option>
                         <option value="1">1st Term</option>
                         <option value="2">2nd Term</option>
                         <option value="3">3rd Term</option>
                     </select>
                 </div>
-
                 <div class="flex items-end">
                     <button id="loadOverallStudentsBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg shadow-md text-sm" data-translate="loadResults">
-    Load Results
-</button>
+                        Load Results
+                    </button>
                 </div>
             </div>
 
-            <!-- Table -->
             <div class="table-responsive overflow-x-auto">
                 <table class="table table-sm table-hover table-bordered text-sm">
-    <thead class="bg-emerald-700 text-white text-sm">
-    <tr>
-        <th data-translate="studentName">Student Name</th>
-        <th data-translate="studentId">Student ID</th>
-        <th data-translate="avgDaily">Avg Daily</th>
-        <th data-translate="dailyScore">Daily (/80)</th>
-        <th data-translate="examMark">Exam Mark</th>
-        <th data-translate="examOutOf">Exam (/20)</th>
-        <th data-translate="totalScore">Total (/100)</th>
-        <th data-translate="grade">Grade</th>
-    </tr>
-</thead>
-                    <tbody id="overallStudentsTableBody"
-                        class="text-gray-800 font-normal"></tbody>
+                    <thead class="bg-emerald-700 text-white text-sm">
+                        <tr>
+                            <th data-translate="studentName">Student Name</th>
+                            <th data-translate="studentId">Student ID</th>
+                            <th data-translate="avgDaily">Avg Daily</th>
+                            <th data-translate="dailyScore">Daily (/80)</th>
+                            <th data-translate="examMark">Exam Mark</th>
+                            <th data-translate="examOutOf">Exam (/20)</th>
+                            <th data-translate="totalScore">Total (/100)</th>
+                            <th data-translate="grade">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody id="overallStudentsTableBody" class="text-gray-800 font-normal"></tbody>
                 </table>
             </div>
 
-            <!-- Export Buttons -->
             <div class="mt-6 text-center space-x-4">
-               <button id="exportOverallPdfBtn" class="btn btn-danger btn-sm px-5 py-2 rounded-md shadow" data-translate="exportPdf">Export PDF</button>
-<button id="exportOverallExcelBtn" class="btn btn-success btn-sm px-5 py-2 rounded-md shadow" data-translate="exportExcel">Export Excel</button>
+                <button id="exportOverallPdfBtn" class="btn btn-danger btn-sm px-5 py-2 rounded-md shadow" data-translate="exportPdf">Export PDF</button>
+                <button id="exportOverallExcelBtn" class="btn btn-success btn-sm px-5 py-2 rounded-md shadow" data-translate="exportExcel">Export Excel</button>
             </div>
-
         </div>
     </div>
 </div>
 
+<!-- Admin Reports Portal -->
 <div id="admin-reports" style="display:none;">
-
-    <!-- Overlay & Spinner -->
     <div class="overlay" id="overlay"></div>
     <div class="spinner" id="spinner">
         <div class="spinner-border text-success" style="width: 60px; height: 60px;"></div>
     </div>
 
     <div class="portal-container">
+        <div class="header">
+            <h1 class="mb-3 fw-bold" data-translate="schoolName">Ibadurrahman College</h1>
+            <p class="mb-0 fs-5" data-translate="reportPortalSubtitle">Student Academic & Tahfiz Report Portal</p>
+        </div>
 
-        <!-- Header -->
-<div class="header">
-    <h1 class="mb-3 fw-bold" data-translate="schoolName">Ibadurrahman College</h1>
-    <p class="mb-0 fs-5" data-translate="reportPortalSubtitle">Student Academic & Tahfiz Report Portal</p>
-</div>
-
-        <!-- Filter Section -->
         <div class="filter-card">
-           <h3 class="mb-4 text-success" data-translate="selectReportCriteria">
-    <i class="fas fa-filter"></i> Select Report Criteria
-</h3>
+            <h3 class="mb-4 text-success">
+                Select Report Criteria
+            </h3>
             <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label fw-bold" data-translate="class">Class</label>
                     <select class="form-select" id="filterClass" required>
-                       <option value="" data-translate="selectClassPlaceholder">-- Select Class --</option>
+                        <option value="" data-translate="selectClassPlaceholder">-- Select Class --</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -1092,60 +1157,56 @@
                 <div class="col-md-3">
                     <label class="form-label fw-bold" data-translate="term">Term</label>
                     <select class="form-select" id="filterTerm" required>
-                       <option value="" data-translate="selectTermPlaceholder">-- Select Term --</option>
+                        <option value="" data-translate="selectTermPlaceholder">-- Select Term --</option>
                         <option value="1">1st Term</option>
                         <option value="2">2nd Term</option>
                         <option value="3">3rd Term</option>
                     </select>
                 </div>
-                <button class="btn btn-success w-100 py-2" id="loadStudentsBtn" data-translate="loadStudents">
-    <i class="fas fa-search"></i> Load Students
-</button>
+                <div class="col-md-3">
+                    <button class="btn btn-success w-100 py-2" id="loadStudentsBtn" data-translate="loadStudents">
+                        Load Students
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Results Section -->
         <div class="results-card" id="resultsSection" style="display: none;">
-            <h3 class="mb-4 text-success" data-translate="studentsList">
-    <i class="fas fa-users"></i> Students List
-</h3>
+            <h3 class="mb-4 text-success">
+                Students List
+            </h3>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-success">
-                       <tr>
-    <th>#</th>
-    <th data-translate="studentName">Student Name</th>
-    <th data-translate="admissionNo">Admission No.</th>
-    <th data-translate="actions">Actions</th>
-</tr>
+                        <tr>
+                            <th>#</th>
+                            <th data-translate="studentName">Student Name</th>
+                            <th data-translate="admissionNo">Admission No.</th>
+                            <th data-translate="actions">Actions</th>
+                        </tr>
                     </thead>
                     <tbody id="studentsTableBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
-
-    <!-- Tahfiz Report Modal -->
+ <!-- Tahfiz Report Modal -->
     <div class="modal fade" id="tahfizReportModal" tabindex="-1">
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" data-translate="tahfizReportTitle">
-    <i class="fas fa-book-quran"></i> Tahfiz-ul-Qur'an Report
-</h5>
+                    <h5 class="modal-title"><i class="fas fa-book-quran"></i> Tahfiz-ul-Qur'an Report</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="tahfizReportBody">
-                    <p class="text-center text-muted" data-translate="clickToGenerate">
-    Click a student to generate report...
-</p>
+                    <p class="text-center text-muted">Click a student to generate report...</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-success" id="downloadTahfizPdf" data-translate="downloadPdf">
-    <i class="fas fa-file-pdf"></i> Download PDF
-</button>
-</div>
+                    <button class="btn btn-success" id="downloadTahfizPdf">
+                        <i class="fas fa-file-pdf"></i> Download PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1155,27 +1216,21 @@
         <div class="modal-dialog modal-xl">
             <div class="modal-content">
                 <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" data-translate="completeReportTitle">
-    <i class="fas fa-file-alt"></i> Complete Academic Report
-</h5>
+                    <h5 class="modal-title"><i class="fas fa-file-alt"></i> Complete Academic Report</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="completeReportBody">
-                    <p class="text-center text-muted" data-translate="clickToGenerate">
-    Click a student to generate report...
-</p>
+                    <p class="text-center text-muted">Click a student to generate report...</p>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" id="downloadCompletePdf" data-translate="downloadPdf">
-    <i class="fas fa-file-pdf"></i> Download PDF
-</button>
-<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-translate="close">Close</button>
-</div>
+                    <button class="btn btn-primary" id="downloadCompletePdf">
+                        <i class="fas fa-file-pdf"></i> Download PDF
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
-
-</div>
 
     <!-- First Login Modal -->
     <div class="modal fade" id="firstLoginModal" tabindex="-1" aria-labelledby="firstLoginModalLabel" aria-hidden="true">
@@ -1457,27 +1512,16 @@
             </div>
         </div>
     </div>
-   
-
-    <!-- Language Toggle -->
-    <div class="text-center mt-4">
-        <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
     </div>
-<!-- Tailwind -->
-<script src="https://cdn.tailwindcss.com"></script>
-
-<!-- Bootstrap 5 -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<!-- Font Awesome -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-<!-- HTML2PDF -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- Language Toggle -->
+<div class="text-center mt-4">
+    <button id="langToggle" class="btn btn-secondary" data-translate="toggleLanguage">العربية</button>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script type="module" src="./js/admin_dashboard.js"></script>
-    <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'98d6b1df1810ef39',t:'MTc2MDI3MzEzMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a49b8ab7de6edea',t:'MTc2NDE2MzYyNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
-<script src="./js/reports.js"></script>
-</body></html> 
+<!-- html2pdf.js (FULL, required) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script type="module" src="./js/admin_dashboard.js"></script>
+<script type="module" src="./js/reports.js"></script>
+
